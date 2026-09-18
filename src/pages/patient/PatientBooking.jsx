@@ -18,7 +18,7 @@ export default function PatientBooking() {
   const doctor = doctors.find(item => item.id === values.doctor);
   const service = services.find(item => item.id === values.service);
   function update(field, value) {
-    setValues(current => ({ ...current, [field]: value, ...(['doctor', 'date'].includes(field) ? { time: '' } : {}) }));
+    setValues(current => ({ ...current, [field]: value, ...(['doctor', 'date'].includes(field) ? { time: '' } : {}), ...(field === 'doctor' ? { date: '' } : {}) }));
     setErrors({});
   }
   function submit(event) {
@@ -57,8 +57,8 @@ export default function PatientBooking() {
           <BookingStep number="2" title="Select Doctor" description="Choose your preferred doctor.">
             <FormField label="Doctor" name="booking-doctor" value={values.doctor} onChange={e => update('doctor', e.target.value)} required aria-invalid={!!errors.doctor} aria-describedby={errors.doctor ? 'doctor-error' : undefined}><option value="">Select a doctor</option>{doctors.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</FormField>{doctor && <p className="booking-hint">{doctor.specialty}</p>}{error('doctor')}
           </BookingStep>
-          <BookingStep number="3" title="Select Date" description="Choose today or a future appointment date.">
-            <BookingCalendar value={values.date} onChange={date => update('date', date)} invalid={!!errors.date} />{error('date')}
+          <BookingStep number="3" title="Select Date" description="Choose an available date from today through the next 60 days.">
+            <BookingCalendar value={values.date} doctorId={values.doctor} onChange={date => update('date', date)} invalid={!!errors.date} />{error('date')}
           </BookingStep>
           <BookingStep number="4" title="Select Time Slot" description="Fixed 30-minute slots · Philippine time.">
             <fieldset className="booking-slots" aria-describedby={errors.time ? 'time-error' : 'slot-help'}><legend className="booking-sr-only">Available appointment time</legend>
@@ -88,4 +88,3 @@ export default function PatientBooking() {
     </form>
   </div>;
 }
-

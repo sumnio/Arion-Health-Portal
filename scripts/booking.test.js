@@ -33,3 +33,18 @@ test('confirmation reserves one place per doctor and slot without persistence', 
   assert.ok(bookingService.confirm(values).errors.time);
   assert.equal(bookingService.getSlots(doctor, date).find(slot => slot.time === time).available, false);
 });
+
+test('60-day window, doctor weekdays, blocked dates and full dates are enforced', () => {
+  const doctor = bookingService.getOptions().doctors[0].id;
+  const now = new Date('2026-09-18T00:00:00Z');
+  assert.equal(bookingService.isDateAvailable(doctor, '2026-11-17', now), true);
+  assert.deepEqual(bookingService.getSlots(doctor, '2026-11-18', now), []);
+  for (const date of ['2026-09-17', '2026-09-20', '2026-09-23', '2026-09-24', '2026-09-26']) {
+    assert.equal(bookingService.isDateAvailable(doctor, date, now), false, date);
+    assert.ok(bookingService.validate({ doctor, date, time: '09:00', service: 'consultation', reason: 'Test' }, now).date);
+  }
+  assert.equal(bookingService.isDateAvailable(bookingService.getOptions().doctors[1].id, '2026-09-24', now), true);
+  assert.equal(bookingService.isDateAvailable('', '2026-09-21', now), false);
+  const full = bookingService.getSlots(doctor, '2026-09-26', now);
+  assert.ok(full.length > 0 && full.every(slot => !slot.available));
+});

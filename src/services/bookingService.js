@@ -1,4 +1,4 @@
-import { visitTypes, bookingDoctors } from '../mocks/bookingData.js';
+import { visitTypes, bookingDoctors, mockDoctorAvailability } from '../mocks/bookingData.js';
 import { appointmentStore, slotOccupied } from '../mocks/appointmentStore.js';
 import { exampleIds } from '../mocks/portalData.js';
 
@@ -12,6 +12,12 @@ function validDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(value + 'T00:00:00Z');
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+export function bookingWindow(now = new Date()) {
+  const start = clinicToday(now);
+  const end = new Date(start + 'T00:00:00Z');
+  end.setUTCDate(end.getUTCDate() + 60);
+  return { start, end: end.toISOString().slice(0, 10) };
 }
 export function formatBookingDate(value) {
   return validDate(value) ? new Date(value + 'T00:00:00+08:00').toLocaleDateString('en-US', { timeZone: clinicTimeZone, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Not selected';
@@ -31,24 +37,29 @@ export const bookingService = {
   },
   getSlots(doctorId, date, now = new Date()) {
     const doctor = bookingDoctors.find(item => item.id === doctorId);
-    if (!doctor || !validDate(date) || date < clinicToday(now)) return [];
+    const window = bookingWindow(now);
+    const availability = mockDoctorAvailability[doctorId];
+    if (!doctor || !validDate(date) || date < window.start || date > window.end) return [];
     const day = new Date(date + 'T00:00:00Z').getUTCDay();
-    if (day === 0) return [];
+    if (!availability.weekdays.includes(day) || availability.blockedDates.includes(date)) return [];
     const times = day % 2 === 0 ? doctor.afternoon : doctor.morning;
     // Different weekday/doctor patterns provide deterministic, occupied sample slots.
     const occupiedIndex = (day + bookingDoctors.indexOf(doctor)) % times.length;
     return times.map((time, index) => ({
       time,
-      available: index !== occupiedIndex
+      available: !availability.fullyBookedDates.includes(date) && index !== occupiedIndex
         && new Date(date + 'T' + time + ':00+08:00') > now
         && !slotOccupied(doctorId, date, time),
     }));
+  },
+  isDateAvailable(doctorId, date, now = new Date()) {
+    return this.getSlots(doctorId, date, now).some(slot => slot.available);
   },
   validate(values, now = new Date()) {
     const errors = {};
     if (!visitTypes.some(item => item.id === values.service)) errors.service = 'Select a visit type.';
     if (!bookingDoctors.some(item => item.id === values.doctor)) errors.doctor = 'Select a doctor.';
-    if (!validDate(values.date) || values.date < clinicToday(now)) errors.date = 'Select today or a future date.';
+    if (!this.isDateAvailable(values.doctor, values.date, now)) errors.date = 'Select an available date from today through the next 60 days.';
     if (!values.time) errors.time = 'Select an available time slot.';
     else if (!this.getSlots(values.doctor, values.date, now).some(slot => slot.time === values.time && slot.available)) errors.time = 'That time is no longer available. Select another slot.';
     if (!values.reason?.trim()) errors.reason = 'Enter a reason for your visit.';
