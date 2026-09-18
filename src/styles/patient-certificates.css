@@ -1,0 +1,53 @@
+.patient-certificates { max-width: 1280px; margin: auto; }
+.patient-certificates .certificates-heading { margin-bottom: 24px; }
+.patient-certificates p { font-size: 14px; line-height: 1.7; color: #52657b; margin: 8px 0; }
+.patient-certificates h2 { font-size: 18px; margin: 0 0 12px; }
+.patient-certificates .certificates-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+.patient-certificates .certificates-layout > * { min-width: 0; }
+.patient-certificates .certificate-card { border: 1px solid #dfe7ee; border-radius: 9px; padding: 24px; background: white; min-width: 0; }
+.patient-certificates .certificate-count, .patient-certificates .certificate-note { font-size: 12px; }
+.patient-certificates .certificate-count { margin: 0 0 14px; }
+.patient-certificates .certificate-list, .patient-certificates .certificate-sections { display: grid; gap: 16px; }
+.patient-certificates .certificate-list-item { display: flex; align-items: center; gap: 20px; }
+.patient-certificates .certificate-list-copy { min-width: 0; flex: 1; }
+.patient-certificates .certificate-list-copy p { font-size: 13px; }
+.patient-certificates .dashboard-date { display: flex; flex-direction: column; align-items: center; width: 74px; flex-shrink: 0; gap: 8px; padding: 14px 8px; border-radius: 6px; background: #ebf1f7; font-size: 12px; text-transform: uppercase; }
+.patient-certificates .dashboard-date strong { font-size: 28px; line-height: 1.2; }
+.patient-certificates .action-link { display: inline-block; font-size: 13px; white-space: nowrap; }
+.patient-certificates .status-issued { background: #ddf4e9; color: #166447; }
+.patient-certificates .certificate-title { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.patient-certificates .certificate-title h2 { margin: 0; }
+.patient-certificates .certificate-back { display: inline-block; color: #165ec0; text-decoration: underline; font-size: 13px; margin-bottom: 20px; }
+.patient-certificates .certificate-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 22px 0 0; }
+.patient-certificates dt { font-size: 12px; color: #607087; margin-bottom: 6px; }
+.patient-certificates dd { margin: 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.patient-certificates dd small { display: block; color: #607087; }
+.patient-certificates .certificate-related { display: grid; gap: 8px; border-radius: 6px; padding: 16px; background: #edf4ff; color: #165ec0; font-size: 13px; line-height: 1.6; }
+.patient-certificates .certificate-paper { border: 1px solid #aab7c7; padding: 30px; margin-top: 20px; background: #fff; }
+.patient-certificates .certificate-paper header { display: flex; gap: 14px; align-items: center; border-bottom: 1px solid #b5c1ce; padding-bottom: 18px; }
+.patient-certificates .certificate-paper header h3 { font-size: 19px; font-weight: 700; }
+.patient-certificates .certificate-paper header p { font-size: 12px; }
+.patient-certificates .certificate-cross { font-size: 36px; color: #284764; }
+.patient-certificates .certificate-paper .certificate-sample { font-size: 10px; letter-spacing: .1em; text-align: center; margin: 18px 0; }
+.patient-certificates .certificate-paper-title { text-align: center; font-family: Georgia, serif; text-transform: uppercase; font-size: clamp(20px, 2vw, 26px); font-weight: 700; }
+.patient-certificates .certificate-patient-label { text-align: center; margin-top: 20px; font-size: 12px; }
+.patient-certificates .certificate-paper .certificate-patient-name { font-family: Georgia, serif; text-align: center; font-size: 24px; font-weight: 700; color: #152d4b; }
+.patient-certificates .certificate-paper dl { margin: 26px 0; }
+.patient-certificates .certificate-paper dl > div { display: grid; grid-template-columns: 135px minmax(0, 1fr); gap: 12px; margin: 12px 0; }
+.patient-certificates .certificate-paper dt { font-size: 13px; color: #152d4b; margin: 0; line-height: 1.6; }
+.patient-certificates .certificate-paper footer { display: grid; gap: 6px; text-align: right; padding-top: 22px; border-top: 1px solid #e3e9f0; font-size: 12px; color: #52657b; }
+.patient-certificates .certificate-paper footer strong { color: #152d4b; font-size: 14px; }
+.patient-certificates .certificate-download { margin-top: 20px; }
+.patient-certificates .certificate-download button:disabled { background: #e7edf4; color: #52657b; cursor: not-allowed; }
+.patient-certificates .certificate-download p { font-size: 12px; }
+@media (max-width: 1200px) { .patient-certificates .certificates-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .patient-certificates .certificate-card { padding: 18px; }
+  .patient-certificates .certificate-list-item { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 14px; }
+  .patient-certificates .certificate-list-item .action-link { grid-column: 1 / -1; text-align: center; }
+  .patient-certificates .dashboard-date { width: 62px; }
+  .patient-certificates .certificate-facts { grid-template-columns: 1fr; }
+  .patient-certificates .certificate-paper { padding: 18px; }
+  .patient-certificates .certificate-paper dl > div { grid-template-columns: 1fr; gap: 4px; }
+  .patient-certificates .certificate-paper header { align-items: flex-start; }
+}
