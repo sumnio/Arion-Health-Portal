@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { medicalRecordService } from '../src/services/medicalRecordService.js';
+import { patientDashboardData } from '../src/mocks/patientDashboardData.js';
+import { appointmentService } from '../src/services/appointmentService.js';
+
+test('medical record joins preserve dashboard and appointment identity', () => {
+  const expected = patientDashboardData.recentRecord;
+  const record = medicalRecordService.get(expected.id);
+  for (const key of Object.keys(expected)) assert.equal(record[key], expected[key]);
+  const appointment = appointmentService.get(record.appointment_id);
+  assert.equal(record.patient_id, appointment.patient_id);
+  assert.equal(record.doctor_id, appointment.doctor_id);
+  assert.equal(record.encounter_at, appointment.appointment_at);
+  assert.ok(record.prescriptions.length > 1);
+  assert.ok(record.prescriptions.every(item => item.medical_record_id === record.id));
+  assert.ok(record.certificates.every(item => item.medical_record_id === record.id && item.patient_id === record.patient_id));
+});
+
+test('search covers doctor, diagnosis and visit type; results are newest first', () => {
+  const records = medicalRecordService.list();
+  assert.equal(records.length, 3);
+  assert.ok(records.every((item, index) => index === 0 || new Date(records[index - 1].encounter_at) >= new Date(item.encounter_at)));
+  assert.equal(medicalRecordService.list('  REYES ').length, 1);
+  assert.equal(medicalRecordService.list('rhinitis').length, 1);
+  assert.equal(medicalRecordService.list('follow-up').length, 1);
+  assert.equal(medicalRecordService.list('not a record').length, 0);
+});
+
+test('missing IDs and optional data are safe; returned data cannot mutate fixtures', () => {
+  assert.equal(medicalRecordService.get('missing'), null);
+  const records = medicalRecordService.list();
+  const latest = records[0];
+  latest.prescriptions[0].medicine = 'Modified';
+  latest.diagnosis = 'Modified';
+  assert.notEqual(medicalRecordService.get(latest.id).diagnosis, 'Modified');
+  assert.notEqual(medicalRecordService.get(latest.id).prescriptions[0].medicine, 'Modified');
+  const oldest = records.at(-1);
+  assert.deepEqual(oldest.prescriptions, []);
+  assert.deepEqual(oldest.certificates, []);
+  assert.equal(oldest.notes, null);
+});

@@ -4,11 +4,15 @@ import PatientDashboard from './PatientDashboard.jsx';
 import PatientBooking from './PatientBooking.jsx';
 import PatientAppointments from './PatientAppointments.jsx';
 import PatientAppointmentDetail from './PatientAppointmentDetail.jsx';
+import PatientRecords from './PatientRecords.jsx';
+import PatientRecordDetail from './PatientRecordDetail.jsx';
 export default function PatientPage({ route }) {
   if (route.path === '/patient/dashboard') return <PatientDashboard />;
   if (route.path === '/patient/book') return <PatientBooking />;
   if (route.path === '/patient/appointments') return <PatientAppointments />;
   if (route.path === '/patient/appointments/:id') return <PatientAppointmentDetail />;
+  if (route.path === '/patient/records') return <PatientRecords />;
+  if (route.path === '/patient/records/:id') return <PatientRecordDetail />;
   return <PlaceholderPage title={route.title} links={getPageLinks(route.path)} />;
 }
 
