@@ -8,8 +8,10 @@ import PatientRecords from './PatientRecords.jsx';
 import PatientRecordDetail from './PatientRecordDetail.jsx';
 import PatientCertificates from './PatientCertificates.jsx';
 import PatientCertificateDetail from './PatientCertificateDetail.jsx';
+import PatientProfile from './PatientProfile.jsx';
 export default function PatientPage({ route }) {
   if (route.path === '/patient/dashboard') return <PatientDashboard />;
+  if (route.path === '/patient/profile') return <PatientProfile />;
   if (route.path === '/patient/book') return <PatientBooking />;
   if (route.path === '/patient/appointments') return <PatientAppointments />;
   if (route.path === '/patient/appointments/:id') return <PatientAppointmentDetail />;

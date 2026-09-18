@@ -1,0 +1,33 @@
+.patient-profile { max-width: 1280px; margin: auto; }
+.patient-profile .profile-heading { margin-bottom: 24px; }
+.patient-profile p { font-size: 14px; color: #52657b; line-height: 1.6; margin: 8px 0; }
+.patient-profile h2 { font-size: 18px; margin: 0 0 10px; }
+.patient-profile h2 small { font-weight: 400; font-size: 14px; }
+.patient-profile .profile-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+.patient-profile .profile-layout > *, .patient-profile .profile-fields > * { min-width: 0; }
+.patient-profile form { display: grid; gap: 18px; }
+.patient-profile .profile-card { background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 24px; }
+.patient-profile .profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
+.patient-profile .profile-emergency { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.patient-profile label, .patient-profile legend { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.patient-profile .form-field { margin: 0; }
+.patient-profile :is(input:not([type="radio"]), select, textarea) { width: 100%; min-width: 0; padding: 12px; border: 1px solid #c6d4e1; border-radius: 6px; font: inherit; font-size: 14px; color: #152d4b; background: white; }
+.patient-profile input[readonly] { background: #f1f5f9; color: #607087; }
+.patient-profile textarea { min-height: 95px; resize: vertical; }
+.patient-profile fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.patient-profile .profile-radios { display: flex; gap: 24px; }
+.patient-profile .profile-radios label { display: flex; align-items: center; gap: 8px; padding: 10px 0; font-weight: 400; }
+.patient-profile input[type="radio"] { width: 18px; height: 18px; accent-color: #165ec0; }
+.patient-profile .profile-note { font-size: 12px; }
+.patient-profile .profile-senior { margin-top: 16px; }
+.patient-profile .profile-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.patient-profile button { cursor: pointer; }
+.patient-profile .profile-save { background: #165ec0; color: white; border-color: #165ec0; }
+.patient-profile .profile-message:not(:empty) { padding: 14px; background: #ddf4e9; color: #166447; border-radius: 6px; margin-bottom: 18px; }
+.patient-profile .profile-errors { padding: 16px; background: #fff0ef; border-radius: 6px; color: #a33434; font-size: 14px; }
+.patient-profile .profile-errors ul { padding-left: 20px; list-style: disc; }
+.patient-profile .profile-error { font-size: 12px; color: #a33434; }
+.patient-profile [aria-invalid="true"] { border-color: #a33434; }
+.patient-profile :is(input, select, textarea, button):focus-visible { outline: 3px solid #86b5f4; outline-offset: 2px; }
+@media (max-width: 1200px) { .patient-profile .profile-layout { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .patient-profile .profile-fields { grid-template-columns: 1fr; } .patient-profile .profile-card { padding: 18px; } }
