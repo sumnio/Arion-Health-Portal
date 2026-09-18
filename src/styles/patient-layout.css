@@ -1,0 +1,28 @@
+.patient-menu-toggle { display: none; }
+
+@media (max-width: 960px) {
+  .portal-shell.theme-patient { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
+  .theme-patient .portal-header { display: flex; flex-wrap: nowrap; align-items: center; gap: 16px; padding: 14px 20px; }
+  .theme-patient .patient-menu-toggle { display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; border: 1px solid #dfe7ee; border-radius: 8px; background: white; color: #284764; cursor: pointer; }
+  .theme-patient .patient-menu-toggle svg { width: 24px; height: 24px; }
+  .theme-patient .patient-menu-toggle:hover { background: #e7f0ff; }
+  .theme-patient .patient-menu-toggle:focus-visible { outline: 3px solid #165ec0; outline-offset: 3px; }
+  .theme-patient .brand { min-width: 0; min-height: 44px; gap: 10px; font-size: 18px; line-height: 1.25; }
+  .theme-patient .brand small, .theme-patient .identity-description { display: none; }
+  .theme-patient .brand-mark, .theme-patient .patient-menu-toggle, .theme-patient .identity { flex-shrink: 0; }
+  .theme-patient .identity { margin-left: auto; }
+  .theme-patient .sidebar { display: none; border-right: 0; border-bottom: 1px solid #dfe7ee; padding: 12px 20px; gap: 12px; }
+  .theme-patient .sidebar.sidebar-open { display: flex; }
+  .theme-patient .sidebar nav { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .theme-patient .sidebar .nav-link { padding: 13px 16px; }
+  .theme-patient .exit-link { padding: 14px 16px; }
+  .theme-patient main { grid-column: 1; grid-row: 3; }
+  .theme-patient .sidebar { grid-column: 1; grid-row: 2; }
+  .theme-patient .portal-footer { grid-row: 4; }
+}
+
+@media (max-width: 540px) {
+  .theme-patient .portal-header { gap: 10px; padding: 12px; }
+  .theme-patient .brand { font-size: 16px; gap: 8px; }
+  .theme-patient .brand-mark { font-size: 30px; }
+}
