@@ -1,7 +1,8 @@
 import { visitTypes, bookingDoctors } from '../mocks/bookingData.js';
+import { appointmentStore, slotOccupied } from '../mocks/appointmentStore.js';
+import { exampleIds } from '../mocks/portalData.js';
 
 // Session-memory occupancy only. Reloading clears mock confirmations.
-const reservations = new Set();
 export const clinicTimeZone = 'Asia/Manila';
 export function clinicToday(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: clinicTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
@@ -40,7 +41,7 @@ export const bookingService = {
       time,
       available: index !== occupiedIndex
         && new Date(date + 'T' + time + ':00+08:00') > now
-        && !reservations.has(doctorId + '/' + date + '/' + time),
+        && !slotOccupied(doctorId, date, time),
     }));
   },
   validate(values, now = new Date()) {
@@ -57,7 +58,12 @@ export const bookingService = {
     const errors = this.validate(values);
     if (Object.keys(errors).length) return { errors };
     // Validation and reservation are synchronous so repeat submissions cannot claim the same slot.
-    reservations.add(values.doctor + '/' + values.date + '/' + values.time);
+    appointmentStore.push({
+      id: crypto.randomUUID(), patient_id: exampleIds.patient, doctor_id: values.doctor,
+      appointment_at: `${values.date}T${values.time}:00+08:00`, check_in_at: null,
+      service: visitTypes.find(item => item.id === values.service).name,
+      reason: values.reason.trim(), status: 'confirmed',
+    });
     return { confirmation: {
       service: visitTypes.find(item => item.id === values.service).name,
       doctor: bookingDoctors.find(item => item.id === values.doctor).name,
@@ -65,4 +71,3 @@ export const bookingService = {
     } };
   },
 };
-
