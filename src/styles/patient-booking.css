@@ -1,0 +1,65 @@
+.patient-booking { max-width: 1280px; margin: auto; }
+.patient-booking .booking-back { display: inline-block; font-size: 13px; color: #165ec0; margin-bottom: 18px; }
+.patient-booking .booking-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.patient-booking .booking-main { min-width: 0; }
+.patient-booking .booking-intro { display: flex; gap: 20px; align-items: center; justify-content: space-between; background: linear-gradient(110deg, white, #edf4fb); border: 1px solid #dfe7ee; border-radius: 10px; padding: 26px; }
+.patient-booking h1 { font-size: clamp(25px, 3vw, 32px); }
+.patient-booking .booking-intro p { color: #52657b; font-size: 14px; line-height: 1.7; margin: 10px 0 0; }
+.patient-booking .booking-intro > span { flex-shrink: 0; color: #7892ad; }
+.patient-booking .booking-intro svg { width: 65px; height: 65px; }
+.patient-booking .booking-notice { font-size: 12px; color: #52657b; margin: 16px 0; }
+.patient-booking .booking-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.patient-booking .booking-card { border-color: #dfe7ee; }
+.patient-booking .booking-step { padding: 20px; min-width: 0; }
+.patient-booking .booking-step header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+.patient-booking .step-number { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 50%; background: #e7f0ff; color: #165ec0; font-weight: 700; flex-shrink: 0; }
+.patient-booking h2 { font-size: 16px; line-height: 1.4; margin: 0 0 7px; }
+.patient-booking .booking-step header p, .patient-booking .booking-hint { font-size: 12px; color: #607087; line-height: 1.6; margin: 0; }
+.patient-booking .form-field { margin: 0; }
+.patient-booking .form-field label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.patient-booking .form-field select, .patient-booking textarea { width: 100%; min-width: 0; background: white; border: 1px solid #cbd7e1; border-radius: 6px; padding: 12px; font: inherit; font-size: 13px; color: #20384a; }
+.patient-booking .booking-hint { margin-top: 12px; }
+.patient-booking textarea { resize: vertical; min-height: 100px; }
+.patient-booking .booking-reason { grid-column: 1 / -1; }
+.patient-booking .booking-calendar { border: 1px solid #dfe7ee; border-radius: 6px; padding: 8px; }
+.patient-booking .calendar-heading { display: flex; align-items: center; justify-content: space-between; gap: 5px; margin-bottom: 10px; font-size: 13px; }
+.patient-booking .calendar-heading button { width: 32px; height: 32px; font-size: 24px; }
+.patient-booking .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; font-size: 12px; }
+.patient-booking .weekday { color: #607087; font-size: 10px; padding: 6px 0; }
+.patient-booking .calendar-grid button { min-height: 34px; border: 1px solid transparent; border-radius: 5px; }
+.patient-booking button { cursor: pointer; }
+.patient-booking button:disabled { color: #a3adba; cursor: not-allowed; }
+.patient-booking .calendar-grid button[aria-current="date"] { border-color: #8eaccb; }
+.patient-booking .calendar-grid button[aria-pressed="true"] { color: white; background: #2166d4; }
+.patient-booking .calendar-grid button:not(:disabled):hover { background: #e7f0ff; color: #165ec0; }
+.patient-booking .booking-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.patient-booking .booking-slot { position: relative; cursor: pointer; }
+.patient-booking .booking-slot input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.patient-booking .booking-slot > span { display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #cbd7e1; border-radius: 5px; padding: 8px 4px; min-height: 47px; font-size: 12px; }
+.patient-booking .booking-slot small { display: block; font-size: 10px; }
+.patient-booking .booking-slot input:checked + span { background: #2166d4; color: white; border-color: #2166d4; box-shadow: 0 0 0 2px #c3d9fa; }
+.patient-booking .booking-slot.unavailable { cursor: not-allowed; color: #778493; background: #f2f4f7; border-radius: 5px; }
+.patient-booking :is(button, select, textarea):focus-visible, .patient-booking .booking-slot input:focus-visible + span { outline: 3px solid #86b5f4; outline-offset: 2px; }
+.patient-booking .booking-summary { position: sticky; top: 20px; padding: 22px; }
+.patient-booking .booking-summary > p { font-size: 13px; color: #52657b; line-height: 1.6; }
+.patient-booking dl { margin: 18px 0; }
+.patient-booking dl > div { border-bottom: 1px solid #e7edf4; padding: 12px 0; }
+.patient-booking dt { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #52657b; margin-bottom: 6px; }
+.patient-booking dt svg { width: 18px; height: 18px; }
+.patient-booking dd { font-size: 14px; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
+.patient-booking dd small { display: block; font-size: 11px; color: #607087; }
+.patient-booking .booking-mock-note { background: #f1f6fc; border-radius: 6px; padding: 12px; font-size: 12px; }
+.patient-booking .action-link { display: block; text-align: center; font: inherit; font-size: 13px; cursor: pointer; }
+.patient-booking .booking-primary { background: #2166d4; color: white; border-color: #2166d4; width: 100%; margin: 14px 0 10px; font-weight: 600; }
+.patient-booking .booking-primary:hover { background: #174da7; }
+.patient-booking .booking-errors { padding: 16px; background: #fff1f0; color: #9b3030; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+.patient-booking .booking-errors ul { list-style: disc; padding-left: 20px; margin: 8px 0 0; }
+.patient-booking .booking-error { color: #a02e2e; font-size: 12px; margin-top: 10px; }
+.patient-booking .booking-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.patient-booking .booking-success { max-width: 680px; margin: 20px auto; padding: 30px; }
+.patient-booking .booking-success > p { font-size: 14px; line-height: 1.7; color: #52657b; margin: 15px 0; }
+.patient-booking .success-check { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: #ddf4e9; color: #166447; font-size: 26px; margin-bottom: 20px; }
+.patient-booking .status-confirmed { background: #ddf4e9; color: #166447; }
+@media (max-width: 1250px) { .patient-booking .booking-layout { grid-template-columns: minmax(0, 1fr) 270px; } .patient-booking .booking-steps { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .patient-booking .booking-layout { grid-template-columns: 1fr; } .patient-booking .booking-summary { position: static; } .patient-booking .booking-intro { padding: 20px; } .patient-booking .booking-intro svg { width: 40px; height: 40px; } .patient-booking .calendar-grid button { min-height: 40px; } }
+
