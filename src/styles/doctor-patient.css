@@ -1,0 +1,23 @@
+.doctor-patient-page { max-width: 1200px; margin: auto; }
+.doctor-patient-page .detail-back { display: inline-block; margin-bottom: 24px; color: #22674f; }
+.doctor-patient-page .detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.doctor-patient-page p { color: #52657b; line-height: 1.6; margin: 10px 0; }
+.doctor-patient-page .doctor-patient-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 22px; }
+.doctor-patient-page .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 10px; padding: 24px; margin-bottom: 20px; overflow-wrap: anywhere; }
+.doctor-patient-page h2 { font-size: 19px; margin: 0 0 18px; }
+.doctor-patient-page h3 { font-size: 22px; margin: 0; }
+.doctor-patient-page dl { margin: 0; }
+.doctor-patient-page dl > div { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 1.5fr); gap: 14px; padding: 12px 0; border-bottom: 1px solid #edf1f5; }
+.doctor-patient-page dt { color: #52657b; }
+.doctor-patient-page dd { margin: 0; }
+.doctor-patient-page .clinical-history { list-style: none; margin: 0; padding: 0; }
+.doctor-patient-page .clinical-history li { padding: 16px 0; border-top: 1px solid #edf1f5; }
+.doctor-patient-page .clinical-history time { color: #52657b; font-size: 14px; }
+.doctor-patient-page .primary-action { background: #28664f; color: white; margin-top: 14px; text-align: center; }
+@media (max-width: 950px) { .doctor-patient-page .doctor-patient-grid { grid-template-columns: 1fr; } }
+@media (max-width: 500px) { .doctor-patient-page .record-card { padding: 18px; } .doctor-patient-page .detail-heading { flex-wrap: wrap; } .doctor-patient-page dl > div { grid-template-columns: 1fr; gap: 6px; } }
+.doctor-patient-page .status-confirmed { background: #ddf4e9; color: #166447; }
+.doctor-patient-page .status-completed { background: #e2edff; color: #165ec0; }
+.doctor-patient-page .status-pending { background: #fff3d9; color: #825400; }
+.doctor-patient-page .status-cancelled { background: #ffe4e7; color: #a33434; }
+.doctor-patient-page .status-no_show { background: #e7ebf0; color: #44536a; }
