@@ -1,3 +1,4 @@
+import { doctorRecordStore, demoDoctor } from '../mocks/doctorRecordStore.js';
 import { doctorPatients, doctorConsultationDiagnoses } from '../mocks/doctorPatientData.js';
 import { doctorScheduleService, shiftScheduleDate } from './doctorScheduleService.js';
 import { doctorDashboardPatientNames } from '../mocks/doctorDashboardData.js';
@@ -19,6 +20,7 @@ export const doctorPatientService = {
       id: item.id.replace(/^700/, '800'), patient_id: id, appointment_id: item.id,
       encounter_at: item.appointment_at, diagnosis: doctorConsultationDiagnoses[item.id], doctor: 'Demo Doctor',
     }));
+    consultations.push(...doctorRecordStore.filter(item => item.patient_id === id).map(item => ({ ...item, doctor: demoDoctor.display_name })));
     const existingRecord = consultations.find(item => item.appointment_id === appointment.id);
     const history = [...(id === doctorPatients[0].id ? medicalRecordService.list() : []), ...consultations]
       .filter(item => item.appointment_id !== appointment.id && new Date(item.encounter_at) < new Date(appointment.appointment_at))

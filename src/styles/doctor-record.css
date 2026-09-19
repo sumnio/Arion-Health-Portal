@@ -1,0 +1,20 @@
+.doctor-record-page { max-width: 1200px; margin: auto; }
+.doctor-record-page p { color: #52657b; line-height: 1.6; margin: 12px 0; }
+.doctor-record-page .record-form-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; margin-top: 24px; align-items: start; }
+.doctor-record-page .record-card { border: 1px solid #dfe7ee; border-radius: 10px; background: white; padding: 24px; margin-bottom: 20px; }
+.doctor-record-page h2 { font-size: 19px; margin: 0 0 18px; }
+.doctor-record-page h3 { font-size: 20px; }
+.doctor-record-page .clinical-field { margin: 18px 0; }
+.doctor-record-page label { display: block; margin-bottom: 8px; font-weight: 600; }
+.doctor-record-page input, .doctor-record-page textarea { width: 100%; min-width: 0; border: 1px solid #abbcc8; padding: 12px; border-radius: 6px; background: white; font: inherit; }
+.doctor-record-page textarea { resize: vertical; }
+.doctor-record-page [aria-invalid=true] { border-color: #a33434; }
+.doctor-record-page .field-error { color: #a33434; }
+.doctor-record-page fieldset { border: 1px solid #dfe7ee; border-radius: 6px; padding: 16px; margin: 16px 0; min-width: 0; }
+.doctor-record-page legend { font-weight: 600; padding: 0 6px; }
+.doctor-record-page .record-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.doctor-record-page .primary-action { color: white; background: #28664f; }
+.doctor-record-page button { cursor: pointer; }
+.doctor-record-page input:focus-visible, .doctor-record-page textarea:focus-visible, .doctor-record-page button:focus-visible { outline: 3px solid #83ad9b; outline-offset: 2px; }
+@media(max-width: 900px) { .doctor-record-page .record-form-layout { grid-template-columns: 1fr; } .doctor-record-page aside { grid-row: 1; } }
+@media(max-width: 500px) { .doctor-record-page .record-card { padding: 16px; } }
