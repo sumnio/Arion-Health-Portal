@@ -22,7 +22,8 @@ export const doctorPatientService = {
     }));
     consultations.push(...doctorRecordStore.filter(item => item.patient_id === id).map(item => ({ ...item, doctor: demoDoctor.display_name })));
     const existingRecord = consultations.find(item => item.appointment_id === appointment.id);
-    const history = [...(id === doctorPatients[0].id ? medicalRecordService.list() : []), ...consultations]
+    const consultationRecords = [...(id === doctorPatients[0].id ? medicalRecordService.list() : []), ...consultations].sort((a, b) => new Date(b.encounter_at) - new Date(a.encounter_at));
+    const history = consultationRecords
       .filter(item => item.appointment_id !== appointment.id && new Date(item.encounter_at) < new Date(appointment.appointment_at))
       .sort((a, b) => new Date(b.encounter_at) - new Date(a.encounter_at)).slice(0, 3);
     const canAddRecord = appointment.status === 'confirmed' && appointment.appointment_at.slice(0, 10) <= today && !existingRecord;
@@ -33,6 +34,6 @@ export const doctorPatientService = {
       : appointment.status === 'pending' ? 'This appointment is awaiting confirmation.'
       : !canAddRecord ? 'Medical record creation will be available on the appointment day.'
       : 'Review the patient information before adding a medical record for this consultation.';
-    return structuredClone({ patient: { ...patient, name: doctorDashboardPatientNames[id], age: ageFromDob(patient.dob, today), senior: isSenior(patient.dob, today) }, appointment, history, existingRecord, canAddRecord, consultationMessage });
+    return structuredClone({ patient: { ...patient, name: doctorDashboardPatientNames[id], age: ageFromDob(patient.dob, today), senior: isSenior(patient.dob, today) }, appointment, history, consultationRecords, patientAppointments: appointments.filter(item => item.patient_id === id), existingRecord, canAddRecord, consultationMessage });
   },
 };

@@ -1,3 +1,4 @@
+import DoctorIssueCertificate from './DoctorIssueCertificate.jsx';
 import DoctorAddRecord from './DoctorAddRecord.jsx';
 import PlaceholderPage from '../../components/PlaceholderPage.jsx';
 import { getPageLinks } from '../../app/pageLinks.js';
@@ -9,5 +10,6 @@ export default function DoctorPage({ route }) {
   if (route.path === '/doctor/schedule') return <DoctorSchedule />;
   if (route.path === '/doctor/patients/:id') return <DoctorPatientDetail />;
   if (route.path === '/doctor/patients/:id/add-record') return <DoctorAddRecord />;
+  if (route.path === '/doctor/records/:id/certificate/new') return <DoctorIssueCertificate />;
   return <PlaceholderPage title={route.title} links={getPageLinks(route.path)} />;
 }

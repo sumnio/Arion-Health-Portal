@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { doctorHistoryService as history } from '../src/services/doctorHistoryService.js';
+import { doctorRecordService } from '../src/services/doctorRecordService.js';
+import { doctorCertificateService } from '../src/services/doctorCertificateService.js';
+import { doctorPatientService } from '../src/services/doctorPatientService.js';
+import { clinicToday } from '../src/services/bookingService.js';
+const patient = n => '10000000-0000-4000-8000-00000000000'+n;
+test('history joins existing prescriptions, appointments and issued certificates for the correct patient',()=>{
+ const data=history.get(patient(1));
+ const record=data.records.find(item=>item.id==='30000000-0000-4000-8000-000000000001');
+ assert.equal(record.prescriptions.length,2);
+ assert(record.appointment);
+ assert(data.certificates.some(item=>item.medical_record_id===record.id));
+ assert(data.records.some(item=>item.id==='80000000-0000-4000-8000-000000000001'));
+ assert.deepEqual(history.get(patient(4)),{records:[],certificates:[]});
+ assert.equal(history.get('missing'),null);
+ data.records[0].diagnosis='modified';
+ assert.notEqual(history.get(patient(1)).records[0].diagnosis,'modified');
+});
+test('new records and certificates appear without allowing duplicate record creation or leaking to other patients',()=>{
+ const selection={appointmentId:'70000000-0000-4000-8000-000000000003',date:clinicToday()};
+ assert(doctorPatientService.get(patient(3),selection).canAddRecord);
+ const record=doctorRecordService.save(patient(3),selection,{diagnosis:'Mock diagnosis',notes:'Mock notes',follow_up:'Mock follow-up',encounter_at:clinicToday()+'T13:00',prescriptions:[{medicine:'Mock medicine',dosage:'Mock dosage',instructions:'Mock instructions'}]}).record;
+ const certificate=doctorCertificateService.issue(record.id,{purpose:'Mock purpose',diagnosis_summary:record.diagnosis,date_issued:clinicToday(),valid_until:''},'history-test').certificate;
+ const data=history.get(patient(3));
+ assert.equal(data.records[0].prescriptions[0].medical_record_id,record.id);
+ assert.equal(data.records[0].notes,'Mock notes');
+ assert.equal(data.records[0].appointment.id,selection.appointmentId);
+ assert.equal(data.certificates[0].id,certificate.id);
+ assert.equal(doctorPatientService.get(patient(3),selection).canAddRecord,false);
+ assert(!history.get(patient(1)).certificates.some(item=>item.id===certificate.id));
+});

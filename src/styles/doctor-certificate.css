@@ -1,0 +1,27 @@
+.doctor-certificate-page { max-width: 1280px; margin: auto; }
+.doctor-certificate-page p { color: #52657b; line-height: 1.6; margin: 12px 0; }
+.doctor-certificate-page .doctor-certificate-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; margin-top: 24px; align-items: start; }
+.doctor-certificate-page .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 10px; padding: 24px; margin-bottom: 20px; min-width: 0; }
+.doctor-certificate-page h2 { font-size: 19px; margin-bottom: 18px; }
+.doctor-certificate-page h3 { font-size: 20px; }
+.doctor-certificate-page .form-field { margin: 18px 0; }
+.doctor-certificate-page label { display: block; font-weight: 600; margin-bottom: 8px; }
+.doctor-certificate-page input, .doctor-certificate-page textarea { width: 100%; min-width: 0; font: inherit; padding: 12px; border: 1px solid #abbcc8; border-radius: 6px; background: white; }
+.doctor-certificate-page textarea { resize: vertical; }
+.doctor-certificate-page .certificate-error { color: #a33434; }
+.doctor-certificate-page [aria-invalid=true] { border-color: #a33434; }
+.doctor-certificate-page .certificate-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.doctor-certificate-page .primary-action { background: #28664f; color: white; }
+.doctor-certificate-page button { cursor: pointer; }
+.doctor-certificate-page button:disabled { cursor: not-allowed; opacity: .6; }
+.doctor-certificate-page .record-reference { overflow-wrap: anywhere; font-size: 12px; }
+.doctor-certificate-page .doctor-certificate-paper { padding: 24px; border: 1px solid #dfe7ee; overflow-wrap: anywhere; }
+.doctor-certificate-page .doctor-certificate-paper header { border-bottom: 2px solid #28664f; padding-bottom: 16px; }
+.doctor-certificate-page .sample-label { font-size: 11px; letter-spacing: 1px; }
+.doctor-certificate-page .doctor-certificate-paper h4 { font-size: 22px; margin: 22px 0; }
+.doctor-certificate-page dt { color: #52657b; font-size: 13px; margin-top: 16px; }
+.doctor-certificate-page dd { margin: 4px 0; white-space: pre-wrap; }
+.doctor-certificate-page footer { border-top: 1px solid #dfe7ee; margin-top: 32px; padding-top: 18px; }
+.doctor-certificate-page input:focus-visible, .doctor-certificate-page textarea:focus-visible, .doctor-certificate-page button:focus-visible { outline: 3px solid #83ad9b; outline-offset: 2px; }
+@media(max-width: 950px) { .doctor-certificate-page .doctor-certificate-layout { grid-template-columns: 1fr; } }
+@media(max-width: 500px) { .doctor-certificate-page .record-card, .doctor-certificate-page .doctor-certificate-paper { padding: 16px; } }

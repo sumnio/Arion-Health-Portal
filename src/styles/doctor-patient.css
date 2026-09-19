@@ -21,3 +21,20 @@
 .doctor-patient-page .status-pending { background: #fff3d9; color: #825400; }
 .doctor-patient-page .status-cancelled { background: #ffe4e7; color: #a33434; }
 .doctor-patient-page .status-no_show { background: #e7ebf0; color: #44536a; }
+.doctor-patient-page .history-disclosure { border-top: 1px solid #dfe7ee; padding: 18px 0; }
+.doctor-patient-page .history-disclosure summary { cursor: pointer; color: #22674f; overflow-wrap: anywhere; }
+.doctor-patient-page .history-disclosure summary strong, .doctor-patient-page .history-disclosure summary span { display: block; margin-top: 8px; }
+.doctor-patient-page .history-disclosure summary:focus-visible { outline: 3px solid #83ad9b; outline-offset: 4px; }
+.doctor-patient-page .history-content { padding-top: 16px; }
+.doctor-patient-page .history-content h3 { font-size: 16px; margin-top: 22px; }
+.doctor-patient-page .clinical-text { white-space: pre-wrap; }
+.doctor-patient-page .history-prescriptions { list-style: none; padding: 0; }
+.doctor-patient-page .history-prescriptions li { padding: 12px 0; border-bottom: 1px solid #edf1f5; }
+.doctor-patient-page .certificate-paper { padding: 22px; border: 1px solid #aab7c7; margin-top: 20px; }
+.doctor-patient-page .certificate-paper header { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #aab7c7; padding-bottom: 16px; }
+.doctor-patient-page .certificate-cross { font-size: 30px; }
+.doctor-patient-page .certificate-sample { font-size: 11px; text-align: center; }
+.doctor-patient-page .certificate-paper-title, .doctor-patient-page .certificate-patient-name, .doctor-patient-page .certificate-patient-label { text-align: center; }
+.doctor-patient-page .certificate-patient-name { font-size: 22px; font-weight: 700; }
+.doctor-patient-page .certificate-paper footer { display: grid; gap: 6px; margin-top: 24px; font-size: 13px; }
+@media(max-width: 500px) { .doctor-patient-page .certificate-paper { padding: 14px; } }
