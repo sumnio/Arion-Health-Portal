@@ -6,7 +6,7 @@ import { demoDoctor } from '../mocks/doctorRecordStore.js';
 import { bookingDoctors } from '../mocks/bookingData.js';
 import { clinicToday, formatSlot } from './bookingService.js';
 import { isSenior } from './patientProfileService.js';
-import { staffAppointmentStatus } from '../mocks/staffAppointmentStore.js';
+import { staffAppointmentStatus, staffCheckIn } from '../mocks/staffAppointmentStore.js';
 
 export function queueTier(appointment, patient, date) {
   return appointment.priority === 'urgent' ? 0 : patient.is_pwd || isSenior(patient.dob, date) ? 1 : 2;
@@ -22,6 +22,7 @@ export const staffDashboardService = {
     // Explicit operational projection: no diagnoses, notes, allergies or prescriptions.
     const appointments = [...shared, ...additions].map(item => {
       item.status = staffAppointmentStatus(item);
+      item.check_in_at = staffCheckIn(item);
       const patient = doctorPatients.find(patient => patient.id === item.patient_id);
       const tier = queueTier(item, patient, date);
       return { id: item.id, patient_id: item.patient_id, patientName: doctorDashboardPatientNames[item.patient_id], doctor_id: item.doctor_id, doctor: item.doctor, appointment_at: item.appointment_at, timeLabel: item.timeLabel, status: item.status, check_in_at: item.check_in_at, priority: item.priority, tier, priorityLabel: ['Urgent', 'Senior / PWD', 'Normal'][tier], checkInLabel: item.check_in_at ? 'Checked in' : 'Not checked in' };

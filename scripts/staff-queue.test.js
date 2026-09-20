@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { staffQueueService, queueActions } from '../src/services/staffQueueService.js';
+import { staffCalendarService } from '../src/services/staffCalendarService.js';
+import { compareQueue, queueTier } from '../src/services/staffDashboardService.js';
+const now = new Date('2026-09-20T09:00:00Z');
+test('queue derives priorities and orders within tiers with appointment fallback', () => {
+ const data=staffQueueService.getQueue(now);
+ assert.deepEqual(data.waiting.map(x=>x.tier),[0,1,1,2]);
+ assert.ok(new Date(data.waiting[1].check_in_at)<new Date(data.waiting[2].check_in_at));
+ assert.equal(queueTier({priority:'normal'},{dob:'1966-09-21',is_pwd:false},'2026-09-20'),2);
+ assert.equal(queueTier({priority:'normal'},{dob:'1966-09-20',is_pwd:false},'2026-09-20'),1);
+ assert.equal(queueTier({priority:'normal'},{dob:'1990-01-01',is_pwd:true},'2026-09-20'),1);
+ const a={id:'a',tier:2,appointment_at:'2026-09-20T09:00:00Z',check_in_at:null};
+ assert.ok(compareQueue(a,{...a,id:'b',check_in_at:'2026-09-20T10:00:00Z'})<0);
+});
+test('check-in and terminal actions share state, reject duplicates and empty the queue', () => {
+ let data=staffQueueService.getQueue(now);
+ const [first,second,third]=data.notCheckedIn;
+ staffQueueService.act(first.id,'checkIn',now);
+ assert.equal(staffCalendarService.getDay(data.date,now).find(x=>x.id===first.id).check_in_at,now.toISOString());
+ assert.throws(()=>staffQueueService.act(first.id,'checkIn',now));
+ assert.throws(()=>staffQueueService.act(first.id,'noShow',now));
+ staffQueueService.act(second.id,'noShow',now);
+ staffCalendarService.updateStatus(data.date,third.id,'cancelled',now);
+ for(const item of staffQueueService.getQueue(now).waiting) staffQueueService.act(item.id,'complete',now);
+ data=staffQueueService.getQueue(now);
+ assert.equal(data.waiting.length,0); assert.equal(data.notCheckedIn.length,0);
+ for(const item of data.finished) for(const action of ['checkIn','complete','noShow']) assert.throws(()=>staffQueueService.act(item.id,action,now));
+ assert.throws(()=>staffQueueService.act('missing','checkIn',now));
+ assert.equal(queueActions({...first,check_in_at:null,status:'confirmed'},new Date('2026-09-20T00:00:00Z')).noShow,false);
+ assert.equal(queueActions({...first,appointment_at:'2026-09-21T09:00:00Z'},now).checkIn,false);
+});
