@@ -18,7 +18,7 @@ export const staffCalendarService = {
         doctor_id: demoDoctor.id, doctor: demoDoctor.display_name, appointment_at: item.appointment_at,
         timeLabel: item.timeLabel, status: item.status, check_in_at: null }));
     return items.map(item => ({ ...item, status: staffAppointmentStatus(item),
-      reason: shared.find(source => source.id === item.id)?.reason ?? 'General consultation' }));
+      reason: item.reason ?? shared.find(source => source.id === item.id)?.reason ?? 'General consultation' }));
   },
   updateStatus(date, id, status, now = new Date()) {
     const item = this.getDay(date, now).find(item => item.id === id);

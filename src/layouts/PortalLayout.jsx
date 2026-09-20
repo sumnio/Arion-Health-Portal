@@ -6,7 +6,7 @@ import { routeGroups } from '../app/routes.js';
 import { portalService } from '../services/portalService.js';
 
 export default function PortalLayout({ role }) {
-  const collapsible = role === 'patient' || role === 'doctor';
+  const collapsible = role === 'patient' || role === 'doctor' || role === 'staff';
   const profile = portalService.getPreviewProfile(role);
   const { pathname } = useLocation();
   const [menuPath, setMenuPath] = useState(null);

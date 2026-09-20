@@ -1,0 +1,37 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { staffWalkInService as service } from '../src/services/staffWalkInService.js';
+import { staffDashboardService } from '../src/services/staffDashboardService.js';
+import { staffCalendarService } from '../src/services/staffCalendarService.js';
+import { staffQueueService } from '../src/services/staffQueueService.js';
+const now = new Date('2026-09-20T02:00:00Z');
+const input = { name:'Elena Navarro',dob:'1960-01-01',sex:'Female',contact_number:'09178887776',is_pwd:true,allergies:'Penicillin', emergency_contact:'' };
+test('guest registration validates and searches without creating portal credentials',()=>{
+ assert.ok(service.register({},now).errors);
+ assert.ok(service.register({...input,dob:'2027-01-01'},now).errors.dob);
+ const {patient}=service.register(input,now);
+ assert.equal(patient.user_profile_id,null); assert.equal(patient.is_pwd,true); assert.deepEqual(patient.allergies,['Penicillin']);
+ assert.equal('password' in patient,false); assert.equal('email' in patient,false); assert.equal('name' in patient,true);
+ assert.equal(service.search('elena')[0].id,patient.id);
+ assert.equal(service.search('0917 888 7776')[0].id,patient.id);
+ assert.equal(service.register(input,now).matches[0].id,patient.id);
+ assert.equal(service.getPatient('missing'),null);
+});
+test('same-day walk-in reserves slot, remains consistent and supports existing queue check-in',()=>{
+ const patient=service.search('Elena')[0];
+ const options=service.options(now); const doctor=options.doctors[0];
+ const values={date:options.date,doctor:doctor.id,service:'consultation',time:doctor.slots[0],reason:'Walk-in consultation',priority:'normal'};
+ assert.ok(service.createAppointment(patient.id,{...values,reason:''},'invalid',now).errors.reason);
+ assert.ok(service.createAppointment('missing',values,'missing',now).errors.form);
+ assert.ok(service.createAppointment(patient.id,{...values,date:'2026-09-21'},'wrong-day',now).errors.form);
+ const {appointment}=service.createAppointment(patient.id,values,'one',now);
+ assert.equal(service.createAppointment(patient.id,values,'one',now).appointment.id,appointment.id);
+ assert.ok(service.createAppointment(patient.id,values,'conflict',now).errors.time);
+ const dashboard=staffDashboardService.getDashboard(now).appointments.find(x=>x.id===appointment.id);
+ assert.equal(dashboard.patientName,'Elena Navarro'); assert.equal(dashboard.tier,1);
+ assert.equal(staffCalendarService.getDay(options.date,now).find(x=>x.id===appointment.id).reason,values.reason);
+ staffQueueService.act(appointment.id,'checkIn',now);
+ assert.equal(staffQueueService.getQueue(now).waiting.find(x=>x.id===appointment.id).check_in_at,now.toISOString());
+ assert.throws(()=>staffQueueService.act(appointment.id,'checkIn',now));
+ assert.equal(service.options(new Date('2026-09-20T15:00:00Z')).doctors.length,0);
+});

@@ -1,0 +1,25 @@
+.staff-walkin { max-width:1300px; margin:auto; }
+.staff-walkin h1 { margin-top:20px; }
+.staff-walkin h2 { margin:0 0 18px; font-size:20px; }
+.staff-walkin h3 { font-weight:700; }
+.staff-walkin p { color:#52657b; font-size:14px; line-height:1.6; margin:12px 0; }
+.staff-walkin .walkin-layout { display:grid; grid-template-columns:minmax(0,1.8fr) minmax(250px,1fr); gap:22px; align-items:start; margin-top:24px; }
+.staff-walkin .walkin-panel, .staff-walkin.walkin-panel { padding:24px; border:1px solid #dfe7ee; border-radius:9px; background:white; margin-bottom:20px; min-width:0; }
+.staff-walkin .walkin-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.staff-walkin .form-field label, .staff-walkin .walkin-reason { display:block; font-size:14px; font-weight:600; margin:10px 0; }
+.staff-walkin input:not([type=checkbox]), .staff-walkin select, .staff-walkin textarea { width:100%; min-width:0; border:1px solid #bacbdc; padding:12px; border-radius:6px; background:white; color:inherit; font-size:14px; }
+.staff-walkin textarea { display:block; margin-top:10px; }
+.staff-walkin input:focus-visible, .staff-walkin select:focus-visible, .staff-walkin textarea:focus-visible, .staff-walkin button:focus-visible { outline:3px solid #165ec0; outline-offset:2px; }
+.staff-walkin .walkin-checkbox { display:flex; align-items:center; gap:10px; margin-top:20px; font-size:14px; }
+.staff-walkin .walkin-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:24px; }
+.staff-walkin button { background:#165ec0; color:white; padding:12px 18px; border-radius:6px; cursor:pointer; font-size:14px; min-height:44px; }
+.staff-walkin button:disabled { opacity:.5; cursor:default; }
+.staff-walkin .walkin-error { color:#a33434; font-size:14px; }
+.staff-walkin [aria-invalid=true] { border-color:#a33434; }
+.staff-walkin .walkin-results, .staff-walkin .walkin-queue { list-style:none; padding:0; }
+.staff-walkin .walkin-results li { display:flex; gap:12px; justify-content:space-between; align-items:center; padding:14px 0; border-bottom:1px solid #dfe7ee; }
+.staff-walkin .walkin-queue li { display:grid; gap:8px; padding:14px 0; border-bottom:1px solid #dfe7ee; font-size:14px; }
+.staff-walkin .walkin-queue .badge { justify-self:start; }
+.staff-walkin aside .action-link { display:inline-block; margin-top:18px; }
+@media(max-width:1050px) { .staff-walkin .walkin-layout { grid-template-columns:1fr; } }
+@media(max-width:550px) { .staff-walkin .walkin-fields { grid-template-columns:1fr; gap:6px; } .staff-walkin .walkin-panel { padding:18px; } .staff-walkin .walkin-results li { align-items:start; flex-direction:column; } }

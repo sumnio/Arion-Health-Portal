@@ -1,0 +1,22 @@
+.staff-patients { max-width:1300px; margin:auto; }
+.staff-patients p { color:#52657b; font-size:14px; line-height:1.6; margin:12px 0; }
+.staff-patients .patients-heading, .staff-patients .patient-card-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.staff-patients .patients-panel { margin-top:24px; background:white; border:1px solid #dfe7ee; border-radius:9px; padding:24px; }
+.staff-patients .form-field { max-width:520px; }
+.staff-patients label { display:block; font-size:14px; font-weight:600; margin-bottom:10px; }
+.staff-patients input { width:100%; padding:12px; border:1px solid #bacbdc; border-radius:6px; background:white; font-size:14px; }
+.staff-patients input:focus-visible, .staff-patients button:focus-visible { outline:3px solid #165ec0; outline-offset:2px; }
+.staff-patients .patients-list { list-style:none; margin:20px 0 0; padding:0; display:grid; gap:16px; }
+.staff-patients .patient-card { border:1px solid #dfe7ee; border-radius:8px; padding:20px; }
+.staff-patients h2 { font-size:18px; margin:0; overflow-wrap:anywhere; }
+.staff-patients .patient-card .action-link { flex-shrink:0; }
+.staff-patients dl { display:grid; grid-template-columns:2fr 1fr 1.6fr .6fr 1.5fr; gap:16px; margin-top:20px; }
+.staff-patients dt { font-size:12px; color:#52657b; }
+.staff-patients dd { font-size:14px; margin:7px 0 0; overflow-wrap:anywhere; }
+.staff-patients .patients-pagination { display:flex; justify-content:center; align-items:center; gap:16px; margin-top:24px; font-size:14px; }
+.staff-patients button { padding:12px 16px; border:1px solid #bacbdc; border-radius:6px; cursor:pointer; background:white; font-size:14px; }
+.staff-patients button:hover { background:#e7f0ff; }
+.staff-patients button:disabled { opacity:.45; cursor:default; }
+.staff-patients .patients-empty { padding:36px 0; text-align:center; }
+@media(max-width:1000px) { .staff-patients dl { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:550px) { .staff-patients .patients-heading, .staff-patients .patient-card-heading { flex-direction:column; align-items:start; } .staff-patients .patients-panel, .staff-patients .patient-card { padding:16px; } .staff-patients .patient-card .action-link { width:100%; text-align:center; } }
