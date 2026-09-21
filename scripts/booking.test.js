@@ -1,3 +1,4 @@
+import { availableFutureSlot } from './availableFutureSlot.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { bookingService, clinicToday } from '../src/services/bookingService.js';
@@ -22,12 +23,7 @@ test('required fields, past dates, unsupported service, and unavailable times ar
 
 test('confirmation reserves one place per doctor and slot without persistence', () => {
   const { doctors, services } = bookingService.getOptions();
-  const future = new Date(clinicToday() + 'T00:00:00Z');
-  future.setUTCDate(future.getUTCDate() + 2);
-  if (future.getUTCDay() === 0) future.setUTCDate(future.getUTCDate() + 1);
-  const date = future.toISOString().slice(0, 10);
-  const doctor = doctors[0].id;
-  const time = bookingService.getSlots(doctor, date).find(slot => slot.available).time;
+  const { date, doctor, time } = availableFutureSlot();
   const values = { service: services[0].id, doctor, date, time, reason: 'Routine check-up' };
   assert.equal(bookingService.confirm(values).confirmation.status, 'confirmed');
   assert.ok(bookingService.confirm(values).errors.time);

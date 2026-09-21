@@ -3,14 +3,8 @@ import assert from 'node:assert/strict';
 import { appointmentService, canManageAppointment } from '../src/services/appointmentService.js';
 import { bookingService, clinicToday } from '../src/services/bookingService.js';
 
-function futureSlot(offset = 10) {
-  const date = new Date(clinicToday() + 'T00:00:00Z');
-  date.setUTCDate(date.getUTCDate() + offset);
-  if (date.getUTCDay() === 0) date.setUTCDate(date.getUTCDate() + 1);
-  const day = date.toISOString().slice(0, 10);
-  const doctor = bookingService.getOptions().doctors[0].id;
-  return { date: day, doctor, time: bookingService.getSlots(doctor, day).find(slot => slot.available).time };
-}
+import { availableFutureSlot as futureSlot } from './availableFutureSlot.js';
+
 test('fixtures cover schema statuses; unknown details are handled', () => {
   assert.deepEqual(new Set(appointmentService.list().map(item => item.status)), new Set(['pending', 'confirmed', 'completed', 'cancelled', 'no_show']));
   assert.equal(appointmentService.get('missing'), null);
