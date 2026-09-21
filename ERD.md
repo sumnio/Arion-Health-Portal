@@ -10,6 +10,7 @@ The Arion Health Portal contains the following main entities:
 - Doctor
 - Staff
 - DoctorAvailability
+- DoctorBlockedTime
 - Appointment
 - MedicalRecord
 - Prescription
@@ -152,7 +153,7 @@ Doctor contains only these five fields. Display name, contact number, and accoun
 
 The actual signature image will later be stored securely, such as in Supabase Storage; Doctor stores only `signature_path`, never the image binary. License and PTR numbers will later appear on issued medical certificates. Saved medical records and issued medical certificates remain read-only.
 
-Doctors can manage their own availability. Schedule details are deferred to a later cleanup milestone; this cleanup does not alter DoctorAvailability, add routes, or implement availability, storage, or certificate rendering.
+Doctors manage their own availability and blocked time through the existing `/doctor/schedule` workflow under the scheduling rules below. This cleanup adds no routes and implements no scheduling UI, storage, or certificate rendering.
 
 ---
 
@@ -194,6 +195,17 @@ Doctor
 
 # Doctor Availability
 
+Represents the doctor's regular recurring weekly working schedule, managed by that doctor. Examples are Monday 09:00-17:00 and Tuesday 09:00-13:00, provided these fall within clinic operating hours.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | uuid, PK | Defaults to `gen_random_uuid()` |
+| doctor_id | uuid, FK | References `Doctor.id` |
+| day_of_week | smallint | Day number such as 0-6 |
+| start_time | time | Start of available period |
+| end_time | time | End of available period |
+| is_active | boolean | Allows the availability slot to be disabled |
+
 A doctor may define multiple availability periods.
 
 ```text
@@ -211,6 +223,39 @@ Relationship:
 ```text
 Doctor 1 ─── * DoctorAvailability
 ```
+
+---
+
+# Doctor Blocked Time
+
+Represents one-time exceptions to the regular schedule. A block can cover a whole day or part of a day, such as leave, a meeting, a conference, clinic closure, or personal unavailability.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | uuid, PK | Defaults to `gen_random_uuid()` |
+| doctor_id | uuid, FK | References `Doctor.id` |
+| start_at | timestamptz | Start of the blocked interval |
+| end_at | timestamptz | End of the blocked interval |
+| reason | text | Reason for the one-time unavailability |
+
+Relationship: Doctor 1 -> many DoctorBlockedTime, via DoctorBlockedTime.doctor_id.
+
+### Scheduling and publication rules
+
+- Appointment slots are fixed at 30 minutes.
+- Doctors manage their own recurring availability and blocked time within the existing `/doctor/schedule` workflow; no separate availability route is added.
+- A doctor may publish availability up to 30 days ahead and is not required to publish all 30 days. Patients may see and book only dates/times actually published by the doctor; a recurring weekly row alone does not publish every matching future date.
+- Availability must remain within clinic operating hours. The full 30-minute slot must fit within published working hours.
+- DoctorBlockedTime overrides regular DoctorAvailability. Any slot overlapping blocked time is unavailable, including when only part of a day is blocked.
+- Already-booked slots are unavailable for new booking. The same doctor must not have two active appointments in the same time slot or overlapping appointment intervals. Different doctors may have appointments at the same time.
+
+Bookable slot logic: Published DoctorAvailability - DoctorBlockedTime - already-booked appointment slots = available 30-minute patient booking slots.
+
+### Unresolved implementation details
+
+The approved DoctorAvailability fields describe weekly recurrence but do not record which specific dates have actually been published or the publication horizon. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. A publication representation needs approval before backend implementation; no additional fields or entities are introduced here. Clinic operating-hour values are also not yet specified and must be established before enforcing that boundary.
+
+These approved rules supersede the earlier 60-day mock booking window: patient booking is limited to actually published availability within the doctor's 30-day publication limit. This documentation cleanup does not modify the current mock implementation.
 
 ---
 
@@ -369,6 +414,8 @@ UserProfile
                   Patient + Doctor
 ```
 
+Doctor also has a one-to-many relationship with DoctorBlockedTime for one-time schedule exceptions. Blocked intervals override recurring availability; they do not replace or delete Appointment history.
+
 `Patient*` links through nullable, unique `Patient.user_profile_id`; its own `id` is independent of UserProfile. Admin remains a UserProfile role only.
 
 ---
@@ -386,6 +433,7 @@ Patient 1 -> many Appointment
 Doctor 1 -> many Appointment
 
 Doctor 1 -> many DoctorAvailability
+Doctor 1 -> many DoctorBlockedTime
 
 Patient 1 -> many MedicalRecord
 Doctor 1 -> many MedicalRecord
