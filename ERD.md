@@ -19,7 +19,7 @@ The Arion Health Portal contains the following main entities:
 
 # Authentication Structure
 
-Supabase Auth handles user credentials for portal accounts. Guest/walk-in Patient records do not require an auth.users entry or a UserProfile.
+Supabase Auth will handle user credentials for portal accounts when authentication is implemented. Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. Guest/walk-in Patient records do not require an auth.users entry or a UserProfile.
 
 ```text
 auth.users
@@ -29,7 +29,7 @@ auth.users
 UserProfile
 ```
 
-`UserProfile` stores the application role and common profile information.
+`UserProfile` stores application identity, role, common contact information, and account status, not authentication credentials.
 
 A UserProfile may correspond to one role-specific profile. Doctor and Staff use `UserProfile.id` as their primary key and foreign key. Patient has its own UUID primary key (default `gen_random_uuid()`) and a nullable, unique `user_profile_id` foreign key to `UserProfile.id`.
 
@@ -56,6 +56,34 @@ UserProfile 0..1 ─── 0..1 Patient
 UserProfile 1 ─── 0..1 Doctor
 UserProfile 1 ─── 0..1 Staff
 ```
+
+---
+
+# UserProfile Structure and Account Lifecycle
+
+The UserProfile fields match `SCHEMA.md`:
+
+| Field | Type | Notes |
+|---|---|---|
+| id | uuid, PK/FK | Same UUID as `auth.users.id` |
+| display_name | text | User's full/display name |
+| role | enum | `patient`, `doctor`, `staff`, `admin` |
+| contact_number | text | Common contact number for the account holder |
+| status | enum | `active`, `inactive` only |
+| created_at | timestamptz | Defaults to `now()` |
+| updated_at | timestamptz | Updated when profile changes |
+
+`display_name` and `contact_number` belong in UserProfile for account holders. Patient retains its own `full_name` and `contact_number` so a walk-in can exist without an account. Account contact information does not replace Patient contact information.
+
+Doctor and Staff must not contain username-based authentication fields. The existing optional, unique Staff `username` is a non-authentication identifier only, not a login credential. Shared account fields belong in UserProfile.
+
+- The only MVP account statuses are `active` and `inactive`.
+- Use deactivation instead of hard deletion. Inactive accounts must not be allowed to log in or retain application access based solely on their preserved role/profile links.
+- Admin can deactivate/reactivate Doctor accounts, Staff accounts, and Patient portal access. Reactivation sets the existing UserProfile status to `active`.
+- Deactivation preserves UserProfile and related Patient, Doctor, and Staff records, along with Appointment, MedicalRecord, Prescription, and MedicalCertificate history and relationships. Account lifecycle must not cascade-delete them, and Admin must not delete historical clinical data.
+- Reactivating or relinking a returning Patient's account access keeps the same `Patient.id`. Verify identity and reuse the existing Patient, updating `user_profile_id` when needed; do not create a second medical-history identity.
+
+These rules describe future implementation requirements only. This cleanup does not implement authentication or connect Supabase.
 
 ---
 

@@ -17,9 +17,9 @@ Main revisions:
 
 # 1. Authentication and User Profiles
 
-Authentication credentials are handled by Supabase Auth.
+Authentication credentials will be handled by Supabase Auth when authentication is implemented.
 
-The application does not store plaintext passwords in Patient, Doctor, or Staff tables.
+Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, role, common contact information, and account status, not authentication credentials. Doctor and Staff must not contain username-based authentication fields.
 
 Portal accounts have a UserProfile linked to `auth.users.id`. Patient records are independent and only link to a UserProfile when the patient has a portal account. Doctor and Staff retain their shared primary-key relationship with UserProfile.
 
@@ -30,10 +30,23 @@ Admin is represented by `UserProfile.role = admin`; there is no separate Admin e
 | Field | Type | Notes |
 |---|---|---|
 | id | uuid, PK/FK | Same UUID as `auth.users.id` |
-| role | enum | `patient`, `doctor`, `staff`, `admin` |
 | display_name | text | User's full/display name |
+| role | enum | `patient`, `doctor`, `staff`, `admin` |
+| contact_number | text | Common contact number for the account holder |
+| status | enum | `active`, `inactive` only |
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when profile changes |
+
+`display_name` and `contact_number` belong in UserProfile for account holders. `Patient.full_name` and `Patient.contact_number` remain in Patient so walk-ins can exist without a UserProfile. Account contact information does not replace Patient contact information.
+
+### Account lifecycle
+
+- Use `UserProfile.status = inactive` to deactivate account access instead of hard-deleting an account. Inactive accounts must not be allowed to log in; application access must respect this status.
+- Admin can deactivate and reactivate Doctor accounts, Staff accounts, and Patient portal access. Reactivation sets the existing account's status to `active`.
+- Deactivation preserves UserProfile and the related Patient, Doctor, and Staff records. It must not delete Appointment, MedicalRecord, Prescription, or MedicalCertificate history or their existing relationships.
+- Admin must not delete historical clinical data. Account lifecycle actions must not cascade-delete related records.
+- Reactivating or relinking a returning Patient's account access must preserve the existing `Patient.id`. After identity verification, reuse the existing Patient and link account access through `user_profile_id` when needed; do not create a second medical-history identity.
+- These are documentation requirements for future implementation; authentication and account lifecycle enforcement are not implemented by this cleanup.
 
 ---
 
@@ -82,9 +95,9 @@ Senior status must be calculated from `dob`; do not add a stored `is_senior` fie
 | Field | Type | Notes |
 |---|---|---|
 | id | uuid, PK/FK | References `UserProfile.id` |
-| username | text, unique, nullable | Optional staff-specific username |
+| username | text, unique, nullable | Existing optional staff identifier only; not a login credential or authentication field |
 
-Authentication still remains in Supabase Auth.
+Authentication will remain in Supabase Auth. The optional Staff username does not enable username-based authentication; do not add authentication fields to Doctor or Staff. Shared display name, contact number, role, and account status belong in UserProfile.
 
 ---
 
@@ -248,11 +261,7 @@ If the final project requires only one certificate per medical record, a unique 
 auth.users.id
 ```
 
-Recommended behavior:
-
-```text
-ON DELETE CASCADE
-```
+Account lifecycle uses deactivation, not deletion of the Auth user or UserProfile. Do not configure account deletion to cascade into application profiles or history. Preserve related Patient, Doctor, Staff, Appointment, MedicalRecord, Prescription, and MedicalCertificate records and references. The former cascade-delete recommendation is superseded by these history-preservation requirements.
 
 ---
 
@@ -300,6 +309,15 @@ doctor
 staff
 admin
 ```
+
+### Account Status (UserProfile)
+
+```text
+active
+inactive
+```
+
+These are the only MVP account statuses. Appointment and certificate statuses below describe their own entities, not account lifecycle.
 
 ### Appointment Status
 
@@ -351,6 +369,8 @@ Use Supabase Row Level Security.
 
 General intended permissions:
 
+Account-based access requires an active UserProfile in addition to the role and ownership rules below. Inactive accounts must not be allowed to log in or retain application access merely because their historical profile and role links remain intact.
+
 ## Patient
 
 Portal ownership is determined by `Patient.user_profile_id = auth.uid()`, not by comparing `Patient.id` to the authentication UUID. Related appointments, records, and certificates are matched through their `patient_id` to that Patient. A null account link grants no patient portal access; staff and doctor access remains governed by their role permissions.
@@ -385,6 +405,8 @@ Can manage:
 - doctor accounts
 - staff accounts
 - role/account administration
+
+Admin can deactivate/reactivate Doctor accounts, Staff accounts, and Patient portal access through UserProfile status. This does not grant permission to delete historical clinical data. Deactivation preserves the related profiles and all appointment, medical record, prescription, and certificate history.
 
 ---
 
