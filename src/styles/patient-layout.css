@@ -1,30 +1,30 @@
 .patient-menu-toggle { display: none; }
 
 @media (max-width: 960px) {
-  .portal-shell:is(.theme-patient, .theme-doctor, .theme-staff) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .portal-header { display: flex; flex-wrap: nowrap; align-items: center; gap: 16px; padding: 14px 20px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .patient-menu-toggle { display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; border: 1px solid #dfe7ee; border-radius: 8px; background: white; color: #284764; cursor: pointer; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .patient-menu-toggle svg { width: 24px; height: 24px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .patient-menu-toggle:hover { background: #e7f0ff; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .patient-menu-toggle:focus-visible { outline: 3px solid #165ec0; outline-offset: 3px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .brand { min-width: 0; min-height: 44px; gap: 10px; font-size: 18px; line-height: 1.25; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .brand small, :is(.theme-patient, .theme-doctor, .theme-staff) .identity-description { display: none; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .brand-mark, :is(.theme-patient, .theme-doctor, .theme-staff) .patient-menu-toggle, :is(.theme-patient, .theme-doctor, .theme-staff) .identity { flex-shrink: 0; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .identity { margin-left: auto; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .sidebar { display: none; border-right: 0; border-bottom: 1px solid #dfe7ee; padding: 12px 20px; gap: 12px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .sidebar.sidebar-open { display: flex; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .sidebar nav { display: grid; grid-template-columns: 1fr; gap: 4px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .sidebar .nav-link { padding: 13px 16px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .exit-link { padding: 14px 16px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) main { grid-column: 1; grid-row: 3; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .sidebar { grid-column: 1; grid-row: 2; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .portal-footer { grid-row: 4; }
+  .portal-shell:is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .portal-header { display: flex; flex-wrap: nowrap; align-items: center; gap: 16px; padding: 14px 20px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .patient-menu-toggle { display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; border: 1px solid #dfe7ee; border-radius: 8px; background: white; color: #284764; cursor: pointer; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .patient-menu-toggle svg { width: 24px; height: 24px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .patient-menu-toggle:hover { background: #e7f0ff; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .patient-menu-toggle:focus-visible { outline: 3px solid #165ec0; outline-offset: 3px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .brand { min-width: 0; min-height: 44px; gap: 10px; font-size: 18px; line-height: 1.25; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .brand small, :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .identity-description { display: none; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .brand-mark, :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .patient-menu-toggle, :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .identity { flex-shrink: 0; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .identity { margin-left: auto; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .sidebar { display: none; border-right: 0; border-bottom: 1px solid #dfe7ee; padding: 12px 20px; gap: 12px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .sidebar.sidebar-open { display: flex; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .sidebar nav { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .sidebar .nav-link { padding: 13px 16px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .exit-link { padding: 14px 16px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) main { grid-column: 1; grid-row: 3; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .sidebar { grid-column: 1; grid-row: 2; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .portal-footer { grid-row: 4; }
 }
 
 @media (max-width: 540px) {
-  :is(.theme-patient, .theme-doctor, .theme-staff) .portal-header { gap: 10px; padding: 12px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .brand { font-size: 16px; gap: 8px; }
-  :is(.theme-patient, .theme-doctor, .theme-staff) .brand-mark { font-size: 30px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .portal-header { gap: 10px; padding: 12px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .brand { font-size: 16px; gap: 8px; }
+  :is(.theme-patient, .theme-doctor, .theme-staff, .theme-admin) .brand-mark { font-size: 30px; }
 }
 
-:is(.theme-doctor, .theme-staff) .brand small { display: none; }
+:is(.theme-doctor, .theme-staff, .theme-admin) .brand small { display: none; }
