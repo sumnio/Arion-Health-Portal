@@ -136,6 +136,26 @@ Patient 1 ─── * Appointment
 
 ---
 
+# Doctor Structure
+
+The Doctor fields match `SCHEMA.md`:
+
+| Field | Type | Notes |
+|---|---|---|
+| id | uuid, PK/FK | References `UserProfile.id` |
+| specialty | text | Doctor specialty |
+| license_number | text | Doctor license number; later displayed on issued medical certificates |
+| ptr_number | text | Doctor PTR number; later displayed on issued medical certificates |
+| signature_path | text | Reference to the doctor's securely stored signature image; not image binary |
+
+Doctor contains only these five fields. Display name, contact number, and account status come from `UserProfile.display_name`, `UserProfile.contact_number`, and `UserProfile.status` through the existing shared ID relationship. They are not duplicated in Doctor. Doctor has no password or username fields.
+
+The actual signature image will later be stored securely, such as in Supabase Storage; Doctor stores only `signature_path`, never the image binary. License and PTR numbers will later appear on issued medical certificates. Saved medical records and issued medical certificates remain read-only.
+
+Doctors can manage their own availability. Schedule details are deferred to a later cleanup milestone; this cleanup does not alter DoctorAvailability, add routes, or implement availability, storage, or certificate rendering.
+
+---
+
 # Doctor and Appointment
 
 A doctor can have many appointments.

@@ -87,6 +87,15 @@ Senior status must be calculated from `dob`; do not add a stored `is_senior` fie
 |---|---|---|
 | id | uuid, PK/FK | References `UserProfile.id` |
 | specialty | text | Doctor specialty |
+| license_number | text | Doctor license number; later displayed on issued medical certificates |
+| ptr_number | text | Doctor PTR number; later displayed on issued medical certificates |
+| signature_path | text | Reference to the doctor's securely stored signature image; not image binary |
+
+Doctor contains only the five fields above. `display_name`, `contact_number`, and account `status` come from the linked UserProfile through `Doctor.id = UserProfile.id`; do not duplicate them in Doctor. Doctor has no password or username fields.
+
+The signature image will later be stored securely, such as in Supabase Storage. `signature_path` stores only its reference; the actual image binary must not be stored in Doctor. This cleanup does not implement storage or certificate rendering.
+
+Doctors can manage their own availability. Schedule details are deferred to a later cleanup milestone; the existing DoctorAvailability structure is unchanged here. Saved medical records and issued medical certificates remain read-only; these profile fields do not authorize editing historical clinical documents.
 
 ---
 
@@ -388,6 +397,8 @@ Can access:
 - assigned patient information
 - permitted medical records
 - certificates they issue
+
+Doctors can manage their own availability; detailed schedule rules are deferred to a later cleanup milestone. Saved medical records and issued medical certificates are read-only.
 
 ## Staff
 

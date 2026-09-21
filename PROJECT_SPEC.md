@@ -21,6 +21,7 @@ Arion Health Portal is a clinic management and patient portal system.
 
 ### Doctor
 - View schedule
+- Manage own availability; schedule details are deferred to a later cleanup milestone
 - View patient information
 - Create medical records
 - Issue medical certificates
@@ -35,6 +36,15 @@ Arion Health Portal is a clinic management and patient portal system.
 - Manage doctors
 - Manage staff
 - Deactivate/reactivate Doctor accounts, Staff accounts, and Patient portal access; never delete historical clinical data
+
+## Doctor profile and clinical document rules
+
+- Doctor contains `id`, `specialty`, `license_number`, `ptr_number`, and `signature_path` only.
+- Doctor display name, contact number, and account status come from the linked UserProfile. Do not duplicate them in Doctor or add password/username fields.
+- Doctor license and PTR numbers will later be displayed on issued medical certificates.
+- `signature_path` references the doctor's signature image, which will later be stored securely, such as in Supabase Storage. Do not store image binary in Doctor.
+- Saved medical records and issued medical certificates remain read-only.
+- Doctors can manage their own availability; schedule details will be addressed in a later cleanup milestone. This cleanup adds no routes and implements no availability, signature storage, or certificate rendering.
 
 ## Shared profile and account lifecycle
 
