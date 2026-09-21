@@ -43,24 +43,28 @@ Admin is represented by `UserProfile.role = admin`; there is no separate Admin e
 |---|---|---|
 | id | uuid, PK | Defaults to `gen_random_uuid()`; independent of the account UUID |
 | user_profile_id | uuid, FK, nullable, unique | References `UserProfile.id`; null for guest/walk-in patients |
+| full_name | text | Patient's full name, stored independently of any portal account |
 | dob | date | Used to determine senior status |
 | sex | text | Project-defined value |
 | contact_number | text | Patient contact number |
-| emergency_contact | text, nullable | Optional; may be added later |
+| address | text, nullable | Optional patient address |
+| emergency_contact_name | text, nullable | Optional emergency contact name |
+| emergency_contact_number | text, nullable | Optional emergency contact number |
+| emergency_contact_relationship | text, nullable | Optional emergency contact relationship to the patient |
 | allergies | text[] | Optional; defaults to empty array |
 | is_pwd | boolean | Self-reported PWD status; default false |
 
 A Patient can exist without a UserProfile or Supabase Auth account. Staff can register a guest/walk-in patient with `user_profile_id = null`.
 
+`full_name` belongs to Patient so a walk-in's name does not depend on a UserProfile. `contact_number`, optional `address`, and the three optional emergency contact fields also belong to Patient. The separate emergency contact fields replace the former single `emergency_contact` field.
+
 For a registered patient, `user_profile_id` links to a UserProfile with the `patient` role. Each Patient has at most one linked UserProfile, and each UserProfile can link to at most one Patient. Multiple guest patients can have a null `user_profile_id`.
 
-If a guest later creates a portal account, an authorized process can verify the patient's identity and link the existing Patient to the new UserProfile. Keep `Patient.id` unchanged so existing appointments, records, and certificates remain attached to the same patient.
+If a returning walk-in later receives a portal account, an authorized process can verify the patient's identity and set the existing `Patient.user_profile_id` to the new patient-role `UserProfile.id`. Do not create a replacement Patient or change `Patient.id`. Existing Appointment, MedicalRecord, and MedicalCertificate relationships continue to reference the same Patient through `patient_id`.
 
 ### Derived values
 
-`isSenior` should not be manually stored or selected by the patient.
-
-It should be calculated from `dob`.
+Senior status must be calculated from `dob`; do not add a stored `is_senior` field or allow manual selection. `is_pwd` remains stored in Patient.
 
 ---
 

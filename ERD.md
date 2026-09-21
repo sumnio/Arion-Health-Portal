@@ -59,6 +59,33 @@ UserProfile 1 ─── 0..1 Staff
 
 ---
 
+# Patient Structure
+
+The Patient fields match `SCHEMA.md`:
+
+| Field | Type | Notes |
+|---|---|---|
+| id | uuid, PK | Defaults to `gen_random_uuid()`; independent of the account UUID |
+| user_profile_id | uuid, FK, nullable, unique | References `UserProfile.id`; null for guest/walk-in patients |
+| full_name | text | Patient's full name, stored independently of any portal account |
+| dob | date | Used to determine senior status |
+| sex | text | Project-defined value |
+| contact_number | text | Patient contact number |
+| address | text, nullable | Optional patient address |
+| emergency_contact_name | text, nullable | Optional emergency contact name |
+| emergency_contact_number | text, nullable | Optional emergency contact number |
+| emergency_contact_relationship | text, nullable | Optional emergency contact relationship to the patient |
+| allergies | text[] | Optional; defaults to empty array |
+| is_pwd | boolean | Self-reported PWD status; default false |
+
+The three emergency contact fields replace the former single `emergency_contact` field. Senior status is derived from `dob`; there is no stored `is_senior` field and no manual senior selection.
+
+Walk-in patients can exist with `user_profile_id = null` and do not require a UserProfile or authentication account. Their name and contact information live in Patient. Non-null account links reference a UserProfile with role `patient`; each Patient has at most one linked UserProfile and each UserProfile links to at most one Patient.
+
+If a returning walk-in later receives a portal account, verify their identity and link the new UserProfile through the existing `Patient.user_profile_id`. Keep the same `Patient.id`; do not create a replacement Patient. Appointment, MedicalRecord, and MedicalCertificate continue to reference that same Patient through `patient_id`.
+
+---
+
 # Patient and Appointment
 
 A patient can have many appointments.
