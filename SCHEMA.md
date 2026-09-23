@@ -218,18 +218,32 @@ Replaces the previous `Schedule` entity.
 
 ### Queue priority
 
-Queue ordering should follow:
+Queue ordering for checked-in patients follows these three tiers:
 
 1. Urgent
-2. Senior citizen / PWD
+2. Senior / PWD
 3. Normal
 
-Patients in the same priority tier should be ordered using:
+- Senior and PWD share one priority tier. A patient who is both Senior and PWD remains in that single tier and receives no additional or duplicate priority.
+- Senior status is derived from `Patient.dob`; do not add or store an `is_senior` field and do not allow manual senior assignment.
+- PWD status comes from `Patient.is_pwd`.
+- Pregnancy does not have a separate queue priority or status. A case that qualifies as urgent under clinic policy uses the existing Appointment `priority = urgent`; otherwise it follows the Senior/PWD or Normal rules.
+- Appointment priority values remain only `normal` and `urgent`. Senior/PWD is a derived queue tier, not another Appointment priority value.
 
-1. `check_in_at`, if available
-2. otherwise `appointment_at`
+Within the same priority tier:
 
-Senior/PWD priority is derived from the Patient record rather than manually stored in the Appointment.
+1. Order by `check_in_at`; earlier check-in goes first.
+2. If `check_in_at` is unavailable where a fallback is required, use `appointment_at` consistently.
+
+Do not order the queue by Appointment `created_at`.
+
+### Check-in rules
+
+- Normal check-in is allowed only for an eligible Appointment. With the approved statuses, `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible for normal check-in.
+- Checking in sets `Appointment.check_in_at`, after which the patient enters the waiting queue.
+- Prevent duplicate check-in: normal check-in requires `check_in_at` to be null and must not replace an existing check-in timestamp.
+- Walk-ins follow the same rules. Staff first selects or registers the Patient, creates the same-day Appointment, and then checks the patient in. Queue placement uses Urgent -> Senior/PWD -> Normal and the same within-tier timestamp ordering.
+- These rules introduce no additional queue fields or priority values.
 
 ---
 

@@ -135,6 +135,23 @@ Relationship:
 Patient 1 ─── * Appointment
 ```
 
+## Queue and check-in behavior
+
+The waiting queue is derived from Appointment and Patient data; this cleanup adds no queue entity or fields.
+
+1. Urgent
+2. Senior / PWD
+3. Normal
+
+- Senior and PWD share the same tier. A patient who qualifies for both appears once in that tier and receives no double priority.
+- Senior status is derived from `Patient.dob`; there is no stored or manually assigned `is_senior` field. PWD status comes from `Patient.is_pwd`.
+- Pregnancy does not create a separate priority or status. Cases that meet clinic urgent criteria use the existing `Appointment.priority = urgent`; otherwise the standard derived tier applies.
+- `Appointment.priority` remains limited to `normal` and `urgent`; Senior/PWD is a derived queue tier.
+- Within a tier, order by `Appointment.check_in_at`, with earlier check-in first. Where a fallback is required because `check_in_at` is unavailable, use `Appointment.appointment_at` consistently. Never use `Appointment.created_at` for queue ordering.
+- Normal check-in applies only to eligible Appointments. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible.
+- Check-in sets `Appointment.check_in_at` and places the patient in the waiting queue. Requiring that `check_in_at` is null prevents duplicate check-in and preserves the original timestamp.
+- Walk-in patients use the same behavior after staff creates their same-day Appointment: Urgent -> Senior/PWD -> Normal, then check-in time within the tier.
+
 ---
 
 # Doctor Structure

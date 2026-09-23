@@ -93,6 +93,24 @@ These are the only approved fixed MVP visit types. Do not create a Service or De
 
 Staff selects an existing Patient or registers a new walk-in Patient, creates a same-day Appointment, and checks the patient in. The patient enters the queue and the doctor consults through the normal appointment flow. MedicalRecord normally links to that Appointment through appointment_id. A portal account is not required. Nullable appointment_id remains for exceptional/manual records, not the normal walk-in flow.
 
+## Queue and check-in rules
+
+Queue priority is:
+
+1. Urgent
+2. Senior / PWD
+3. Normal
+
+- Senior and PWD share one tier. A patient who is both Senior and PWD receives no double priority.
+- Senior status is derived from `Patient.dob`; do not store or manually assign `is_senior`. PWD status comes from `Patient.is_pwd`.
+- Pregnancy does not require a separate queue priority or status. A case that qualifies as urgent under clinic policy uses the existing urgent Appointment priority; otherwise the standard derived tier applies.
+- Appointment priority values remain only `normal` and `urgent`. Senior/PWD is derived for queue ordering and is not a new stored Appointment priority.
+- Within the same tier, earlier `check_in_at` goes first. If a fallback is needed because `check_in_at` is unavailable, use `appointment_at` consistently. Do not order the queue by Appointment creation time.
+- Only eligible Appointments may be checked in. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible for normal check-in.
+- Check-in sets `check_in_at` and adds the patient to the waiting queue. A non-null `check_in_at` prevents duplicate check-in and must not be overwritten by a repeated normal check-in.
+- Walk-ins use the same logic after staff creates their same-day Appointment and checks them in: Urgent -> Senior/PWD -> Normal, then earlier check-in first within the tier.
+- This cleanup introduces no queue entity, fields, priority values, routes, or application behavior.
+
 
 ## Shared profile and account lifecycle
 
