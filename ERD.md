@@ -22,6 +22,8 @@ The Arion Health Portal contains the following main entities:
 
 Supabase Auth will handle user credentials for portal accounts when authentication is implemented. Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. Guest/walk-in Patient records do not require an auth.users entry or a UserProfile.
 
+Supabase Auth owns email, password, sessions, login/logout, password recovery/reset where implemented, and future MFA. UserProfile owns application identity, role, common contact information, and active/inactive status. Real login is shared across all four roles and never asks the user to select a role.
+
 ```text
 auth.users
     │
@@ -35,6 +37,8 @@ UserProfile
 A UserProfile may correspond to one role-specific profile. Doctor and Staff use `UserProfile.id` as their primary key and foreign key. Patient has its own UUID primary key (default `gen_random_uuid()`) and a nullable, unique `user_profile_id` foreign key to `UserProfile.id`.
 
 Admin is represented by `UserProfile.role = admin`; there is no separate Admin entity.
+
+Public `/register` creates Patient access only. Admin provisions Doctor and Staff accounts, while the Admin account is provisioned separately. Patient self-registration cannot assign or promote to another role.
 
 ```text
 UserProfile 0..1 ─── 0..1 Patient
@@ -57,6 +61,14 @@ UserProfile 0..1 ─── 0..1 Patient
 UserProfile 1 ─── 0..1 Doctor
 UserProfile 1 ─── 0..1 Staff
 ```
+
+### Protected access
+
+The Auth-to-UserProfile relationship supplies three separate checks for protected access: an authenticated Auth user, an active UserProfile, and the role permitted for the route. Patient, Doctor, Staff, and Admin route groups accept only their matching roles. Unauthenticated access redirects to `/login`; a wrong-role account is sent to `/unauthorized` or denied; an inactive account receives no normal portal access.
+
+Post-login role redirects lead to the matching dashboard but provide navigation only. Frontend route guards do not replace future backend authorization and RLS. Hiding UI controls is not sufficient.
+
+The existing mock role selector and preview-exit controls are temporary development behavior and must be removed when real authentication replaces the mock flow.
 
 ---
 

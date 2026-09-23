@@ -17,13 +17,21 @@ Main revisions:
 
 # 1. Authentication and User Profiles
 
-Authentication credentials will be handled by Supabase Auth when authentication is implemented.
+Authentication credentials will be handled by Supabase Auth when authentication is implemented. Supabase Auth owns email, password, authentication sessions, login/logout, password recovery/reset where implemented, and future MFA. Email and password are authentication data and are not fields in the approved UserProfile structure.
 
 Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, role, common contact information, and account status, not authentication credentials. Doctor and Staff must not contain username-based authentication fields.
 
 Portal accounts have a UserProfile linked to `auth.users.id`. Patient records are independent and only link to a UserProfile when the patient has a portal account. Doctor and Staff retain their shared primary-key relationship with UserProfile.
 
 Admin is represented by `UserProfile.role = admin`; there is no separate Admin entity.
+
+### Authentication and provisioning boundary
+
+- `/login` is shared by Patient, Doctor, Staff, and Admin. Real authentication uses Supabase Auth credentials and never requires manual role selection.
+- `/register` is Patient self-registration only. Public registration must force the trusted application role to `patient`; it must not accept a client-selected role or permit self-registration as Doctor, Staff, or Admin.
+- Admin provisions Doctor and Staff accounts. The Admin account is provisioned separately. Patients cannot promote their own role.
+- The authenticated Auth user links to UserProfile through the shared UUID. The trusted UserProfile supplies application role and status.
+- The current mock role selector and “Exit mock preview” controls are temporary and must be removed during real authentication implementation.
 
 ## UserProfile
 
@@ -47,6 +55,20 @@ Admin is represented by `UserProfile.role = admin`; there is no separate Admin e
 - Admin must not delete historical clinical data. Account lifecycle actions must not cascade-delete related records.
 - Reactivating or relinking a returning Patient's account access must preserve the existing `Patient.id`. After identity verification, reuse the existing Patient and link account access through `user_profile_id` when needed; do not create a second medical-history identity.
 - These are documentation requirements for future implementation; authentication and account lifecycle enforcement are not implemented by this cleanup.
+
+### Protected access and post-login navigation
+
+After successful authentication, active accounts navigate by role: Patient to `/patient/dashboard`, Doctor to `/doctor/dashboard`, Staff to `/staff/dashboard`, and Admin to `/admin/dashboard`. This redirect is navigation only.
+
+Every protected request and route must independently require:
+
+1. an authenticated user;
+2. `UserProfile.status = active`; and
+3. the role permitted for the requested route group.
+
+`/patient/*`, `/doctor/*`, `/staff/*`, and `/admin/*` are restricted to their matching roles. Unauthenticated users are redirected to `/login`; authenticated users with the wrong role are sent to `/unauthorized` or denied. Inactive accounts receive no normal portal access.
+
+Frontend guards must be combined with future backend authorization and RLS. UI visibility and redirect logic alone do not protect data. Authentication establishes identity; authorization limits allowed actions and records.
 
 ---
 

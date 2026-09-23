@@ -9,6 +9,36 @@ Arion Health Portal is a clinic management and patient portal system.
 - Staff
 - Admin
 
+## Authentication, registration, and authorization
+
+`/login` is the single shared public login route for Patient, Doctor, Staff, and Admin. The final form uses the user's real account credentials and does not ask the user to select a role. After successful authentication, the application reads the trusted linked UserProfile to determine role and account status.
+
+Supabase Auth will later own account email, password, authentication sessions, login/logout, password recovery/reset where implemented, and future MFA. Passwords and password hashes must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, the approved role, common contact information, and account status.
+
+`/register` is Patient self-registration only. Public registration must create only Patient access and must not accept a client-selected Doctor, Staff, or Admin role. Admin provisions Doctor and Staff accounts through approved account-management workflows. The Admin account is provisioned separately and does not use public registration. Patients cannot promote their own role.
+
+Approved UserProfile roles remain only `patient`, `doctor`, `staff`, and `admin`. After successful login, navigation redirects are:
+
+- `patient` -> `/patient/dashboard`
+- `doctor` -> `/doctor/dashboard`
+- `staff` -> `/staff/dashboard`
+- `admin` -> `/admin/dashboard`
+
+Role redirects are navigation only and are not an authorization control. Every protected route must verify that the user is authenticated, the linked UserProfile status is `active`, and the UserProfile role is allowed for the route:
+
+- `/patient/*` -> Patient only
+- `/doctor/*` -> Doctor only
+- `/staff/*` -> Staff only
+- `/admin/*` -> Admin only
+
+Unauthenticated users attempting a protected route are redirected to `/login`. Authenticated users with the wrong role are sent to `/unauthorized` or denied access. An inactive account must not receive normal authenticated portal access. Deactivation continues to preserve historical records and relationships.
+
+Authentication answers who the user is; role-based authorization determines what the user may do. Frontend route guards must later be combined with backend authorization and database RLS. Hiding routes or buttons is not sufficient security.
+
+The current mock role selector, role-preview login behavior, and “Exit mock preview” controls are temporary development aids. Keep them during this documentation-only cleanup, but remove them when real Supabase authentication is implemented.
+
+This cleanup does not implement Supabase Auth, login/logout, password recovery, MFA, route guards, or RLS and adds no routes.
+
 ## Core MVP
 
 ### Patient
