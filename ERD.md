@@ -135,6 +135,18 @@ Relationship:
 Patient 1 ─── * Appointment
 ```
 
+## Staff access boundary
+
+Staff has no ownership relationship with MedicalRecord, Prescription, or MedicalCertificate. Staff access is role-based and follows least privilege.
+
+- Staff may use basic Patient and Appointment information for calendar, appointment confirmation/cancellation, patient search, walk-in registration, same-day Appointment creation, check-in, queue management, and approved operational status updates.
+- When operationally necessary, Staff may read only patient name, encounter date, attending Doctor, and a short diagnosis summary from the related MedicalRecord.
+- Staff must not see detailed doctor notes, full Prescription details, MedicalCertificate contents, or sensitive clinical narrative beyond the short diagnosis summary.
+- Staff cannot create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit Patient clinical history; or manage Doctor, Staff, or Admin accounts.
+- Future backend authorization and RLS must enforce this boundary. UI visibility alone is not authorization.
+
+This permission note changes no entity relationship or schema field. The short diagnosis summary is a limited projection of existing diagnosis data, not a new field.
+
 ## Queue and check-in behavior
 
 The waiting queue is derived from Appointment and Patient data; this cleanup adds no queue entity or fields.

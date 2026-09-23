@@ -27,10 +27,49 @@ Arion Health Portal is a clinic management and patient portal system.
 - Issue medical certificates
 
 ### Staff
-- Manage appointments
-- Check in patients
-- Manage queue
-- Register walk-in patients
+- View the Staff Dashboard
+- View and manage the clinic calendar and appointment operations
+- Search existing patients and register walk-in patients
+- Create same-day walk-in appointments
+- Check in patients and manage the queue
+
+## Staff permissions
+
+Staff access follows least-privilege principles and is limited to clinic operations plus the approved limited medical-record summary.
+
+### Operational access
+
+Staff may:
+
+- view the Staff Dashboard;
+- view and manage the clinic calendar;
+- view operational appointment details;
+- confirm eligible appointments;
+- cancel eligible appointments when appropriate;
+- search existing patients;
+- view basic patient information needed for appointment, walk-in, check-in, and queue workflows;
+- register walk-in patients and create their same-day Appointments;
+- check in eligible patients and manage the queue; and
+- mark appropriate operational Appointment states, including no-show or completed where the approved workflow allows it.
+
+These permissions must continue to follow the approved Appointment and queue rules. Staff pages must not be used to edit clinical history.
+
+### Limited read-only medical-record visibility
+
+When operationally necessary, Staff may view only:
+
+- patient name;
+- encounter date;
+- attending doctor; and
+- short diagnosis summary.
+
+Staff must not view detailed doctor notes, full prescription details, MedicalCertificate contents, or sensitive clinical narrative beyond the approved short diagnosis summary. More detailed clinical information remains Doctor-only.
+
+### Prohibited actions
+
+Staff must not create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit patient clinical history; or manage Doctor, Staff, or Admin accounts.
+
+These restrictions must later be enforced by backend authorization and Supabase RLS or an equivalent service-layer policy. Hiding UI controls is not sufficient. This cleanup does not implement authorization, connect Supabase, add routes, or change application behavior.
 
 ### Admin
 - Manage doctors
