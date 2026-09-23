@@ -1,10 +1,10 @@
 # Arion Health Portal - Revised Database Schema
 
-This schema is designed for the Arion Health Portal MVP using Supabase/PostgreSQL.
+This is the approved logical and relational reference schema for the Arion Health Portal MVP. Its UUID, PostgreSQL type, constraint, and default syntax is retained as the current reference until the backend is selected; it does not require Supabase as the only implementation. A future Express + Node.js + MongoDB design must preserve the approved data, relationships, constraints, and access rules without treating this document as a MongoDB collection design.
 
 Main revisions:
 - UUID primary keys
-- Supabase Auth handles passwords/authentication
+- A dedicated authentication system handles credentials and sessions
 - `Appointment` replaces `Schedule`
 - `MedicalRecord` replaces generic `Records`
 - Doctor availability is normalized
@@ -17,27 +17,27 @@ Main revisions:
 
 # 1. Authentication and User Profiles
 
-Authentication credentials will be handled by Supabase Auth when authentication is implemented. Supabase Auth owns email, password, authentication sessions, login/logout, password recovery/reset where implemented, and future MFA. Email and password are authentication data and are not fields in the approved UserProfile structure.
+Authentication credentials will be handled by the selected authentication system. It owns email, password, authentication sessions, login/logout, password recovery/reset where implemented, and future MFA. Supabase Auth is one supported implementation; an Express-based backend must provide an equivalent boundary. Email and password are authentication data and are not fields in the approved UserProfile structure.
 
 Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, role, common contact information, and account status, not authentication credentials. Doctor and Staff must not contain username-based authentication fields.
 
-Portal accounts have a UserProfile linked to `auth.users.id`. Patient records are independent and only link to a UserProfile when the patient has a portal account. Doctor and Staff retain their shared primary-key relationship with UserProfile.
+Portal accounts have a UserProfile linked one-to-one with the authenticated identity. In a Supabase implementation, the shared identifier maps to `auth.users.id`. Patient records are independent and only link to a UserProfile when the patient has a portal account. Doctor and Staff retain their shared primary-key relationship with UserProfile.
 
 Admin is represented by `UserProfile.role = admin`; there is no separate Admin entity.
 
 ### Authentication and provisioning boundary
 
-- `/login` is shared by Patient, Doctor, Staff, and Admin. Real authentication uses Supabase Auth credentials and never requires manual role selection.
+- `/login` is shared by Patient, Doctor, Staff, and Admin. Real authentication uses credentials managed by the selected authentication system and never requires manual role selection.
 - `/register` is Patient self-registration only. Public registration must force the trusted application role to `patient`; it must not accept a client-selected role or permit self-registration as Doctor, Staff, or Admin.
 - Admin provisions Doctor and Staff accounts. The Admin account is provisioned separately. Patients cannot promote their own role.
-- The authenticated Auth user links to UserProfile through the shared UUID. The trusted UserProfile supplies application role and status.
+- The authenticated identity links to UserProfile through the shared UUID. The trusted UserProfile supplies application role and status.
 - The current mock role selector and “Exit mock preview” controls are temporary and must be removed during real authentication implementation.
 
 ## UserProfile
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid, PK/FK | Same UUID as `auth.users.id` |
+| id | uuid, PK/FK | Shared with the authenticated identity; maps to `auth.users.id` when Supabase is selected |
 | display_name | text | User's full/display name |
 | role | enum | `patient`, `doctor`, `staff`, `admin` |
 | contact_number | text | Common contact number for the account holder |
@@ -54,7 +54,7 @@ Admin is represented by `UserProfile.role = admin`; there is no separate Admin e
 - Deactivation preserves UserProfile and the related Patient, Doctor, and Staff records. It must not delete Appointment, MedicalRecord, Prescription, or MedicalCertificate history or their existing relationships.
 - Admin must not delete historical clinical data. Account lifecycle actions must not cascade-delete related records.
 - Reactivating or relinking a returning Patient's account access must preserve the existing `Patient.id`. After identity verification, reuse the existing Patient and link account access through `user_profile_id` when needed; do not create a second medical-history identity.
-- These are documentation requirements for future implementation; authentication and account lifecycle enforcement are not implemented by this cleanup.
+- These are requirements for backend implementation; the current frontend mock does not enforce the production account lifecycle.
 
 ### Protected access and post-login navigation
 
@@ -68,7 +68,7 @@ Every protected request and route must independently require:
 
 `/patient/*`, `/doctor/*`, `/staff/*`, and `/admin/*` are restricted to their matching roles. Unauthenticated users are redirected to `/login`; authenticated users with the wrong role are sent to `/unauthorized` or denied. Inactive accounts receive no normal portal access.
 
-Frontend guards must be combined with future backend authorization and RLS. UI visibility and redirect logic alone do not protect data. Authentication establishes identity; authorization limits allowed actions and records.
+Frontend guards must be combined with future backend authorization and database access controls. Supabase RLS may provide part of those controls when Supabase is selected. UI visibility and redirect logic alone do not protect data. Authentication establishes identity; authorization limits allowed actions and records.
 
 ---
 
@@ -89,7 +89,7 @@ Frontend guards must be combined with future backend authorization and RLS. UI v
 | allergies | text[] | Optional; defaults to empty array |
 | is_pwd | boolean | Self-reported PWD status; default false |
 
-A Patient can exist without a UserProfile or Supabase Auth account. Staff can register a guest/walk-in patient with `user_profile_id = null`.
+A Patient can exist without a UserProfile or authentication account. Staff can register a guest/walk-in patient with `user_profile_id = null`.
 
 `full_name` belongs to Patient so a walk-in's name does not depend on a UserProfile. `contact_number`, optional `address`, and the three optional emergency contact fields also belong to Patient. The separate emergency contact fields replace the former single `emergency_contact` field.
 
@@ -115,7 +115,7 @@ Senior status must be calculated from `dob`; do not add a stored `is_senior` fie
 
 Doctor contains only the five fields above. `display_name`, `contact_number`, and account `status` come from the linked UserProfile through `Doctor.id = UserProfile.id`; do not duplicate them in Doctor. Doctor has no password or username fields.
 
-The signature image will later be stored securely, such as in Supabase Storage. `signature_path` stores only its reference; the actual image binary must not be stored in Doctor. This cleanup does not implement storage or certificate rendering.
+The signature image must be stored in protected object/file storage. Supabase Storage is one option when that provider is selected. `signature_path` stores only its reference; the actual image binary must not be stored in Doctor.
 
 Doctors manage their own availability through the existing `/doctor/schedule` workflow under the scheduling rules below. Saved medical records and issued medical certificates remain read-only; these profile fields do not authorize editing historical clinical documents.
 
@@ -128,7 +128,7 @@ Doctors manage their own availability through the existing `/doctor/schedule` wo
 | id | uuid, PK/FK | References `UserProfile.id` |
 | username | text, unique, nullable | Existing optional staff identifier only; not a login credential or authentication field |
 
-Authentication will remain in Supabase Auth. The optional Staff username does not enable username-based authentication; do not add authentication fields to Doctor or Staff. Shared display name, contact number, role, and account status belong in UserProfile.
+Authentication remains outside the Staff table. The optional Staff username does not enable username-based authentication; do not add authentication fields to Doctor or Staff. Shared display name, contact number, role, and account status belong in UserProfile.
 
 ---
 
@@ -189,7 +189,9 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 The approved DoctorAvailability fields describe weekly recurrence but do not record which specific dates have actually been published or the publication horizon. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. A publication representation needs approval before backend implementation; no additional fields or entities are introduced here. Clinic operating-hour values are also not yet specified and must be established before enforcing that boundary.
 
-The approved patient booking window is up to 14 days ahead, replacing the earlier 60-day mock window and the prior wording that used the doctor publication limit as the patient limit. The doctor publication limit stays at 30 days. This documentation cleanup does not modify the current mock implementation.
+The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
+
+The Appointment `created_by` field identifies the account that created an appointment, but its exact relationship/reference target and deletion behavior have not been approved. Backend implementation must not guess these details.
 
 ### Patient appointment booking rules
 
@@ -211,7 +213,7 @@ The same doctor must not have two active appointments in the same 30-minute slot
 - Follow-up
 - Check-up
 
-These are the only approved fixed MVP visit types. Do not create a Service or Department table. The current Appointment field list has no dedicated visit-type field; its storage representation remains to be approved before backend implementation. Do not conflate visit type with the free-text reason for visit or invent a new field in this cleanup.
+These are the only approved fixed MVP visit types. Do not create a Service or Department table. The current Appointment field list has no dedicated visit-type field; its storage representation remains to be approved before backend implementation. Do not conflate visit type with the free-text reason for visit or add a field without approval.
 
 ### Normal walk-in appointment flow
 
@@ -290,6 +292,8 @@ Replaces the previous generic `Records` entity.
 
 Normal scheduled and walk-in consultations link MedicalRecord to their Appointment. Walk-ins use a same-day appointment. A MedicalRecord may have `appointment_id = null` only for exceptional/manual records outside the normal appointment flow.
 
+Once saved, a MedicalRecord is read-only. Doctors may create a record for an eligible consultation that does not already have one and may view permitted saved records, but they may not edit or delete saved records. Staff receives only the limited read-only projection described in the security section, and Admin has no clinical editing permission.
+
 ---
 
 ## Prescription
@@ -333,11 +337,11 @@ MedicalRecord
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
-`medical_certificate_number` must be unique. Its exact numbering format is intentionally deferred; this cleanup does not introduce QR or public-verification behavior.
+`medical_certificate_number` must be unique. Its exact numbering format is intentionally deferred. QR and public-verification behavior remain outside the approved MVP.
 
 Patient and Doctor relationships are required and must be preserved. `medical_record_id` remains nullable; when present, it links the certificate to the related MedicalRecord. A single MedicalRecord may produce multiple certificates if necessary.
 
-Certificate display/generation reads `Doctor.license_number`, `Doctor.ptr_number`, and the signature image referenced by `Doctor.signature_path` from the linked Doctor. Do not duplicate those values inside MedicalCertificate for the current MVP. `signature_path` remains a reference only; raw image binary is not stored in Doctor. The real image will later be held securely, such as in Supabase Storage, and access must be restricted to the intended authenticated certificate flow rather than publicly exposed.
+Certificate display/generation reads `Doctor.license_number`, `Doctor.ptr_number`, and the signature image referenced by `Doctor.signature_path` from the linked Doctor. Do not duplicate those values inside MedicalCertificate for the current MVP. `signature_path` remains a reference only; raw image binary is not stored in Doctor. The real image must be held in protected object/file storage, and access must be restricted to the intended authenticated certificate flow rather than publicly exposed.
 
 Clinic location is required for certificate display/generation and is treated as simple application/global configuration for the MVP. Do not add a clinic-management entity or duplicate clinic location in MedicalCertificate.
 
@@ -365,13 +369,13 @@ If the final project requires only one certificate per medical record, a unique 
 
 ## Authentication
 
-`UserProfile.id` should reference:
+`UserProfile.id` shares the authenticated identity's identifier. For a Supabase implementation, it references:
 
 ```text
 auth.users.id
 ```
 
-Account lifecycle uses deactivation, not deletion of the Auth user or UserProfile. Do not configure account deletion to cascade into application profiles or history. Preserve related Patient, Doctor, Staff, Appointment, MedicalRecord, Prescription, and MedicalCertificate records and references. The former cascade-delete recommendation is superseded by these history-preservation requirements.
+Account lifecycle uses deactivation, not deletion of the authentication identity or UserProfile. Do not configure account deletion to cascade into application profiles or history. Preserve related Patient, Doctor, Staff, Appointment, MedicalRecord, Prescription, and MedicalCertificate records and references.
 
 ---
 
@@ -409,7 +413,7 @@ appointment_id = null
 
 ## Enums
 
-Use PostgreSQL enums or CHECK constraints for:
+Enforce these allowed values at the persistence boundary. A PostgreSQL implementation may use enums or CHECK constraints; another datastore must provide equivalent validation.
 
 ### User Role
 
@@ -469,13 +473,13 @@ and update:
 updated_at
 ```
 
-through application logic or a PostgreSQL trigger.
+through application logic or an equivalent datastore mechanism.
 
 ---
 
-# 6. Security / Supabase RLS
+# 6. Security and Authorization
 
-Use Supabase Row Level Security.
+Enforce these rules in the backend and persistence layer. Use Supabase Row Level Security when Supabase is selected; an Express implementation must enforce equivalent authorization in the API and data-access layers.
 
 General intended permissions:
 
@@ -483,7 +487,7 @@ Account-based access requires an active UserProfile in addition to the role and 
 
 ## Patient
 
-Portal ownership is determined by `Patient.user_profile_id = auth.uid()`, not by comparing `Patient.id` to the authentication UUID. Related appointments, records, and certificates are matched through their `patient_id` to that Patient. A null account link grants no patient portal access; staff and doctor access remains governed by their role permissions.
+Portal ownership is determined by matching `Patient.user_profile_id` to the authenticated UserProfile ID, not by comparing `Patient.id` to the authentication identity. In Supabase this authenticated ID is available as `auth.uid()`. Related appointments, records, and certificates are matched through their `patient_id` to that Patient. A null account link grants no patient portal access; Staff and Doctor access remains governed by their role permissions.
 
 Can access:
 - own profile
@@ -503,7 +507,7 @@ Doctors manage their own recurring availability and blocked time through the exi
 
 ## Staff
 
-Staff access follows least privilege. Future authorization and RLS must enforce these permissions at the data-access layer; hiding buttons or routes in the UI is not sufficient.
+Staff access follows least privilege. Backend authorization and database access controls must enforce these permissions at the data-access layer; hiding buttons or routes in the UI is not sufficient.
 
 Staff may access operational information needed to:
 
@@ -526,15 +530,15 @@ Staff must not access detailed `MedicalRecord.notes`, full Prescription details,
 
 Staff must not create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit Patient clinical history; or manage Doctor, Staff, or Admin accounts.
 
-The limited diagnosis summary is an authorization/view boundary, not a new schema field. This cleanup adds no Staff fields, routes, or database implementation and does not change the approved Appointment or queue rules.
+The limited diagnosis summary is an authorization/view boundary, not a new schema field.
 
 ## Admin
 
 Can manage:
-- doctor accounts
-- staff accounts
+- Doctor account provisioning and active/inactive lifecycle
+- Staff account provisioning and active/inactive lifecycle
 - Patient portal access through `/admin/patients`
-- role/account administration
+- approved non-clinical account administration
 
 Admin can deactivate/reactivate Doctor accounts, Staff accounts, and Patient portal access through UserProfile status. This does not grant permission to delete historical clinical data. Deactivation preserves the related profiles and all appointment, medical record, prescription, and certificate history.
 
@@ -544,13 +548,13 @@ Admin may change the linked UserProfile status only between `active` and `inacti
 
 Admin must not create or edit diagnoses, MedicalRecords, doctor notes, Prescriptions, or MedicalCertificates; issue certificates; alter Doctor clinical decisions; or permanently delete Patient clinical history.
 
-Future authorization and RLS must enforce this limited account-administration projection and mutation boundary. UI hiding alone is not authorization. This note adds no schema fields and does not implement Supabase access.
+Backend authorization and database access controls must enforce this limited account-administration projection and mutation boundary. UI hiding alone is not authorization.
 
 ---
 
 # 7. Backend Portability
 
-Do not call Supabase directly throughout React components.
+Do not call a database, Supabase, or another provider directly throughout React components.
 
 Use service modules such as:
 
@@ -564,17 +568,17 @@ services/
 └── doctorAvailabilityService
 ```
 
-Current architecture:
+Supported backend boundary:
 
 ```text
 React
   ↓
 Service Layer
   ↓
-Supabase
+Backend Adapter or API
 ```
 
-Possible future architecture:
+One implementation may use Supabase behind the service layer. Another may use:
 
 ```text
 React
@@ -586,4 +590,4 @@ Express API
 MongoDB
 ```
 
-This makes a future migration away from Supabase easier.
+The backend choice is not finalized. This section defines the boundary only; it does not design Express endpoints, MongoDB collections, or provider-specific authentication.

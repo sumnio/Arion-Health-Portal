@@ -13,7 +13,7 @@ Arion Health Portal is a clinic management and patient portal system.
 
 `/login` is the single shared public login route for Patient, Doctor, Staff, and Admin. The final form uses the user's real account credentials and does not ask the user to select a role. After successful authentication, the application reads the trusted linked UserProfile to determine role and account status.
 
-Supabase Auth will later own account email, password, authentication sessions, login/logout, password recovery/reset where implemented, and future MFA. Passwords and password hashes must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, the approved role, common contact information, and account status.
+The selected authentication system will own account email, password, authentication sessions, login/logout, password recovery/reset where implemented, and future MFA. Supabase Auth is one supported implementation; an Express-based backend must provide an equivalent authentication boundary. Passwords and password hashes must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, the approved role, common contact information, and account status.
 
 `/register` is Patient self-registration only. Public registration must create only Patient access and must not accept a client-selected Doctor, Staff, or Admin role. Admin provisions Doctor and Staff accounts through approved account-management workflows. The Admin account is provisioned separately and does not use public registration. Patients cannot promote their own role.
 
@@ -33,11 +33,11 @@ Role redirects are navigation only and are not an authorization control. Every p
 
 Unauthenticated users attempting a protected route are redirected to `/login`. Authenticated users with the wrong role are sent to `/unauthorized` or denied access. An inactive account must not receive normal authenticated portal access. Deactivation continues to preserve historical records and relationships.
 
-Authentication answers who the user is; role-based authorization determines what the user may do. Frontend route guards must later be combined with backend authorization and database RLS. Hiding routes or buttons is not sufficient security.
+Authentication answers who the user is; role-based authorization determines what the user may do. Frontend route guards must later be combined with backend authorization and database-enforced access controls. Supabase RLS may provide part of those controls when Supabase is selected. Hiding routes or buttons is not sufficient security.
 
-The current mock role selector, role-preview login behavior, and “Exit mock preview” controls are temporary development aids. Keep them during this documentation-only cleanup, but remove them when real Supabase authentication is implemented.
+The current mock role selector, role-preview login behavior, and “Exit mock preview” controls are temporary development aids. Remove them when real authentication is implemented.
 
-This cleanup does not implement Supabase Auth, login/logout, password recovery, MFA, route guards, or RLS and adds no routes.
+The frontend/mock phase does not implement production authentication, login/logout, password recovery, MFA, backend authorization, or database access policies.
 
 ## Core MVP
 
@@ -99,7 +99,7 @@ Staff must not view detailed doctor notes, full prescription details, MedicalCer
 
 Staff must not create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit patient clinical history; or manage Doctor, Staff, or Admin accounts.
 
-These restrictions must later be enforced by backend authorization and Supabase RLS or an equivalent service-layer policy. Hiding UI controls is not sufficient. This cleanup does not implement authorization, connect Supabase, add routes, or change application behavior.
+These restrictions must later be enforced by backend authorization and database access policy. Supabase RLS is one possible enforcement mechanism. Hiding UI controls is not sufficient.
 
 ### Admin
 - Manage doctors
@@ -127,16 +127,16 @@ The same `Patient.id` must be preserved during deactivation, reactivation, and a
 
 Admin must not create or edit MedicalRecords, diagnoses, doctor notes, Prescriptions, or MedicalCertificates; issue certificates; alter Doctor clinical decisions; or permanently delete Patient clinical history.
 
-Future backend authorization and Supabase RLS must enforce this account-only boundary. Hiding clinical controls in `/admin/patients` is not sufficient. This cleanup documents the route and permissions only; it does not build the page, connect Supabase, or change application code.
+Future backend authorization and database access controls must enforce this account-only boundary. Supabase RLS is one possible enforcement mechanism. Hiding clinical controls in `/admin/patients` is not sufficient.
 
 ## Doctor profile and clinical document rules
 
 - Doctor contains `id`, `specialty`, `license_number`, `ptr_number`, and `signature_path` only.
 - Doctor display name, contact number, and account status come from the linked UserProfile. Do not duplicate them in Doctor or add password/username fields.
 - Doctor license and PTR numbers will later be displayed on issued medical certificates.
-- `signature_path` references the doctor's signature image, which will later be stored securely, such as in Supabase Storage. Do not store image binary in Doctor.
+- `signature_path` references the doctor's signature image, which must be stored in protected object/file storage, such as Supabase Storage when that provider is selected. Do not store image binary in Doctor.
 - Saved medical records and issued medical certificates remain read-only.
-- Doctors manage their own availability and blocked time under the scheduling rules below. This cleanup adds no routes and implements no scheduling UI, signature storage, or certificate rendering.
+- Doctors manage their own availability and blocked time under the scheduling rules below. Availability management remains associated with the approved Doctor schedule workflow; no separate route is approved.
 
 ## Medical certificate rules
 
@@ -144,7 +144,7 @@ MedicalCertificate contains `id`, unique `medical_certificate_number`, `patient_
 
 Certificate display/generation must show the linked Doctor's license number, PTR number, and signature image, plus the clinic location. License and PTR values come from `Doctor.license_number` and `Doctor.ptr_number`; the signature image comes through `Doctor.signature_path`. Do not duplicate these values in MedicalCertificate for the current MVP.
 
-`Doctor.signature_path` stores only a protected path/reference. The raw image binary is not stored in Doctor. The image will later be stored securely, such as in Supabase Storage, and must not be publicly exposed outside the intended certificate flow.
+`Doctor.signature_path` stores only a protected path/reference. The raw image binary is not stored in Doctor. The image must be stored in protected object/file storage and must not be publicly exposed outside the intended certificate flow.
 
 Clinic location is simple application/global configuration used only for certificate display/generation. Do not create a clinic-management system or add clinic location to MedicalCertificate.
 
@@ -152,7 +152,7 @@ Draft certificates may exist only during the approved Doctor creation flow at `/
 
 When `medical_record_id` is present, it links to the related MedicalRecord. Patient and Doctor relationships must always be preserved.
 
-QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and real PDF generation are future scope and are not introduced by this cleanup.
+QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and real PDF generation remain unimplemented future scope.
 
 ## Doctor scheduling
 
@@ -173,7 +173,9 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 The approved DoctorAvailability fields describe weekly recurrence but do not record which specific dates have actually been published or the publication horizon. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. A publication representation needs approval before backend implementation; no additional fields or entities are introduced here. Clinic operating-hour values are also not yet specified and must be established before enforcing that boundary.
 
-The approved patient booking window is up to 14 days ahead, replacing the earlier 60-day mock window and the prior wording that used the doctor publication limit as the patient limit. The doctor publication limit stays at 30 days. This documentation cleanup does not modify the current mock implementation.
+The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
+
+The Appointment `created_by` field identifies the account that created an appointment, but its exact relationship/reference target and deletion behavior have not been approved. Backend implementation must not guess these details.
 
 ### Patient appointment booking rules
 
@@ -195,7 +197,7 @@ The same doctor must not have two active appointments in the same 30-minute slot
 - Follow-up
 - Check-up
 
-These are the only approved fixed MVP visit types. Do not create a Service or Department table. The current Appointment field list has no dedicated visit-type field; its storage representation remains to be approved before backend implementation. Do not conflate visit type with the free-text reason for visit or invent a new field in this cleanup.
+These are the only approved fixed MVP visit types. Do not create a Service or Department table. The current Appointment field list has no dedicated visit-type field; its storage representation remains to be approved before backend implementation. Do not conflate visit type with the free-text reason for visit or add a field without approval.
 
 ### Normal walk-in appointment flow
 
@@ -217,7 +219,7 @@ Queue priority is:
 - Only eligible Appointments may be checked in. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible for normal check-in.
 - Check-in sets `check_in_at` and adds the patient to the waiting queue. A non-null `check_in_at` prevents duplicate check-in and must not be overwritten by a repeated normal check-in.
 - Walk-ins use the same logic after staff creates their same-day Appointment and checks them in: Urgent -> Senior/PWD -> Normal, then earlier check-in first within the tier.
-- This cleanup introduces no queue entity, fields, priority values, routes, or application behavior.
+- The approved model has no separate queue entity or additional queue priority values.
 
 
 ## Shared profile and account lifecycle
@@ -228,8 +230,7 @@ Queue priority is:
 - Deactivation preserves UserProfile and related Patient, Doctor, and Staff records. Historical appointments, medical records, prescriptions, certificates, and their relationships remain intact; account lifecycle must not cascade-delete them.
 - Reactivating or relinking account access for a returning Patient must reuse the existing `Patient.id`; do not create a second medical-history identity.
 - For account holders, shared display name and contact number belong in UserProfile. Keep `Patient.contact_number` in Patient for walk-ins without accounts.
-- Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. Supabase Auth will handle authentication credentials later. Do not add username-based authentication fields to Doctor or Staff; the existing optional Staff username is a non-authentication identifier only.
-- This documentation cleanup does not implement authentication, account actions, or new routes.
+- Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. The selected authentication system handles credentials. Do not add username-based authentication fields to Doctor or Staff; the existing optional Staff username is a non-authentication identifier only.
 
 ## Patient identity and portal account linking
 
@@ -239,3 +240,11 @@ Queue priority is:
 - Staff may register walk-in patients without portal accounts. These patients have their own `Patient.id` and `user_profile_id = null`.
 - If a returning walk-in later receives a portal account, an authorized process verifies their identity and links the new patient-role UserProfile through `Patient.user_profile_id`. Keep the existing `Patient.id` rather than creating a replacement Patient.
 - Existing appointments, medical records, and certificates remain linked to the same Patient through `patient_id`.
+
+## Backend portability
+
+The backend provider is not selected by this specification. The React frontend must use a service/API abstraction so the approved behavior can be implemented with Supabase or with an Express + Node.js API backed by MongoDB without rewriting UI components.
+
+Authentication, active-account checks, role authorization, ownership checks, least-privilege access, history preservation, and protected signature access are provider-independent requirements. Supabase RLS may enforce database access when Supabase is selected; an Express implementation must enforce equivalent checks in the API and persistence layers.
+
+This document does not convert the relational reference schema into MongoDB collections or define an Express API.

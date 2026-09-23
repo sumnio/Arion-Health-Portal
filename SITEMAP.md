@@ -10,6 +10,7 @@ Authentication notes:
 - Unauthenticated access to any protected route redirects to `/login`.
 - An authenticated user with the wrong role is sent to `/unauthorized` or denied access.
 - Inactive accounts do not receive normal portal access.
+- The current mock role selector and “Exit mock preview” controls are temporary development aids and must be removed when production authentication is implemented.
 
 PATIENT
 /patient/dashboard
@@ -55,5 +56,5 @@ Post-login navigation:
 - `staff` -> `/staff/dashboard`
 - `admin` -> `/admin/dashboard`
 
-These redirects are navigation only. Route guards and future backend authorization/RLS must independently enforce authentication, active status, ownership, and role permissions.
+These redirects are navigation only. Route guards and future backend authorization plus database access controls must independently enforce authentication, active status, ownership, and role permissions. Supabase RLS is one possible enforcement mechanism when that provider is selected.
 
