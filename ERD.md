@@ -392,6 +392,33 @@ MedicalRecord 1 ─── * Prescription
 
 # Medical Record and Medical Certificate
 
+The MedicalCertificate fields match `SCHEMA.md`:
+
+| Field | Type | Notes |
+|---|---|---|
+| id | uuid, PK | Defaults to `gen_random_uuid()` |
+| medical_certificate_number | text, unique | Required unique certificate identifier; exact numbering format is not yet finalized |
+| patient_id | uuid, FK | References `Patient.id` |
+| doctor_id | uuid, FK | References `Doctor.id`; certificate signer |
+| medical_record_id | uuid, FK, nullable | References `MedicalRecord.id` |
+| date_issued | date | Required certificate issue date |
+| purpose | text | Example: Fit to Work, Sick Leave |
+| diagnosis_summary | text | Patient-facing summary |
+| valid_until | date, nullable | Optional expiration date |
+| status | enum | `draft`, `issued` |
+| created_at | timestamptz | Defaults to `now()` |
+| updated_at | timestamptz | Updated when changed |
+
+The certificate number is unique; its format is deferred. Patient and Doctor links are required. The MedicalRecord link remains optional and points to the related record when present.
+
+Certificate display reads `Doctor.license_number`, `Doctor.ptr_number`, and the protected signature image referenced by `Doctor.signature_path` from the linked Doctor. These values are not duplicated in MedicalCertificate for the current MVP. `Doctor.signature_path` stores only a path/reference to an image that will later be stored securely, such as in Supabase Storage; signature access must not be publicly exposed outside the intended certificate flow.
+
+Clinic location is simple application/global configuration used for certificate display/generation. It is not a MedicalCertificate field and does not create a clinic-management entity.
+
+Drafts exist only during the approved Doctor creation flow. After status becomes `issued`, the certificate is read-only: no Edit, Update, Delete, Reissue, or Modify action is allowed. Patients and Staff cannot edit certificates, and Admin cannot edit certificate clinical content.
+
+QR verification, public certificate verification, external sharing, advanced digital signatures, payment integration, and real PDF generation remain future scope.
+
 A MedicalRecord can have zero or multiple medical certificates.
 
 ```text

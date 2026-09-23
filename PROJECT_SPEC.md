@@ -108,6 +108,22 @@ Future backend authorization and Supabase RLS must enforce this account-only bou
 - Saved medical records and issued medical certificates remain read-only.
 - Doctors manage their own availability and blocked time under the scheduling rules below. This cleanup adds no routes and implements no scheduling UI, signature storage, or certificate rendering.
 
+## Medical certificate rules
+
+MedicalCertificate contains `id`, unique `medical_certificate_number`, `patient_id`, `doctor_id`, nullable `medical_record_id`, `date_issued`, `purpose`, `diagnosis_summary`, nullable `valid_until`, `status`, `created_at`, and `updated_at`. Status is limited to `draft` and `issued`. The exact certificate-number format is not yet finalized.
+
+Certificate display/generation must show the linked Doctor's license number, PTR number, and signature image, plus the clinic location. License and PTR values come from `Doctor.license_number` and `Doctor.ptr_number`; the signature image comes through `Doctor.signature_path`. Do not duplicate these values in MedicalCertificate for the current MVP.
+
+`Doctor.signature_path` stores only a protected path/reference. The raw image binary is not stored in Doctor. The image will later be stored securely, such as in Supabase Storage, and must not be publicly exposed outside the intended certificate flow.
+
+Clinic location is simple application/global configuration used only for certificate display/generation. Do not create a clinic-management system or add clinic location to MedicalCertificate.
+
+Draft certificates may exist only during the approved Doctor creation flow at `/doctor/records/:id/certificate/new`. Once issued, a certificate is read-only: the MVP provides no Edit, Update, Delete, Reissue, or Modify action. Patients and Staff cannot edit certificates, Admin cannot edit certificate clinical content, and Doctors issue certificates only through the approved flow.
+
+When `medical_record_id` is present, it links to the related MedicalRecord. Patient and Doctor relationships must always be preserved.
+
+QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and real PDF generation are future scope and are not introduced by this cleanup.
+
 ## Doctor scheduling
 
 DoctorAvailability stores `id`, `doctor_id`, `day_of_week`, `start_time`, `end_time`, and `is_active` for recurring weekly hours. DoctorBlockedTime stores `id`, `doctor_id`, `start_at`, `end_at`, and `reason` for one-time whole-day or partial-day exceptions such as leave, meetings, conferences, clinic closure, or personal unavailability.

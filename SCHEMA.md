@@ -299,10 +299,11 @@ MedicalRecord
 | Field | Type | Notes |
 |---|---|---|
 | id | uuid, PK | Defaults to `gen_random_uuid()` |
+| medical_certificate_number | text, unique | Required unique certificate identifier; exact numbering format is not yet finalized |
 | patient_id | uuid, FK | References `Patient.id` |
 | doctor_id | uuid, FK | References `Doctor.id`; certificate signer |
 | medical_record_id | uuid, FK, nullable | References `MedicalRecord.id` |
-| date_issued | date, nullable | Null while draft |
+| date_issued | date | Required certificate issue date |
 | purpose | text | Example: Fit to Work, Sick Leave |
 | diagnosis_summary | text | Patient-facing summary |
 | valid_until | date, nullable | Optional expiration date |
@@ -310,7 +311,21 @@ MedicalRecord
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
-A single MedicalRecord may produce multiple certificates if necessary.
+`medical_certificate_number` must be unique. Its exact numbering format is intentionally deferred; this cleanup does not introduce QR or public-verification behavior.
+
+Patient and Doctor relationships are required and must be preserved. `medical_record_id` remains nullable; when present, it links the certificate to the related MedicalRecord. A single MedicalRecord may produce multiple certificates if necessary.
+
+Certificate display/generation reads `Doctor.license_number`, `Doctor.ptr_number`, and the signature image referenced by `Doctor.signature_path` from the linked Doctor. Do not duplicate those values inside MedicalCertificate for the current MVP. `signature_path` remains a reference only; raw image binary is not stored in Doctor. The real image will later be held securely, such as in Supabase Storage, and access must be restricted to the intended authenticated certificate flow rather than publicly exposed.
+
+Clinic location is required for certificate display/generation and is treated as simple application/global configuration for the MVP. Do not add a clinic-management entity or duplicate clinic location in MedicalCertificate.
+
+Certificate lifecycle rules:
+
+- Status values remain only `draft` and `issued`.
+- Draft certificates may exist only during the approved Doctor creation flow at `/doctor/records/:id/certificate/new`.
+- Once status becomes `issued`, the certificate is read-only. The MVP provides no Edit, Update, Delete, Reissue, or Modify action for an issued certificate.
+- Patients and Staff cannot edit certificates. Admin cannot edit certificate clinical content. Doctors issue certificates only through the approved creation flow.
+- QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and real PDF generation remain future scope.
 
 Example:
 
@@ -320,7 +335,7 @@ MedicalRecord
 └── Sick Leave Certificate
 ```
 
-If the final project requires only one certificate per medical record, a unique constraint can later be placed on `medical_record_id`.
+If the final project requires only one certificate per medical record, a unique constraint can later be placed on `medical_record_id`. That constraint is not part of the current approved structure.
 
 ---
 
