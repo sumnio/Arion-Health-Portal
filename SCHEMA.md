@@ -161,13 +161,40 @@ Represents one-time exceptions to the regular schedule. A block can cover a whol
 - DoctorBlockedTime overrides regular DoctorAvailability. Any slot overlapping blocked time is unavailable, including when only part of a day is blocked.
 - Already-booked slots are unavailable for new booking. The same doctor must not have two active appointments in the same time slot or overlapping appointment intervals. Different doctors may have appointments at the same time.
 
-Bookable slot logic: Published DoctorAvailability - DoctorBlockedTime - already-booked appointment slots = available 30-minute patient booking slots.
+Bookable slot logic: Published DoctorAvailability within the patient's next 14 days - DoctorBlockedTime - already-booked appointment slots = available 30-minute patient booking slots.
 
 ### Unresolved implementation details
 
 The approved DoctorAvailability fields describe weekly recurrence but do not record which specific dates have actually been published or the publication horizon. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. A publication representation needs approval before backend implementation; no additional fields or entities are introduced here. Clinic operating-hour values are also not yet specified and must be established before enforcing that boundary.
 
-These approved rules supersede the earlier 60-day mock booking window: patient booking is limited to actually published availability within the doctor's 30-day publication limit. This documentation cleanup does not modify the current mock implementation.
+The approved patient booking window is up to 14 days ahead, replacing the earlier 60-day mock window and the prior wording that used the doctor publication limit as the patient limit. The doctor publication limit stays at 30 days. This documentation cleanup does not modify the current mock implementation.
+
+### Patient appointment booking rules
+
+Patient booking is limited to up to 14 days ahead. Doctor publication remains up to 30 days ahead; doctors need not publish all 30 days. Publication beyond the patient window does not make those dates bookable by patients yet.
+
+A patient slot is bookable only when all conditions hold:
+
+1. The date is within the next 14 days.
+2. The selected doctor has actually published availability for that date/time.
+3. The full 30-minute slot falls within that published availability and clinic operating hours.
+4. The slot does not overlap DoctorBlockedTime.
+5. No other active appointment occupies that doctor's slot.
+
+The same doctor must not have two active appointments in the same 30-minute slot. Different doctors may have appointments at the same time.
+
+### Fixed MVP visit types
+
+- General Consultation
+- Follow-up
+- Check-up
+
+These are the only approved fixed MVP visit types. Do not create a Service or Department table. The current Appointment field list has no dedicated visit-type field; its storage representation remains to be approved before backend implementation. Do not conflate visit type with the free-text reason for visit or invent a new field in this cleanup.
+
+### Normal walk-in appointment flow
+
+Staff selects an existing Patient or registers a new walk-in Patient, creates a same-day Appointment, and checks the patient in. The patient enters the queue and the doctor consults through the normal appointment flow. MedicalRecord normally links to that Appointment through appointment_id. A portal account is not required. Nullable appointment_id remains for exceptional/manual records, not the normal walk-in flow.
+
 
 ---
 
@@ -217,7 +244,7 @@ Replaces the previous generic `Records` entity.
 | id | uuid, PK | Defaults to `gen_random_uuid()` |
 | patient_id | uuid, FK | References `Patient.id` |
 | doctor_id | uuid, FK | References `Doctor.id` |
-| appointment_id | uuid, FK, nullable | References `Appointment.id`; null for walk-ins |
+| appointment_id | uuid, FK, nullable | References `Appointment.id`; normally linked for scheduled and walk-in consultations; nullable for exceptional/manual records |
 | encounter_at | timestamptz | Consultation/record date and time |
 | diagnosis | text | Clinical diagnosis |
 | notes | text, nullable | Doctor's notes |
@@ -225,17 +252,7 @@ Replaces the previous generic `Records` entity.
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
-A medical record can exist without a scheduled appointment.
-
-Example:
-
-```text
-Walk-in patient
-    ↓
-MedicalRecord
-
-appointment_id = null
-```
+Normal scheduled and walk-in consultations link MedicalRecord to their Appointment. Walk-ins use a same-day appointment. A MedicalRecord may have `appointment_id = null` only for exceptional/manual records outside the normal appointment flow.
 
 ---
 
@@ -331,7 +348,7 @@ UNIQUE(appointment_id)
 
 when `appointment_id` is not null.
 
-Walk-in records may have:
+Exceptional/manual records outside the normal appointment flow may have:
 
 ```text
 appointment_id = null
