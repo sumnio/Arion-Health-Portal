@@ -32,6 +32,7 @@ STAFF
 
 ADMIN
 /admin/dashboard
+/admin/patients
 /admin/doctors
 /admin/staff
 

@@ -74,7 +74,30 @@ These restrictions must later be enforced by backend authorization and Supabase 
 ### Admin
 - Manage doctors
 - Manage staff
+- View Patient account information and deactivate/reactivate Patient portal access through `/admin/patients`
 - Deactivate/reactivate Doctor accounts, Staff accounts, and Patient portal access; never delete historical clinical data
+
+## Admin Patient account management
+
+`/admin/patients` is the approved Admin route for Patient portal-account administration. It does not grant clinical management access.
+
+Admin may view only the basic information needed for account administration:
+
+- `Patient.full_name`;
+- Patient or linked UserProfile contact number as appropriate;
+- linked `UserProfile.status` (`active` or `inactive`);
+- basic account/profile identifiers needed to preserve the Patient-to-UserProfile link; and
+- `UserProfile.created_at` as the account creation date when a portal account exists.
+
+A Patient with `user_profile_id = null` has no portal account. This is not an additional account status; `active` and `inactive` remain the only UserProfile statuses.
+
+Admin may deactivate an active Patient portal account by setting its existing UserProfile status to `inactive`, and may reactivate that same account by returning the status to `active`. Deactivation prevents portal/account access only. It must not unlink or hard-delete the Patient or UserProfile.
+
+The same `Patient.id` must be preserved during deactivation, reactivation, and appropriate relinking of a returning Patient. Do not create a second Patient or medical-history identity. Appointment, MedicalRecord, Prescription, and MedicalCertificate history and relationships must remain intact.
+
+Admin must not create or edit MedicalRecords, diagnoses, doctor notes, Prescriptions, or MedicalCertificates; issue certificates; alter Doctor clinical decisions; or permanently delete Patient clinical history.
+
+Future backend authorization and Supabase RLS must enforce this account-only boundary. Hiding clinical controls in `/admin/patients` is not sufficient. This cleanup documents the route and permissions only; it does not build the page, connect Supabase, or change application code.
 
 ## Doctor profile and clinical document rules
 

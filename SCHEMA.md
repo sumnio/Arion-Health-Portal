@@ -496,9 +496,18 @@ The limited diagnosis summary is an authorization/view boundary, not a new schem
 Can manage:
 - doctor accounts
 - staff accounts
+- Patient portal access through `/admin/patients`
 - role/account administration
 
 Admin can deactivate/reactivate Doctor accounts, Staff accounts, and Patient portal access through UserProfile status. This does not grant permission to delete historical clinical data. Deactivation preserves the related profiles and all appointment, medical record, prescription, and certificate history.
+
+For Patient account administration, Admin may read only the basic account/profile data needed for the operation: `Patient.id`, `Patient.full_name`, `Patient.contact_number`, `Patient.user_profile_id`, and the linked UserProfile's `contact_number`, `status`, and `created_at` where present. A null `Patient.user_profile_id` means no portal account and is not a third UserProfile status.
+
+Admin may change the linked UserProfile status only between `active` and `inactive`. Deactivation blocks portal access but must not unlink or delete UserProfile, Patient, Appointment, MedicalRecord, Prescription, or MedicalCertificate data. Reactivation and appropriate relinking must preserve the same `Patient.id` and must not create another medical-history identity.
+
+Admin must not create or edit diagnoses, MedicalRecords, doctor notes, Prescriptions, or MedicalCertificates; issue certificates; alter Doctor clinical decisions; or permanently delete Patient clinical history.
+
+Future authorization and RLS must enforce this limited account-administration projection and mutation boundary. UI hiding alone is not authorization. This note adds no schema fields and does not implement Supabase access.
 
 ---
 

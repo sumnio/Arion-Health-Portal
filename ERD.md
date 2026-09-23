@@ -113,6 +113,17 @@ Walk-in patients can exist with `user_profile_id = null` and do not require a Us
 
 If a returning walk-in later receives a portal account, verify their identity and link the new UserProfile through the existing `Patient.user_profile_id`. Keep the same `Patient.id`; do not create a replacement Patient. Appointment, MedicalRecord, and MedicalCertificate continue to reference that same Patient through `patient_id`.
 
+## Admin Patient account-management boundary
+
+The `/admin/patients` route uses the existing nullable, unique `Patient.user_profile_id` relationship for account administration; it adds no entity or relationship.
+
+- Admin may view `Patient.full_name` and `Patient.contact_number` plus basic linked UserProfile information required for administration, including `status` and `created_at`.
+- A Patient with `user_profile_id = null` has no portal account. This is distinct from the only two account statuses, `active` and `inactive`.
+- Deactivation changes the linked UserProfile status to `inactive`; reactivation changes the same profile back to `active`. The Patient-to-UserProfile link and `Patient.id` remain unchanged.
+- Appointment, MedicalRecord, Prescription, and MedicalCertificate history remains linked and must not be deleted.
+- Admin cannot edit diagnoses, MedicalRecords, doctor notes, Prescriptions, MedicalCertificates, or Doctor clinical decisions, and cannot permanently delete Patient clinical history.
+- Future backend authorization and RLS must enforce this account-only boundary; hiding UI controls is insufficient.
+
 ---
 
 # Patient and Appointment
