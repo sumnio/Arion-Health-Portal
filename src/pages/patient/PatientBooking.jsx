@@ -57,7 +57,7 @@ export default function PatientBooking() {
           <BookingStep number="2" title="Select Doctor" description="Choose your preferred doctor.">
             <FormField label="Doctor" name="booking-doctor" value={values.doctor} onChange={e => update('doctor', e.target.value)} required aria-invalid={!!errors.doctor} aria-describedby={errors.doctor ? 'doctor-error' : undefined}><option value="">Select a doctor</option>{doctors.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</FormField>{doctor && <p className="booking-hint">{doctor.specialty}</p>}{error('doctor')}
           </BookingStep>
-          <BookingStep number="3" title="Select Date" description="Choose an available date from today through the next 60 days.">
+          <BookingStep number="3" title="Select Date" description="Choose an available date from today through the next 14 days.">
             <BookingCalendar value={values.date} doctorId={values.doctor} onChange={date => update('date', date)} invalid={!!errors.date} />{error('date')}
           </BookingStep>
           <BookingStep number="4" title="Select Time Slot" description="Fixed 30-minute slots · Philippine time.">
@@ -67,7 +67,7 @@ export default function PatientBooking() {
             <p className="booking-hint" id="slot-help" aria-live="polite">{!values.doctor || !values.date ? 'Select a doctor and date to see available times.' : !slots.some(slot => slot.available) ? 'No available slots on this date. Please choose another date.' : 'Unavailable slots cannot be selected. One patient per doctor per slot.'}</p>{error('time')}
           </BookingStep>
           <BookingStep number="5" title="Reason for Visit" description="Briefly describe the reason for your consultation." className="booking-reason">
-            <label className="booking-sr-only" htmlFor="booking-reason">Reason for visit</label><textarea id="booking-reason" name="reason" rows="3" placeholder="e.g. Routine check-up or follow-up consultation" value={values.reason} onChange={e => update('reason', e.target.value)} required aria-invalid={!!errors.reason} aria-describedby={errors.reason ? 'reason-error' : undefined} />{error('reason')}
+            <label className="booking-sr-only" htmlFor="booking-reason">Reason for visit</label><textarea id="booking-reason" name="reason" rows="3" placeholder="e.g. Recurring headache or medication review" value={values.reason} onChange={e => update('reason', e.target.value)} required aria-invalid={!!errors.reason} aria-describedby={errors.reason ? 'reason-error' : undefined} />{error('reason')}
           </BookingStep>
         </div>
       </div>

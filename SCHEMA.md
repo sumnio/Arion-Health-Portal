@@ -243,6 +243,15 @@ Replaces the previous `Schedule` entity.
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
+### Consultation completion rules
+
+- Only the Doctor referenced by `Appointment.doctor_id` may change an eligible consultation to `completed`.
+- In the normal scheduled and walk-in flow, a linked saved MedicalRecord is required before Doctor completion.
+- `cancelled`, `no_show`, and already `completed` Appointments cannot transition to `completed`.
+- Staff may confirm or cancel eligible Appointments and mark eligible unattended Appointments `no_show`, but Staff may not set `completed`.
+- `Appointment.status` is the single shared status read by Doctor, Staff, and Patient views. Do not add role-specific completion fields.
+- A completed Appointment is no longer part of the active waiting queue. Queue priority and check-in ordering remain unchanged.
+
 ### Queue priority
 
 Queue ordering for checked-in patients follows these three tiers:
@@ -506,7 +515,7 @@ Can access:
 - permitted medical records
 - certificates they issue
 
-Doctors manage their own recurring availability and blocked time through the existing `/doctor/schedule` workflow under the scheduling rules above. Saved medical records and issued medical certificates are read-only.
+Doctors manage their own recurring availability and blocked time through the existing `/doctor/schedule` workflow under the scheduling rules above. The assigned Doctor may mark an eligible consultation completed only after its linked MedicalRecord has been saved. Saved medical records and issued medical certificates are read-only.
 
 ## Staff
 
@@ -520,7 +529,7 @@ Staff may access operational information needed to:
 - search Patients and view basic Patient information needed for operations;
 - register walk-in Patients and create same-day walk-in Appointments;
 - check in eligible Patients and manage the queue; and
-- mark approved operational Appointment states such as `no_show` or `completed` where appropriate.
+- mark eligible unattended Appointments as `no_show`.
 
 When operationally necessary, Staff may read only this limited MedicalRecord projection:
 
@@ -532,6 +541,8 @@ When operationally necessary, Staff may read only this limited MedicalRecord pro
 Staff must not access detailed `MedicalRecord.notes`, full Prescription details, MedicalCertificate contents, or sensitive clinical narrative beyond the approved short diagnosis summary. Detailed clinical information remains Doctor-only.
 
 Staff must not create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit Patient clinical history; or manage Doctor, Staff, or Admin accounts.
+
+Staff must not mark an Appointment `completed`. Staff may read the resulting shared status after the assigned Doctor completes the consultation.
 
 The limited diagnosis summary is an authorization/view boundary, not a new schema field.
 

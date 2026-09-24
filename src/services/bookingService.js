@@ -16,7 +16,7 @@ function validDate(value) {
 export function bookingWindow(now = new Date()) {
   const start = clinicToday(now);
   const end = new Date(start + 'T00:00:00Z');
-  end.setUTCDate(end.getUTCDate() + 60);
+  end.setUTCDate(end.getUTCDate() + 14);
   return { start, end: end.toISOString().slice(0, 10) };
 }
 export function formatBookingDate(value) {
@@ -59,7 +59,7 @@ export const bookingService = {
     const errors = {};
     if (!visitTypes.some(item => item.id === values.service)) errors.service = 'Select a visit type.';
     if (!bookingDoctors.some(item => item.id === values.doctor)) errors.doctor = 'Select a doctor.';
-    if (!this.isDateAvailable(values.doctor, values.date, now)) errors.date = 'Select an available date from today through the next 60 days.';
+    if (!this.isDateAvailable(values.doctor, values.date, now)) errors.date = 'Select an available date from today through the next 14 days.';
     if (!values.time) errors.time = 'Select an available time slot.';
     else if (!this.getSlots(values.doctor, values.date, now).some(slot => slot.time === values.time && slot.available)) errors.time = 'That time is no longer available. Select another slot.';
     if (!values.reason?.trim()) errors.reason = 'Enter a reason for your visit.';

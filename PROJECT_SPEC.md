@@ -54,6 +54,7 @@ The frontend/mock phase does not implement production authentication, login/logo
 - Manage own recurring availability and blocked time through the existing Doctor schedule workflow
 - View patient information
 - Create medical records
+- Mark an assigned eligible consultation completed after its MedicalRecord has been saved
 - Issue medical certificates
 
 ### Staff
@@ -80,9 +81,9 @@ Staff may:
 - view basic patient information needed for appointment, walk-in, check-in, and queue workflows;
 - register walk-in patients and create their same-day Appointments;
 - check in eligible patients and manage the queue; and
-- mark appropriate operational Appointment states, including no-show or completed where the approved workflow allows it.
+- mark eligible unattended appointments as no-show.
 
-These permissions must continue to follow the approved Appointment and queue rules. Staff pages must not be used to edit clinical history.
+These permissions must continue to follow the approved Appointment and queue rules. Staff pages must not be used to edit clinical history or mark a consultation completed. Completion is owned by the Doctor assigned to the Appointment.
 
 ### Limited read-only medical-record visibility
 
@@ -98,6 +99,12 @@ Staff must not view detailed doctor notes, full prescription details, MedicalCer
 ### Prohibited actions
 
 Staff must not create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit patient clinical history; or manage Doctor, Staff, or Admin accounts.
+
+## Consultation completion
+
+Only the Doctor assigned to an Appointment may mark its consultation `completed`. In the normal scheduled and walk-in flow, the Doctor first saves the linked MedicalRecord and then explicitly confirms completion. A `cancelled`, `no_show`, or already `completed` Appointment cannot be completed again. Saved MedicalRecords remain read-only.
+
+Staff may observe the shared Appointment status but may not set it to `completed`. Completion removes the checked-in patient from the active waiting queue and must appear consistently in Doctor schedule/detail views, Staff dashboard/calendar/queue views, and the Patient's appointment list/detail. The system uses the existing Appointment `status`; it must not create separate Doctor and Staff completion fields.
 
 These restrictions must later be enforced by backend authorization and database access policy. Supabase RLS is one possible enforcement mechanism. Hiding UI controls is not sufficient.
 

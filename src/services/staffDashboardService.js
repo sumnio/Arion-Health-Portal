@@ -6,7 +6,7 @@ import { demoDoctor } from '../mocks/doctorRecordStore.js';
 import { bookingDoctors } from '../mocks/bookingData.js';
 import { clinicToday, formatSlot } from './bookingService.js';
 import { isSenior } from './patientProfileService.js';
-import { staffAppointmentStatus, staffCheckIn } from '../mocks/staffAppointmentStore.js';
+import { appointmentStatus, appointmentCheckIn } from '../mocks/staffAppointmentStore.js';
 import { walkInAppointments, walkInServices, staffPatient } from '../mocks/staffWalkInStore.js';
 
 export function queueTier(appointment, patient, date) {
@@ -25,8 +25,8 @@ export const staffDashboardService = {
       doctor: item.doctor_id === demoDoctor.id ? demoDoctor.display_name : bookingDoctors.find(doctor => doctor.id === item.doctor_id)?.name,
       timeLabel: formatSlot(item.appointment_at.slice(11, 16)), service: walkInServices.get(item.id) }));
     const appointments = [...shared, ...additions, ...walkIns].map(item => {
-      item.status = staffAppointmentStatus(item);
-      item.check_in_at = staffCheckIn(item);
+      item.status = appointmentStatus(item);
+      item.check_in_at = appointmentCheckIn(item);
       const patient = staffPatient(item.patient_id);
       const tier = queueTier(item, patient, date);
       return { id: item.id, patient_id: item.patient_id, patientName: patient.full_name, doctor_id: item.doctor_id, doctor: item.doctor, appointment_at: item.appointment_at, timeLabel: item.timeLabel, status: item.status, check_in_at: item.check_in_at, priority: item.priority, reason: item.reason, service: item.service, tier, priorityLabel: ['Urgent', 'Senior / PWD', 'Normal'][tier], checkInLabel: item.check_in_at ? 'Checked in' : 'Not checked in' };

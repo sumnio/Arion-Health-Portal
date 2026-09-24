@@ -24,7 +24,7 @@ export const medicalRecords = [
 
 // UI-only labels; MedicalRecord has no visit-type field in the approved schema.
 export const medicalRecordVisitLabels = {
-  '30000000-0000-4000-8000-000000000002': 'Follow-up Consultation',
+  '30000000-0000-4000-8000-000000000002': 'Follow-up',
   '30000000-0000-4000-8000-000000000003': 'General Consultation',
 };
 

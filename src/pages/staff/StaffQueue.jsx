@@ -18,7 +18,7 @@ export default function StaffQueue() {
   function act(action) {
     try {
       staffQueueService.act(selected.id, action);
-      setMessage(`${selected.patientName}: ${action === 'checkIn' ? 'checked in and added to the waiting queue' : action === 'complete' ? 'appointment marked completed' : 'appointment marked no-show'}. Mock state updated.`);
+      setMessage(`${selected.patientName}: ${action === 'checkIn' ? 'checked in and added to the waiting queue' : 'appointment marked no-show'}. Mock state updated.`);
       setError(''); setConfirmation(null); refresh(value => value + 1);
     } catch (err) { setError(err.message); setConfirmation(null); }
   }
@@ -42,9 +42,9 @@ export default function StaffQueue() {
       {section('Completed / Cancelled / No-show', data.finished, 'No completed, cancelled, or no-show appointments today.')}
     </div><aside className="queue-panel queue-details" aria-label="Selected appointment"><h2>Selected appointment</h2>{selected ? <>
       <h3>{selected.patientName}</h3><StatusBadge status={selected.status} /><dl><dt>Appointment time</dt><dd>{selected.timeLabel}</dd><dt>Doctor</dt><dd>{selected.doctor}</dd><dt>Check-in time</dt><dd>{time(selected.check_in_at)}</dd><dt>Queue priority</dt><dd>{selected.priorityLabel}</dd></dl>
-      <div className="queue-actions">{actions.checkIn && <button onClick={() => act('checkIn')}>Check In</button>}{actions.complete && <button onClick={() => setConfirmation('complete')}>Mark as Completed</button>}{actions.noShow && <button onClick={() => setConfirmation('noShow')}>Mark No-show</button>}</div>
-      {confirmation && <div className="queue-confirm"><p>{confirmation === 'complete' ? 'Confirm this patient’s consultation has finished. This only updates the appointment status.' : 'Confirm this patient did not attend the scheduled appointment.'}</p><button onClick={() => act(confirmation)}>Confirm {confirmation === 'complete' ? 'completion' : 'no-show'}</button><button onClick={() => setConfirmation(null)}>Keep current status</button></div>}
-      {!actions.checkIn && !actions.complete && !actions.noShow && <p>This appointment is view-only.</p>}
+      <div className="queue-actions">{actions.checkIn && <button onClick={() => act('checkIn')}>Check In</button>}{actions.noShow && <button onClick={() => setConfirmation('noShow')}>Mark No-show</button>}</div>
+      {confirmation && <div className="queue-confirm"><p>Confirm this patient did not attend the scheduled appointment.</p><button onClick={() => act(confirmation)}>Confirm no-show</button><button onClick={() => setConfirmation(null)}>Keep current status</button></div>}
+      {!actions.checkIn && !actions.noShow && <p>This appointment is view-only. The assigned doctor completes the consultation after saving its medical record.</p>}
     </> : <p>Select a patient to view operational details and available actions.</p>}
       <div className="queue-reminder"><h3>Queue priority</h3><p>Urgent → Senior / PWD → Normal.</p><p>Within each tier, earlier check-in comes first. Senior priority is derived from date of birth; PWD comes from patient information.</p></div>
     </aside></div>

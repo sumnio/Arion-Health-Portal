@@ -24,7 +24,12 @@ test('guest registration validates and searches without creating portal credenti
 test('same-day walk-in reserves slot, remains consistent and supports existing queue check-in',()=>{
  const patient=service.search('Elena')[0];
  const options=service.options(now); const doctor=options.doctors[0];
- const values={date:options.date,doctor:doctor.id,service:'consultation',time:doctor.slots[0],reason:'Walk-in consultation',priority:'normal'};
+ assert.deepEqual(options.services.map(({id,name})=>({id,name})),[
+  {id:'general_consultation',name:'General Consultation'},
+  {id:'follow_up',name:'Follow-up'},
+  {id:'check_up',name:'Check-up'},
+ ]);
+ const values={date:options.date,doctor:doctor.id,service:'general_consultation',time:doctor.slots[0],reason:'Walk-in consultation',priority:'normal'};
  assert.ok(service.createAppointment(patient.id,{...values,reason:''},'invalid',now).errors.reason);
  assert.ok(service.createAppointment('missing',values,'missing',now).errors.form);
  assert.ok(service.createAppointment(patient.id,{...values,date:'2026-09-21'},'wrong-day',now).errors.form);
@@ -34,6 +39,7 @@ test('same-day walk-in reserves slot, remains consistent and supports existing q
  assert.ok(service.createAppointment(patient.id,values,'conflict',now).errors.time);
  const dashboard=staffDashboardService.getDashboard(now).appointments.find(x=>x.id===appointment.id);
  assert.equal(dashboard.patientName,'Elena Navarro'); assert.equal(dashboard.tier,1);
+ assert.equal(dashboard.service,'General Consultation');
  assert.equal(staffCalendarService.getDay(options.date,now).find(x=>x.id===appointment.id).reason,values.reason);
  staffQueueService.act(appointment.id,'checkIn',now);
  assert.equal(staffQueueService.getQueue(now).waiting.find(x=>x.id===appointment.id).check_in_at,now.toISOString());

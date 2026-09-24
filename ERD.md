@@ -178,7 +178,7 @@ Patient 1 ─── * Appointment
 
 Staff has no ownership relationship with MedicalRecord, Prescription, or MedicalCertificate. Staff access is role-based and follows least privilege.
 
-- Staff may use basic Patient and Appointment information for calendar, appointment confirmation/cancellation, patient search, walk-in registration, same-day Appointment creation, check-in, queue management, and approved operational status updates.
+- Staff may use basic Patient and Appointment information for calendar, appointment confirmation/cancellation, patient search, walk-in registration, same-day Appointment creation, check-in, queue management, and eligible no-show updates. Staff cannot mark a consultation completed.
 - When operationally necessary, Staff may read only patient name, encounter date, attending Doctor, and a short diagnosis summary from the related MedicalRecord.
 - Staff must not see detailed doctor notes, full Prescription details, MedicalCertificate contents, or sensitive clinical narrative beyond the short diagnosis summary.
 - Staff cannot create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit Patient clinical history; or manage Doctor, Staff, or Admin accounts.
@@ -202,6 +202,7 @@ The waiting queue is derived from Appointment and Patient data; the approved mod
 - Normal check-in applies only to eligible Appointments. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible.
 - Check-in sets `Appointment.check_in_at` and places the patient in the waiting queue. Requiring that `check_in_at` is null prevents duplicate check-in and preserves the original timestamp.
 - Walk-in patients use the same behavior after staff creates their same-day Appointment: Urgent -> Senior/PWD -> Normal, then check-in time within the tier.
+- Only the Doctor assigned through `Appointment.doctor_id` may mark an eligible consultation `completed`, normally after saving its linked MedicalRecord. Completion removes the patient from the active waiting queue. Staff and Patient views read that same Appointment status.
 
 ---
 
@@ -402,6 +403,8 @@ Appointment 1 ─── 0..1 MedicalRecord
 Normal walk-in consultations use a same-day Appointment, and MedicalRecord normally links to that Appointment. Nullable `appointment_id` supports exceptional/manual records outside the normal flow; it is not the default for walk-ins.
 
 Once saved, a MedicalRecord is read-only. Doctors may create a record for an eligible consultation that does not already have one and may view permitted saved records, but they may not edit or delete saved records. Staff receives only the approved limited read-only projection, and Admin has no clinical editing permission.
+
+For the normal scheduled and walk-in flow, the assigned Doctor saves the linked MedicalRecord and then explicitly marks the Appointment `completed`. A cancelled, no-show, or already completed Appointment cannot be completed. Appointment status is shared across Doctor, Staff, and Patient views; there is no separate role-specific completion field.
 
 ---
 

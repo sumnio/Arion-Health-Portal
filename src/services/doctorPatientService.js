@@ -4,6 +4,7 @@ import { doctorScheduleService, shiftScheduleDate } from './doctorScheduleServic
 import { medicalRecordService } from './medicalRecordService.js';
 import { clinicToday } from './bookingService.js';
 import { ageFromDob, isSenior } from './patientProfileService.js';
+import { setAppointmentStatus } from '../mocks/staffAppointmentStore.js';
 
 export const doctorPatientService = {
   get(id, selection, now = new Date()) {
@@ -26,13 +27,27 @@ export const doctorPatientService = {
       .filter(item => item.appointment_id !== appointment.id && new Date(item.encounter_at) < new Date(appointment.appointment_at))
       .sort((a, b) => new Date(b.encounter_at) - new Date(a.encounter_at)).slice(0, 3);
     const canAddRecord = appointment.status === 'confirmed' && appointment.appointment_at.slice(0, 10) <= today && !existingRecord;
-    const consultationMessage = existingRecord ? 'Consultation completed. A medical record already exists for this appointment.'
+    const assignedToCurrentDoctor = appointment.doctor_id === demoDoctor.id;
+    const canComplete = assignedToCurrentDoctor && appointment.status === 'confirmed' && Boolean(existingRecord);
+    const consultationMessage = existingRecord && appointment.status === 'completed' ? 'Consultation completed. The saved medical record is read-only.'
+      : existingRecord ? 'Medical record saved. Confirm completion when the consultation is finished.'
       : appointment.status === 'cancelled' ? 'This appointment was cancelled. Medical record creation is unavailable.'
       : appointment.status === 'no_show' ? 'The patient did not attend this appointment. Medical record creation is unavailable.'
       : appointment.status === 'completed' ? 'This appointment is completed.'
       : appointment.status === 'pending' ? 'This appointment is awaiting confirmation.'
       : !canAddRecord ? 'Medical record creation will be available on the appointment day.'
       : 'Review the patient information before adding a medical record for this consultation.';
-    return structuredClone({ patient: { ...patient, name: patient.full_name, age: ageFromDob(patient.dob, today), senior: isSenior(patient.dob, today) }, appointment, history, consultationRecords, patientAppointments: appointments.filter(item => item.patient_id === id), existingRecord, canAddRecord, consultationMessage });
+    return structuredClone({ patient: { ...patient, name: patient.full_name, age: ageFromDob(patient.dob, today), senior: isSenior(patient.dob, today) }, appointment, history, consultationRecords, patientAppointments: appointments.filter(item => item.patient_id === id), existingRecord, canAddRecord, canComplete, assignedToCurrentDoctor, consultationMessage });
+  },
+  complete(id, selection, doctorId = demoDoctor.id) {
+    const detail = this.get(id, selection);
+    if (!detail) return { error: 'Patient or appointment not found.' };
+    if (detail.appointment.doctor_id !== doctorId) return { error: 'Only the doctor assigned to this appointment can complete the consultation.' };
+    if (detail.appointment.status === 'completed') return { error: 'This consultation is already completed.' };
+    if (['cancelled', 'no_show'].includes(detail.appointment.status)) return { error: 'A cancelled or no-show appointment cannot be completed.' };
+    if (!detail.existingRecord) return { error: 'Save the medical record before completing this consultation.' };
+    if (!detail.canComplete) return { error: 'This appointment is not eligible for consultation completion.' };
+    setAppointmentStatus(detail.appointment, 'completed');
+    return { appointment: this.get(id, selection).appointment };
   },
 };

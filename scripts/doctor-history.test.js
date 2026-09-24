@@ -19,15 +19,16 @@ test('history joins existing prescriptions, appointments and issued certificates
  assert.notEqual(history.get(patient(1)).records[0].diagnosis,'modified');
 });
 test('new records and certificates appear without allowing duplicate record creation or leaking to other patients',()=>{
- const selection={appointmentId:'70000000-0000-4000-8000-000000000003',date:clinicToday()};
- assert(doctorPatientService.get(patient(3),selection).canAddRecord);
- const record=doctorRecordService.save(patient(3),selection,{diagnosis:'Mock diagnosis',notes:'Mock notes',follow_up:'Mock follow-up',encounter_at:clinicToday()+'T13:00',prescriptions:[{medicine:'Mock medicine',dosage:'Mock dosage',instructions:'Mock instructions'}]}).record;
+ const selection={appointmentId:'70000000-0000-4000-8000-000000000011',date:clinicToday()};
+ assert(doctorPatientService.get(patient(1),selection).canAddRecord);
+ const record=doctorRecordService.save(patient(1),selection,{diagnosis:'Mock diagnosis',notes:'Mock notes',follow_up:'Mock follow-up',encounter_at:clinicToday()+'T13:00',prescriptions:[{medicine:'Mock medicine',dosage:'Mock dosage',instructions:'Mock instructions'}]}).record;
  const certificate=doctorCertificateService.issue(record.id,{purpose:'Mock purpose',diagnosis_summary:record.diagnosis,date_issued:clinicToday(),valid_until:''},'history-test').certificate;
- const data=history.get(patient(3));
- assert.equal(data.records[0].prescriptions[0].medical_record_id,record.id);
- assert.equal(data.records[0].notes,'Mock notes');
- assert.equal(data.records[0].appointment.id,selection.appointmentId);
- assert.equal(data.certificates[0].id,certificate.id);
- assert.equal(doctorPatientService.get(patient(3),selection).canAddRecord,false);
- assert(!history.get(patient(1)).certificates.some(item=>item.id===certificate.id));
+ const data=history.get(patient(1));
+ const saved=data.records.find(item=>item.id===record.id);
+ assert.equal(saved.prescriptions[0].medical_record_id,record.id);
+ assert.equal(saved.notes,'Mock notes');
+ assert.equal(saved.appointment.id,selection.appointmentId);
+ assert(data.certificates.some(item=>item.id===certificate.id));
+ assert.equal(doctorPatientService.get(patient(1),selection).canAddRecord,false);
+ assert(!history.get(patient(2)).certificates.some(item=>item.id===certificate.id));
 });

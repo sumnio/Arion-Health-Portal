@@ -14,6 +14,8 @@
 .doctor-patient-page .clinical-history li { padding: 16px 0; border-top: 1px solid #edf1f5; }
 .doctor-patient-page .clinical-history time { color: #52657b; font-size: 14px; }
 .doctor-patient-page .primary-action { background: #28664f; color: white; margin-top: 14px; text-align: center; }
+.doctor-patient-page .completion-confirm { background: #f0f5fc; border-radius: 8px; margin-top: 14px; padding: 14px; }
+.doctor-patient-page .completion-confirm button { margin: 5px 8px 5px 0; }
 @media (max-width: 950px) { .doctor-patient-page .doctor-patient-grid { grid-template-columns: 1fr; } }
 @media (max-width: 500px) { .doctor-patient-page .record-card { padding: 18px; } .doctor-patient-page .detail-heading { flex-wrap: wrap; } .doctor-patient-page dl > div { grid-template-columns: 1fr; gap: 6px; } }
 .doctor-patient-page .status-confirmed { background: #ddf4e9; color: #166447; }
