@@ -1,15 +1,12 @@
 import { doctorPatients } from './doctorPatientData.js';
-import { doctorDashboardPatientNames } from './doctorDashboardData.js';
 import { demoDoctor } from './doctorRecordStore.js';
 
 export const walkInPatients = [];
 export const walkInAppointments = [];
-// Display-only names and service labels pending schema decisions; not Patient/Appointment fields.
-export const walkInNames = new Map();
+// Service labels remain separate because Appointment has no approved visit-type field yet.
 export const walkInServices = new Map();
 export const walkInSubmissions = new Map();
 export function staffPatient(id) { return doctorPatients.find(item => item.id === id) ?? walkInPatients.find(item => item.id === id); }
-export function staffPatientName(id) { return doctorDashboardPatientNames[id] ?? walkInNames.get(id); }
 export function allStaffPatients() { return [...doctorPatients, ...walkInPatients]; }
 // Demo Doctor covers the same daily mock clinic schedule used by the Staff dashboard.
 export const walkInDutyDoctor = { id: demoDoctor.id, name: demoDoctor.display_name,

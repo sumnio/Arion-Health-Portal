@@ -7,7 +7,7 @@ import { bookingDoctors } from '../mocks/bookingData.js';
 import { clinicToday, formatSlot } from './bookingService.js';
 import { isSenior } from './patientProfileService.js';
 import { staffAppointmentStatus, staffCheckIn } from '../mocks/staffAppointmentStore.js';
-import { walkInAppointments, walkInServices, staffPatient, staffPatientName } from '../mocks/staffWalkInStore.js';
+import { walkInAppointments, walkInServices, staffPatient } from '../mocks/staffWalkInStore.js';
 
 export function queueTier(appointment, patient, date) {
   return appointment.priority === 'urgent' ? 0 : patient.is_pwd || isSenior(patient.dob, date) ? 1 : 2;
@@ -29,7 +29,7 @@ export const staffDashboardService = {
       item.check_in_at = staffCheckIn(item);
       const patient = staffPatient(item.patient_id);
       const tier = queueTier(item, patient, date);
-      return { id: item.id, patient_id: item.patient_id, patientName: staffPatientName(item.patient_id), doctor_id: item.doctor_id, doctor: item.doctor, appointment_at: item.appointment_at, timeLabel: item.timeLabel, status: item.status, check_in_at: item.check_in_at, priority: item.priority, reason: item.reason, service: item.service, tier, priorityLabel: ['Urgent', 'Senior / PWD', 'Normal'][tier], checkInLabel: item.check_in_at ? 'Checked in' : 'Not checked in' };
+      return { id: item.id, patient_id: item.patient_id, patientName: patient.full_name, doctor_id: item.doctor_id, doctor: item.doctor, appointment_at: item.appointment_at, timeLabel: item.timeLabel, status: item.status, check_in_at: item.check_in_at, priority: item.priority, reason: item.reason, service: item.service, tier, priorityLabel: ['Urgent', 'Senior / PWD', 'Normal'][tier], checkInLabel: item.check_in_at ? 'Checked in' : 'Not checked in' };
     }).sort((a,b) => new Date(a.appointment_at)-new Date(b.appointment_at));
     const waiting = appointments.filter(item => item.check_in_at && ['pending','confirmed'].includes(item.status)).sort(compareQueue);
     const upcoming = appointments.filter(item => !item.check_in_at && ['pending','confirmed'].includes(item.status));

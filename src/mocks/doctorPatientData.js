@@ -1,12 +1,13 @@
 import { patientProfileData } from './patientProfileData.js';
-// Patient fields only; names are joined from the existing dashboard lookup.
+// Canonical mock Patient records shared by Doctor and Staff workflows.
 export const doctorPatients = [
-  { id: '10000000-0000-4000-8000-000000000001', dob: patientProfileData.dob, sex: patientProfileData.sex, contact_number: patientProfileData.contactNumber, allergies: patientProfileData.allergies, is_pwd: patientProfileData.isPwd },
-  { id: '10000000-0000-4000-8000-000000000002', dob: '1986-04-12', sex: 'Female', contact_number: '0917 555 0102', allergies: [], is_pwd: false },
-  { id: '10000000-0000-4000-8000-000000000003', dob: '1960-08-21', sex: 'Male', contact_number: '0917 555 0103', allergies: ['Penicillin'], is_pwd: false },
-  { id: '10000000-0000-4000-8000-000000000004', dob: '1994-03-06', sex: 'Female', contact_number: '0917 555 0104', allergies: [], is_pwd: false },
-  { id: '10000000-0000-4000-8000-000000000005', dob: '1978-11-19', sex: 'Male', contact_number: '0917 555 0105', allergies: [], is_pwd: true },
+  { id: '10000000-0000-4000-8000-000000000001', user_profile_id: '11000000-0000-4000-8000-000000000001', full_name: patientProfileData.fullName, dob: patientProfileData.dob, sex: patientProfileData.sex, contact_number: patientProfileData.contactNumber, address: patientProfileData.address, emergency_contact_name: patientProfileData.emergencyName, emergency_contact_number: patientProfileData.emergencyNumber, emergency_contact_relationship: patientProfileData.relationship, allergies: patientProfileData.allergies, is_pwd: patientProfileData.isPwd },
+  { id: '10000000-0000-4000-8000-000000000002', user_profile_id: '11000000-0000-4000-8000-000000000002', full_name: 'Ana Reyes', dob: '1986-04-12', sex: 'Female', contact_number: '0917 555 0102', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: [], is_pwd: false },
+  { id: '10000000-0000-4000-8000-000000000003', user_profile_id: null, full_name: 'Carlos Mendoza', dob: '1960-08-21', sex: 'Male', contact_number: '0917 555 0103', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: ['Penicillin'], is_pwd: false },
+  { id: '10000000-0000-4000-8000-000000000004', user_profile_id: '11000000-0000-4000-8000-000000000004', full_name: 'Liza Fernandez', dob: '1994-03-06', sex: 'Female', contact_number: '0917 555 0104', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: [], is_pwd: false },
+  { id: '10000000-0000-4000-8000-000000000005', user_profile_id: null, full_name: 'Robert Lim', dob: '1978-11-19', sex: 'Male', contact_number: '0917 555 0105', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: [], is_pwd: true },
 ];
+export function doctorPatient(id) { return doctorPatients.find(patient => patient.id === id); }
 // Completed consultations from the existing relative-day schedule fixtures.
 export const doctorConsultationDiagnoses = {
   '70000000-0000-4000-8000-000000000001': 'Routine health examination',

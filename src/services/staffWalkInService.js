@@ -1,4 +1,4 @@
-import { allStaffPatients, staffPatient, staffPatientName, walkInPatients, walkInNames, walkInAppointments, walkInServices, walkInSubmissions, walkInDutyDoctor } from '../mocks/staffWalkInStore.js';
+import { allStaffPatients, staffPatient, walkInPatients, walkInAppointments, walkInServices, walkInSubmissions, walkInDutyDoctor } from '../mocks/staffWalkInStore.js';
 import { bookingDoctors, visitTypes } from '../mocks/bookingData.js';
 import { bookingService, clinicToday, formatSlot } from './bookingService.js';
 import { staffDashboardService } from './staffDashboardService.js';
@@ -11,27 +11,31 @@ const normalized = value => (value ?? '').trim().replace(/\s+/g, ' ').toLowerCas
 export const staffWalkInService = {
   getPatient(id) {
     const patient = staffPatient(id);
-    return patient ? structuredClone({ ...patient, name: staffPatientName(id) }) : null;
+    return patient ? structuredClone(patient) : null;
   },
   search(query) {
     const name = normalized(query), digits = phone(query);
     if (!name) return [];
-    return allStaffPatients().filter(item => normalized(staffPatientName(item.id)).includes(name) || (digits.length >= 3 && phone(item.contact_number).includes(digits)))
-      .map(item => ({ id: item.id, name: staffPatientName(item.id), dob: item.dob, contact_number: item.contact_number }));
+    return allStaffPatients().filter(item => normalized(item.full_name).includes(name) || (digits.length >= 3 && phone(item.contact_number).includes(digits)))
+      .map(item => ({ id: item.id, full_name: item.full_name, dob: item.dob, contact_number: item.contact_number }));
   },
   register(values, now = new Date()) {
     const errors = {};
-    if (!values.name?.trim()) errors.name = 'Enter the patient’s full name.';
+    if (!values.full_name?.trim()) errors.full_name = 'Enter the patient’s full name.';
     if (ageFromDob(values.dob, clinicToday(now)) === null) errors.dob = 'Enter a valid date of birth, not in the future.';
     if (!profileSexOptions.includes(values.sex)) errors.sex = 'Select a sex option.';
     if (!/^[+\d\s().-]+$/.test(values.contact_number ?? '') || phone(values.contact_number).length < 7 || phone(values.contact_number).length > 15) errors.contact_number = 'Enter a contact number with 7–15 digits.';
+    if (values.emergency_contact_number?.trim() && (!/^[+\d\s().-]+$/.test(values.emergency_contact_number) || phone(values.emergency_contact_number).length < 7 || phone(values.emergency_contact_number).length > 15)) errors.emergency_contact_number = 'Enter an emergency contact number with 7–15 digits.';
     if (Object.keys(errors).length) return { errors };
-    const matches = allStaffPatients().filter(item => phone(item.contact_number) === phone(values.contact_number) || (normalized(staffPatientName(item.id)) === normalized(values.name) && item.dob === values.dob));
+    const matches = allStaffPatients().filter(item => phone(item.contact_number) === phone(values.contact_number) || (normalized(item.full_name) === normalized(values.full_name) && item.dob === values.dob));
     if (matches.length) return { matches: matches.map(item => this.getPatient(item.id)) };
-    const patient = { id: crypto.randomUUID(), user_profile_id: null, dob: values.dob, sex: values.sex,
-      contact_number: values.contact_number.trim(), emergency_contact: values.emergency_contact?.trim() || null,
+    const patient = { id: crypto.randomUUID(), user_profile_id: null, full_name: values.full_name.trim(), dob: values.dob, sex: values.sex,
+      contact_number: values.contact_number.trim(), address: values.address?.trim() || null,
+      emergency_contact_name: values.emergency_contact_name?.trim() || null,
+      emergency_contact_number: values.emergency_contact_number?.trim() || null,
+      emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null,
       allergies: (values.allergies ?? '').split(/[,\n]/).map(value => value.trim()).filter(Boolean), is_pwd: values.is_pwd === true };
-    walkInPatients.push(patient); walkInNames.set(patient.id, values.name.trim());
+    walkInPatients.push(patient);
     return { patient: this.getPatient(patient.id) };
   },
   options(now = walkInMockNow()) {

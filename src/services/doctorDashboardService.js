@@ -1,4 +1,5 @@
-import { doctorDashboardAppointments, doctorDashboardPatientNames } from '../mocks/doctorDashboardData.js';
+import { doctorDashboardAppointments } from '../mocks/doctorDashboardData.js';
+import { doctorPatient } from '../mocks/doctorPatientData.js';
 import { portalService } from './portalService.js';
 import { clinicToday, formatSlot } from './bookingService.js';
 
@@ -7,7 +8,7 @@ export const doctorDashboardService = {
     const date = clinicToday(now);
     const appointments = doctorDashboardAppointments.map(({ time, ...item }) => ({ ...item,
       appointment_at: `${date}T${time}:00+08:00`, timeLabel: formatSlot(time),
-      patientName: doctorDashboardPatientNames[item.patient_id],
+      patientName: doctorPatient(item.patient_id)?.full_name ?? 'Patient unavailable',
       patientPath: '/doctor/patients/' + item.patient_id,
     })).sort((a, b) => new Date(a.appointment_at) - new Date(b.appointment_at));
     const upcoming = appointments.filter(item => ['pending', 'confirmed'].includes(item.status) && new Date(item.appointment_at) >= new Date(`${date}T10:00:00+08:00`));

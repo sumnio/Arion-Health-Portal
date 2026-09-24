@@ -1,7 +1,6 @@
 import { doctorRecordStore, demoDoctor } from '../mocks/doctorRecordStore.js';
 import { doctorPatients, doctorConsultationDiagnoses } from '../mocks/doctorPatientData.js';
 import { doctorScheduleService, shiftScheduleDate } from './doctorScheduleService.js';
-import { doctorDashboardPatientNames } from '../mocks/doctorDashboardData.js';
 import { medicalRecordService } from './medicalRecordService.js';
 import { clinicToday } from './bookingService.js';
 import { ageFromDob, isSenior } from './patientProfileService.js';
@@ -34,6 +33,6 @@ export const doctorPatientService = {
       : appointment.status === 'pending' ? 'This appointment is awaiting confirmation.'
       : !canAddRecord ? 'Medical record creation will be available on the appointment day.'
       : 'Review the patient information before adding a medical record for this consultation.';
-    return structuredClone({ patient: { ...patient, name: doctorDashboardPatientNames[id], age: ageFromDob(patient.dob, today), senior: isSenior(patient.dob, today) }, appointment, history, consultationRecords, patientAppointments: appointments.filter(item => item.patient_id === id), existingRecord, canAddRecord, consultationMessage });
+    return structuredClone({ patient: { ...patient, name: patient.full_name, age: ageFromDob(patient.dob, today), senior: isSenior(patient.dob, today) }, appointment, history, consultationRecords, patientAppointments: appointments.filter(item => item.patient_id === id), existingRecord, canAddRecord, consultationMessage });
   },
 };

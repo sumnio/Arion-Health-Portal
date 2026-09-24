@@ -156,22 +156,27 @@ QR verification, public certificate verification, external sharing, advanced dig
 
 ## Doctor scheduling
 
-DoctorAvailability stores `id`, `doctor_id`, `day_of_week`, `start_time`, `end_time`, and `is_active` for recurring weekly hours. DoctorBlockedTime stores `id`, `doctor_id`, `start_at`, `end_at`, and `reason` for one-time whole-day or partial-day exceptions such as leave, meetings, conferences, clinic closure, or personal unavailability.
+DoctorAvailability stores `id`, `doctor_id`, `day_of_week`, `start_time`, `end_time`, and `is_active` for recurring weekly hours. A doctor may publish multiple availability ranges on the same day. For example, 9:00 AM-12:00 PM and 1:00 PM-5:00 PM leaves a recurring lunch break between the ranges. This is the preferred representation for a regular lunch break or other recurring break; it does not require DoctorBlockedTime.
+
+DoctorBlockedTime stores `id`, `doctor_id`, `start_at`, `end_at`, and `reason` for one-time or temporary whole-day and partial-day exceptions. Examples include leave, a meeting, a conference, clinic closure, an emergency absence, a personal break, a temporary lunch-time change, or another one-time unavailable period.
 
 ### Scheduling and publication rules
 
 - Appointment slots are fixed at 30 minutes.
 - Doctors manage their own recurring availability and blocked time within the existing `/doctor/schedule` workflow; no separate availability route is added.
+- A doctor may publish multiple DoctorAvailability ranges for the same day. Gaps between ranges represent regular recurring breaks.
 - A doctor may publish availability up to 30 days ahead and is not required to publish all 30 days. Patients may see and book only dates/times actually published by the doctor; a recurring weekly row alone does not publish every matching future date.
-- Availability must remain within clinic operating hours. The full 30-minute slot must fit within published working hours.
+- Exact clinic operating hours are TBD and must be configurable. Do not hardcode clinic-hour values. Once configured, DoctorAvailability and every bookable 30-minute slot must remain within those hours.
 - DoctorBlockedTime overrides regular DoctorAvailability. Any slot overlapping blocked time is unavailable, including when only part of a day is blocked.
 - Already-booked slots are unavailable for new booking. The same doctor must not have two active appointments in the same time slot or overlapping appointment intervals. Different doctors may have appointments at the same time.
 
-Bookable slot logic: Published DoctorAvailability within the patient's next 14 days - DoctorBlockedTime - already-booked appointment slots = available 30-minute patient booking slots.
+Bookable slot logic: Published DoctorAvailability within the patient's next 14 days and configured clinic operating hours - DoctorBlockedTime - already-booked appointment slots = available 30-minute patient booking slots.
 
 ### Unresolved implementation details
 
-The approved DoctorAvailability fields describe weekly recurrence but do not record which specific dates have actually been published or the publication horizon. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. A publication representation needs approval before backend implementation; no additional fields or entities are introduced here. Clinic operating-hour values are also not yet specified and must be established before enforcing that boundary.
+The approved DoctorAvailability fields describe weekly recurrence but do not record which specific dates have actually been published or the publication horizon. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. A publication representation needs approval before backend implementation; no additional fields or entities are introduced here.
+
+Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
 
 The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
 
@@ -185,7 +190,7 @@ A patient slot is bookable only when all conditions hold:
 
 1. The date is within the next 14 days.
 2. The selected doctor has actually published availability for that date/time.
-3. The full 30-minute slot falls within that published availability and clinic operating hours.
+3. The full 30-minute slot falls within that published availability and, once defined, the configured clinic operating hours.
 4. The slot does not overlap DoctorBlockedTime.
 5. No other active appointment occupies that doctor's slot.
 
