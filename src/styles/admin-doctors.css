@@ -9,6 +9,12 @@
 .manage-doctors .md-list li { border-top:1px solid #dfe7ee; padding:20px 0; }
 .manage-doctors .md-list h2 { font-size:16px; }
 .manage-doctors .md-list p { margin:0; }
+.manage-doctors .md-account-summary { min-width:0; }
+.manage-doctors .md-name-line { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.manage-doctors .md-name-line h2 { margin:0; }
+.manage-doctors .account-status { display:inline-flex; align-items:center; width:max-content; padding:4px 9px; border-radius:999px; font-size:12px; font-weight:700; text-transform:capitalize; }
+.manage-doctors .account-status-active { color:#176044; background:#dff4e9; }
+.manage-doctors .account-status-inactive { color:#7b3940; background:#f8e5e7; }
 .manage-doctors .md-actions { display:flex; flex-wrap:wrap; gap:10px; }
 .manage-doctors .action-link { cursor:pointer; background:white; color:#22674f; }
 .manage-doctors .md-primary { background:#22674f; color:white; }

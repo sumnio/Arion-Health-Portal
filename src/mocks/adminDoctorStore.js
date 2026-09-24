@@ -1,8 +1,25 @@
-import { bookingDoctors } from './bookingData.js';
-import { demoDoctor } from './doctorRecordStore.js';
-
-// Account-management copies: editing these never rewrites historical clinical data.
+// Doctor-owned profile fields only. Shared account data is held in
+// adminUserProfileStore and joined by the service layer.
 export const adminDoctorStore = [
-  ...bookingDoctors.map(({ id, name, specialty }) => ({ id, display_name: name, specialty, role: 'doctor' })),
-  { id: demoDoctor.id, display_name: demoDoctor.display_name, specialty: '', role: 'doctor' },
+  {
+    id: '50000000-0000-4000-8000-000000000001',
+    specialty: 'General Medicine',
+    license_number: 'PRC-0123456',
+    ptr_number: 'PTR-2026-1001',
+    signature_path: 'signatures/doctor-maria-santos.png',
+  },
+  {
+    id: '50000000-0000-4000-8000-000000000002',
+    specialty: 'Family Medicine',
+    license_number: 'PRC-0234567',
+    ptr_number: 'PTR-2026-1002',
+    signature_path: 'signatures/doctor-carlo-reyes.png',
+  },
+  {
+    id: '50000000-0000-4000-8000-000000000003',
+    specialty: 'General Medicine',
+    license_number: 'PRC-0345678',
+    ptr_number: 'PTR-2026-1003',
+    signature_path: 'signatures/demo-doctor.png',
+  },
 ];
