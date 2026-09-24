@@ -165,6 +165,8 @@ QR verification, public certificate verification, external sharing, advanced dig
 
 DoctorAvailability stores `id`, `doctor_id`, `day_of_week`, `start_time`, `end_time`, and `is_active` for recurring weekly hours. A doctor may publish multiple availability ranges on the same day. For example, 9:00 AM-12:00 PM and 1:00 PM-5:00 PM leaves a recurring lunch break between the ranges. This is the preferred representation for a regular lunch break or other recurring break; it does not require DoctorBlockedTime.
 
+DoctorPublishedAvailability is the approved concept for specific dates and time ranges the Doctor has actually confirmed for patient booking. It is distinct from the recurring DoctorAvailability template. Its exact persistence fields remain to be approved before backend implementation; the frontend currently represents it only as provider-independent mock/service data.
+
 DoctorBlockedTime stores `id`, `doctor_id`, `start_at`, `end_at`, and `reason` for one-time or temporary whole-day and partial-day exceptions. Examples include leave, a meeting, a conference, clinic closure, an emergency absence, a personal break, a temporary lunch-time change, or another one-time unavailable period.
 
 ### Scheduling and publication rules
@@ -181,7 +183,7 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 ### Unresolved implementation details
 
-The approved DoctorAvailability fields describe weekly recurrence but do not record which specific dates have actually been published or the publication horizon. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. A publication representation needs approval before backend implementation; no additional fields or entities are introduced here.
+The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability is approved conceptually, but its persistence fields and relationships still require approval before backend implementation.
 
 Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
 

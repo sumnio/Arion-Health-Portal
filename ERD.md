@@ -323,7 +323,7 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 ### Unresolved implementation details
 
-The approved DoctorAvailability fields describe weekly recurrence but do not record which specific dates have actually been published or the publication horizon. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. A publication representation needs approval before backend implementation; no additional fields or entities are introduced here.
+The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability is the approved concept for specific dates/time ranges confirmed for patient booking, but its persistence fields and relationships still require approval before backend implementation. It is currently represented only in frontend mock/service data and is not added to this relationship diagram yet.
 
 Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
 

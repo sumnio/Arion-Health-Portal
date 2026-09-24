@@ -1,6 +1,7 @@
-import { visitTypes, bookingDoctors, mockDoctorAvailability } from '../mocks/bookingData.js';
-import { appointmentStore, slotOccupied } from '../mocks/appointmentStore.js';
+import { visitTypes, bookingDoctors } from '../mocks/bookingData.js';
+import { appointmentStore } from '../mocks/appointmentStore.js';
 import { exampleIds } from '../mocks/portalData.js';
+import { doctorAvailabilityService } from './doctorAvailabilityService.js';
 
 // Session-memory occupancy only. Reloading clears mock confirmations.
 export const clinicTimeZone = 'Asia/Manila';
@@ -38,19 +39,8 @@ export const bookingService = {
   getSlots(doctorId, date, now = new Date()) {
     const doctor = bookingDoctors.find(item => item.id === doctorId);
     const window = bookingWindow(now);
-    const availability = mockDoctorAvailability[doctorId];
     if (!doctor || !validDate(date) || date < window.start || date > window.end) return [];
-    const day = new Date(date + 'T00:00:00Z').getUTCDay();
-    if (!availability.weekdays.includes(day) || availability.blockedDates.includes(date)) return [];
-    const times = day % 2 === 0 ? doctor.afternoon : doctor.morning;
-    // Different weekday/doctor patterns provide deterministic, occupied sample slots.
-    const occupiedIndex = (day + bookingDoctors.indexOf(doctor)) % times.length;
-    return times.map((time, index) => ({
-      time,
-      available: !availability.fullyBookedDates.includes(date) && index !== occupiedIndex
-        && new Date(date + 'T' + time + ':00+08:00') > now
-        && !slotOccupied(doctorId, date, time),
-    }));
+    return doctorAvailabilityService.getSlots(doctorId, date, now);
   },
   isDateAvailable(doctorId, date, now = new Date()) {
     return this.getSlots(doctorId, date, now).some(slot => slot.available);

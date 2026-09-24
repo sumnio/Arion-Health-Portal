@@ -11,13 +11,13 @@ test('catalog exposes only the three approved fixed visit types', () => {
   ]);
 });
 
-test('doctor and date affect fixed mock slots, with occupied slots unavailable', () => {
+test('doctor and date use explicitly published mock ranges', () => {
   const { doctors } = bookingService.getOptions();
   const now = new Date('2026-09-18T00:00:00Z');
   const first = bookingService.getSlots(doctors[0].id, '2026-09-21', now);
   assert.notDeepEqual(first, bookingService.getSlots(doctors[1].id, '2026-09-21', now));
   assert.notDeepEqual(first, bookingService.getSlots(doctors[0].id, '2026-09-22', now));
-  assert.ok(first.some(slot => !slot.available));
+  assert.ok(first.length > 0 && first.every(slot => slot.available));
   assert.deepEqual(bookingService.getSlots(doctors[0].id, '2026-09-20', now), []);
   assert.deepEqual(bookingService.getSlots(doctors[0].id, '2026-02-30', now), []);
 });
@@ -40,21 +40,19 @@ test('confirmation reserves one place per doctor and slot without persistence', 
   assert.equal(bookingService.getSlots(doctor, date).find(slot => slot.time === time).available, false);
 });
 
-test('14-day window, doctor weekdays, blocked dates and full dates are enforced', () => {
+test('14-day window, published dates and blocked dates are enforced', () => {
   const doctor = bookingService.getOptions().doctors[0].id;
   const now = new Date('2026-09-18T00:00:00Z');
   assert.deepEqual(bookingWindow(now), { start: '2026-09-18', end: '2026-10-02' });
   assert.equal(bookingService.isDateAvailable(doctor, '2026-10-02', now), true);
   assert.deepEqual(bookingService.getSlots(doctor, '2026-10-03', now), []);
   assert.match(bookingService.validate({ doctor, date: '2026-10-03', time: '09:00', service: 'general_consultation', reason: 'Test' }, now).date, /14 days/);
-  for (const date of ['2026-09-17', '2026-09-20', '2026-09-23', '2026-09-24', '2026-09-26']) {
+  for (const date of ['2026-09-17', '2026-09-20', '2026-09-23', '2026-09-24']) {
     assert.equal(bookingService.isDateAvailable(doctor, date, now), false, date);
     assert.ok(bookingService.validate({ doctor, date, time: '09:00', service: 'general_consultation', reason: 'Test' }, now).date);
   }
   assert.equal(bookingService.isDateAvailable(bookingService.getOptions().doctors[1].id, '2026-09-24', now), true);
   assert.equal(bookingService.isDateAvailable('', '2026-09-21', now), false);
-  const full = bookingService.getSlots(doctor, '2026-09-26', now);
-  assert.ok(full.length > 0 && full.every(slot => !slot.available));
 });
 
 test('booking slots remain fixed at 30 minutes', () => {
