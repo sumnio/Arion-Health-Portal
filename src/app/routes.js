@@ -110,6 +110,10 @@ export const routeGroups = {
       "title": "Admin Dashboard"
     },
     {
+      "path": "/admin/patients",
+      "title": "Manage Patients"
+    },
+    {
       "path": "/admin/doctors",
       "title": "Manage Doctors"
     },

@@ -11,7 +11,7 @@ test('route definitions exactly match the approved sitemap', () => {
   const approved = readFileSync(new URL('../SITEMAP.md', import.meta.url), 'utf8')
     .split(/\r?\n/).map(line => line.trim()).filter(line => line.startsWith('/'));
   assert.deepEqual(routes.map(route => route.path).sort(), approved.sort());
-  assert.equal(new Set(routes.map(route => route.path)).size, 27);
+  assert.equal(new Set(routes.map(route => route.path)).size, approved.length);
 });
 test('every example and contextual link resolves to the intended approved route', () => {
   for (const route of routes) {
