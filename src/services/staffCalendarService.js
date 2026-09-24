@@ -1,7 +1,7 @@
 import { staffDashboardService } from './staffDashboardService.js';
 import { doctorScheduleService } from './doctorScheduleService.js';
-import { demoDoctor } from '../mocks/doctorRecordStore.js';
-import { appointmentStatus, setAppointmentStatus } from '../mocks/staffAppointmentStore.js';
+import { appointmentRepository } from '../repositories/appointmentRepository.js';
+import { doctorProfileService } from './doctorProfileService.js';
 import { clinicToday } from './bookingService.js';
 
 export function staffActions(item, today = clinicToday()) {
@@ -15,9 +15,9 @@ export const staffCalendarService = {
     const shared = doctorScheduleService.getDay(date, now);
     const items = date === clinicToday(now) ? staffDashboardService.getDashboard(now).appointments
       : shared.map(item => ({ id: item.id, patient_id: item.patient_id, patientName: item.patientName,
-        doctor_id: demoDoctor.id, doctor: demoDoctor.display_name, appointment_at: item.appointment_at,
+        doctor_id: item.doctor_id, doctor: doctorProfileService.get(item.doctor_id)?.display_name ?? 'Doctor unavailable', appointment_at: item.appointment_at,
         timeLabel: item.timeLabel, status: item.status, check_in_at: null }));
-    return items.map(item => ({ ...item, status: appointmentStatus(item),
+    return items.map(item => ({ ...item,
       reason: item.reason ?? shared.find(source => source.id === item.id)?.reason ?? 'General Consultation' }));
   },
   updateStatus(date, id, status, now = new Date()) {
@@ -27,6 +27,6 @@ export const staffCalendarService = {
     if (!(status === 'confirmed' && actions.confirm || status === 'cancelled' && actions.cancel)) {
       throw new Error('This appointment is no longer eligible for that action.');
     }
-    setAppointmentStatus(item, status);
+    appointmentRepository.update(item.id, { status });
   },
 };

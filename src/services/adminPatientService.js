@@ -1,5 +1,6 @@
-import { adminUserProfileStore } from '../mocks/adminUserProfileStore.js';
-import { allStaffPatients } from '../mocks/staffWalkInStore.js';
+import { userProfileRepository } from '../repositories/accountRepository.js';
+import { patientRepository } from '../repositories/patientRepository.js';
+const adminUserProfileStore = userProfileRepository.list();
 
 export const ADMIN_PATIENT_PAGE_SIZE = 5;
 export const adminPatientStatusFilters = ['all', 'active', 'inactive', 'no_account'];
@@ -27,7 +28,7 @@ function project(patient) {
 
 function changeStatus(patientId, status) {
   if (!['active', 'inactive'].includes(status)) throw new Error('Account status must be active or inactive.');
-  const patient = allStaffPatients().find(item => item.id === patientId);
+  const patient = patientRepository.get(patientId);
   if (!patient) throw new Error('Patient not found.');
   const profile = profileFor(patient);
   if (!profile) throw new Error('This patient has no portal account to update.');
@@ -75,10 +76,10 @@ export function adminPatientListPage(patients, profiles, { query = '', status = 
 
 export const adminPatientService = {
   list(options) {
-    return adminPatientListPage(allStaffPatients(), adminUserProfileStore, options);
+    return adminPatientListPage(patientRepository.list(), adminUserProfileStore, options);
   },
   get(id) {
-    const patient = allStaffPatients().find(item => item.id === id);
+    const patient = patientRepository.get(id);
     return patient ? project(patient) : null;
   },
   deactivate(id) { return changeStatus(id, 'inactive'); },

@@ -1,5 +1,7 @@
 import { doctorPatientService } from './doctorPatientService.js';
-import { doctorRecordStore, doctorPrescriptionStore, demoDoctor } from '../mocks/doctorRecordStore.js';
+import { medicalRecordRepository } from '../repositories/medicalRecordRepository.js';
+import { DEMO_DOCTOR_ID } from '../repositories/appointmentRepository.js';
+import { doctorProfileService } from './doctorProfileService.js';
 
 export const doctorRecordService = {
   context(patientId, selection) {
@@ -7,11 +9,11 @@ export const doctorRecordService = {
     if (!selection?.appointmentId || !selection?.date) return { error: 'Select an appointment from Patient Details before adding a medical record.' };
     const detail = doctorPatientService.get(patientId, selection);
     if (!detail) return { error: 'Patient or appointment not found. Return to the schedule and select a valid consultation.' };
-    return { ...detail, doctor: demoDoctor, error: detail.canAddRecord ? null : detail.consultationMessage };
+    return { ...detail, doctor: doctorProfileService.get(DEMO_DOCTOR_ID), error: detail.canAddRecord ? null : detail.consultationMessage };
   },
   get(id) {
-    const record = doctorRecordStore.find(item => item.id === id);
-    return record ? structuredClone({ ...record, prescriptions: doctorPrescriptionStore.filter(item => item.medical_record_id === id) }) : null;
+    const record = medicalRecordRepository.get(id);
+    return record ? structuredClone({ ...record, prescriptions: medicalRecordRepository.prescriptions(id) }) : null;
   },
   save(patientId, selection, values) {
     const context = this.context(patientId, selection);
@@ -28,12 +30,11 @@ export const doctorRecordService = {
     });
     if (Object.keys(errors).length) return { errors };
     const now = new Date().toISOString();
-    const record = { id: crypto.randomUUID(), patient_id: context.patient.id, doctor_id: context.doctor.id,
+    const recordValues = { patient_id: context.patient.id, doctor_id: context.doctor.id,
       appointment_id: context.appointment.id, encounter_at: timestamp.toISOString(), diagnosis: values.diagnosis.trim(),
       notes: values.notes?.trim() || null, follow_up: values.follow_up?.trim() || null, created_at: now, updated_at: now };
-    const prescriptions = rows.map(row => ({ id: crypto.randomUUID(), medical_record_id: record.id, medicine: row.medicine.trim(), dosage: row.dosage.trim(), instructions: row.instructions?.trim() || null }));
-    doctorRecordStore.push(record);
-    doctorPrescriptionStore.push(...prescriptions);
+    const prescriptionValues = rows.map(row => ({ medicine: row.medicine.trim(), dosage: row.dosage.trim(), instructions: row.instructions?.trim() || null }));
+    const record = medicalRecordRepository.create(recordValues, prescriptionValues);
     return { record: this.get(record.id) };
   },
 };

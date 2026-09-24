@@ -8,9 +8,3 @@ export const doctorPatients = [
   { id: '10000000-0000-4000-8000-000000000005', user_profile_id: null, full_name: 'Robert Lim', dob: '1978-11-19', sex: 'Male', contact_number: '0917 555 0105', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: [], is_pwd: true },
 ];
 export function doctorPatient(id) { return doctorPatients.find(patient => patient.id === id); }
-// Completed consultations from the existing relative-day schedule fixtures.
-export const doctorConsultationDiagnoses = {
-  '70000000-0000-4000-8000-000000000001': 'Routine health examination',
-  '70000000-0000-4000-8000-000000000002': 'Allergic rhinitis, improving',
-  '70000000-0000-4000-8000-000000000006': 'Allergic rhinitis',
-};

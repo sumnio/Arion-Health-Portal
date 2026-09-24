@@ -1,5 +1,7 @@
-import { adminStaffStore } from '../mocks/adminStaffStore.js';
-import { adminUserProfileStore } from '../mocks/adminUserProfileStore.js';
+import { staffRepository, userProfileRepository } from '../repositories/accountRepository.js';
+import { createMockId } from '../repositories/mockId.js';
+const adminStaffStore = staffRepository.list();
+const adminUserProfileStore = userProfileRepository.list();
 
 function fields(input) {
   const display_name = String(input.display_name ?? '').trim();
@@ -37,9 +39,9 @@ export const adminStaffService = {
   get(id) { const staff = findStaff(id); return staff ? joinedStaff(staff) : null; },
   create(input) {
     const values = fields(input);
-    const id = crypto.randomUUID();
+    const id = createMockId();
     const now = new Date().toISOString();
-    adminUserProfileStore.push({
+    userProfileRepository.add({
       id,
       ...values,
       role: 'staff',
@@ -48,7 +50,7 @@ export const adminStaffService = {
       updated_at: now,
     });
     const staff = { id };
-    adminStaffStore.push(staff);
+    staffRepository.add(staff);
     return joinedStaff(staff);
   },
   update(id, input) {

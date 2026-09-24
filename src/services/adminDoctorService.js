@@ -1,5 +1,7 @@
-import { adminDoctorStore } from '../mocks/adminDoctorStore.js';
-import { adminUserProfileStore } from '../mocks/adminUserProfileStore.js';
+import { doctorRepository, userProfileRepository } from '../repositories/accountRepository.js';
+import { createMockId } from '../repositories/mockId.js';
+const adminDoctorStore = doctorRepository.list();
+const adminUserProfileStore = userProfileRepository.list();
 
 function fields(input) {
   const display_name = String(input.display_name ?? '').trim();
@@ -43,9 +45,9 @@ export const adminDoctorService = {
   get(id) { const doctor = findDoctor(id); return doctor ? joinedDoctor(doctor) : null; },
   create(input) {
     const values = fields(input);
-    const id = crypto.randomUUID();
+    const id = createMockId();
     const now = new Date().toISOString();
-    adminUserProfileStore.push({
+    userProfileRepository.add({
       id,
       display_name: values.display_name,
       contact_number: values.contact_number,
@@ -61,7 +63,7 @@ export const adminDoctorService = {
       ptr_number: values.ptr_number,
       signature_path: values.signature_path,
     };
-    adminDoctorStore.push(doctor);
+    doctorRepository.add(doctor);
     return joinedDoctor(doctor);
   },
   update(id, input) {

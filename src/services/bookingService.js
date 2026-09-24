@@ -1,7 +1,9 @@
-import { visitTypes, bookingDoctors } from '../mocks/bookingData.js';
-import { appointmentStore } from '../mocks/appointmentStore.js';
+import { visitTypes } from '../mocks/bookingData.js';
+import { appointmentRepository } from '../repositories/appointmentRepository.js';
 import { exampleIds } from '../mocks/portalData.js';
 import { doctorAvailabilityService } from './doctorAvailabilityService.js';
+import { doctorProfileService } from './doctorProfileService.js';
+import { toDoctorOption } from './adapters/domainAdapters.js';
 
 // Session-memory occupancy only. Reloading clears mock confirmations.
 export const clinicTimeZone = 'Asia/Manila';
@@ -34,10 +36,10 @@ export function slotRange(time) {
 }
 export const bookingService = {
   getOptions() {
-    return { services: structuredClone(visitTypes), doctors: bookingDoctors.map(({ id, name, specialty }) => ({ id, name, specialty })) };
+    return { services: structuredClone(visitTypes), doctors: doctorProfileService.list({ activeOnly: true }).map(toDoctorOption) };
   },
   getSlots(doctorId, date, now = new Date()) {
-    const doctor = bookingDoctors.find(item => item.id === doctorId);
+    const doctor = doctorProfileService.get(doctorId);
     const window = bookingWindow(now);
     if (!doctor || !validDate(date) || date < window.start || date > window.end) return [];
     return doctorAvailabilityService.getSlots(doctorId, date, now);
@@ -48,7 +50,7 @@ export const bookingService = {
   validate(values, now = new Date()) {
     const errors = {};
     if (!visitTypes.some(item => item.id === values.service)) errors.service = 'Select a visit type.';
-    if (!bookingDoctors.some(item => item.id === values.doctor)) errors.doctor = 'Select a doctor.';
+    if (!doctorProfileService.list({ activeOnly: true }).some(item => item.id === values.doctor)) errors.doctor = 'Select a doctor.';
     if (!this.isDateAvailable(values.doctor, values.date, now)) errors.date = 'Select an available date from today through the next 14 days.';
     if (!values.time) errors.time = 'Select an available time slot.';
     else if (!this.getSlots(values.doctor, values.date, now).some(slot => slot.time === values.time && slot.available)) errors.time = 'That time is no longer available. Select another slot.';
@@ -59,15 +61,14 @@ export const bookingService = {
     const errors = this.validate(values);
     if (Object.keys(errors).length) return { errors };
     // Validation and reservation are synchronous so repeat submissions cannot claim the same slot.
-    appointmentStore.push({
-      id: crypto.randomUUID(), patient_id: exampleIds.patient, doctor_id: values.doctor,
+    const appointment = appointmentRepository.create({ patient_id: exampleIds.patient, doctor_id: values.doctor,
       appointment_at: `${values.date}T${values.time}:00+08:00`, check_in_at: null,
-      service: visitTypes.find(item => item.id === values.service).name,
-      reason: values.reason.trim(), status: 'confirmed',
+      service: visitTypes.find(item => item.id === values.service).name, reason: values.reason.trim(), status: 'confirmed', priority: 'normal',
     });
     return { confirmation: {
+      id: appointment.id,
       service: visitTypes.find(item => item.id === values.service).name,
-      doctor: bookingDoctors.find(item => item.id === values.doctor).name,
+      doctor: doctorProfileService.get(values.doctor).display_name,
       date: values.date, time: values.time, reason: values.reason.trim(), status: 'confirmed',
     } };
   },

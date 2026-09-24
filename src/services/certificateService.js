@@ -1,12 +1,10 @@
-import { medicalCertificates } from '../mocks/certificateData.js';
-import { doctorCertificateStore } from '../mocks/doctorCertificateStore.js';
+import { medicalCertificateRepository } from '../repositories/medicalCertificateRepository.js';
 import { exampleIds } from '../mocks/portalData.js';
 import { medicalRecordService } from './medicalRecordService.js';
 import { portalService } from './portalService.js';
 import { doctorProfileService } from './doctorProfileService.js';
 import { clinicConfig } from '../config/clinicConfig.js';
 
-const allCertificates = () => [...medicalCertificates, ...doctorCertificateStore];
 const patientVisible = (item, patientId) => item.patient_id === patientId && item.status === 'issued' && !!item.date_issued;
 function present(item, patientName = portalService.getPreviewProfile('patient').display_name) {
   const doctor = doctorProfileService.get(item.doctor_id);
@@ -20,12 +18,12 @@ function present(item, patientName = portalService.getPreviewProfile('patient').
 export const certificateService = {
   list() { return this.listForPatient(exampleIds.patient); },
   listForPatient(patientId, patientName) {
-    return allCertificates().filter(item => patientVisible(item, patientId)).map(item => present(item, patientName))
+    return medicalCertificateRepository.list().filter(item => patientVisible(item, patientId)).map(item => present(item, patientName))
       .sort((a, b) => b.date_issued.localeCompare(a.date_issued));
   },
   get(id) {
-    const item = allCertificates().find(item => item.id === id && patientVisible(item, exampleIds.patient));
-    return item ? present(item) : null;
+    const item = medicalCertificateRepository.get(id);
+    return item && patientVisible(item, exampleIds.patient) ? present(item) : null;
   },
 };
 export function formatCertificateDate(value) {

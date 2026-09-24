@@ -1,4 +1,4 @@
-import { allStaffPatients } from '../mocks/staffWalkInStore.js';
+import { patientRepository } from '../repositories/patientRepository.js';
 import { ageFromDob, isSenior } from './patientProfileService.js';
 import { clinicToday } from './bookingService.js';
 
@@ -18,5 +18,5 @@ export function patientListPage(patients, { query = '', page = 1 } = {}, today =
     filteredTotal: matches.length, page: currentPage, pageCount };
 }
 export const staffPatientsService = {
-  list(options, now = new Date()) { return patientListPage(allStaffPatients(), options, clinicToday(now)); },
+  list(options, now = new Date()) { return patientListPage(patientRepository.list(), options, clinicToday(now)); },
 };

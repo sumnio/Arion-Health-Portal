@@ -1,6 +1,6 @@
 import { staffDashboardService } from './staffDashboardService.js';
 import { clinicToday } from './bookingService.js';
-import { setAppointmentCheckIn, setAppointmentStatus } from '../mocks/staffAppointmentStore.js';
+import { appointmentRepository } from '../repositories/appointmentRepository.js';
 
 export function queueActions(item, now = new Date()) {
   const today = item?.appointment_at?.slice(0, 10) === clinicToday(now);
@@ -23,7 +23,7 @@ export const staffQueueService = {
     if (!item || !['checkIn', 'noShow'].includes(action) || !queueActions(item, now)[action]) {
       throw new Error('This appointment is no longer eligible for that action. Refresh your selection.');
     }
-    if (action === 'checkIn') setAppointmentCheckIn(item, now.toISOString());
-    else setAppointmentStatus(item, 'no_show');
+    if (action === 'checkIn') appointmentRepository.update(item.id, { check_in_at: now.toISOString() });
+    else appointmentRepository.update(item.id, { status: 'no_show' });
   },
 };

@@ -1,9 +1,13 @@
-import { recordCertificates } from './medicalRecordData.js';
 import { exampleIds } from './portalData.js';
 
 // Reuse the existing record-linked certificate without changing record pages.
 export const medicalCertificates = [
-  ...recordCertificates,
+  {
+    id: exampleIds.certificate, medical_certificate_number: 'MC-MOCK-20260902-001', patient_id: exampleIds.patient,
+    doctor_id: '50000000-0000-4000-8000-000000000001', medical_record_id: exampleIds.record,
+    date_issued: '2026-09-02', purpose: 'Sick Leave', diagnosis_summary: 'Acute upper respiratory infection',
+    valid_until: null, status: 'issued', created_at: '2026-09-02T10:30:00+08:00', updated_at: '2026-09-02T10:30:00+08:00',
+  },
   {
     id: '40000000-0000-4000-8000-000000000002', medical_certificate_number: 'MC-MOCK-20260612-001', patient_id: exampleIds.patient,
     doctor_id: '50000000-0000-4000-8000-000000000002', medical_record_id: null,

@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { certificateService } from '../src/services/certificateService.js';
 import { medicalCertificates } from '../src/mocks/certificateData.js';
-import { recordCertificates } from '../src/mocks/medicalRecordData.js';
 import { clinicConfig } from '../src/config/clinicConfig.js';
 import { readFile } from 'node:fs/promises';
 
@@ -17,7 +16,7 @@ test('patient certificate list contains only issued certificates and hides draft
   assert.equal(certificateService.get('missing'), null);
 });
 test('certificate details preserve existing record links and nullable fields', () => {
-  const expected = recordCertificates[0];
+  const expected = medicalCertificates[0];
   const item = certificateService.get(expected.id);
   for (const key of Object.keys(expected)) assert.equal(item[key], expected[key]);
   assert.equal(item.relatedRecord.id, expected.medical_record_id);
