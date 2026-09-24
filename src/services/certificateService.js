@@ -1,21 +1,32 @@
-import { medicalCertificates, certificateClinic } from '../mocks/certificateData.js';
+import { medicalCertificates } from '../mocks/certificateData.js';
+import { doctorCertificateStore } from '../mocks/doctorCertificateStore.js';
 import { exampleIds } from '../mocks/portalData.js';
-import { bookingDoctors } from '../mocks/bookingData.js';
 import { medicalRecordService } from './medicalRecordService.js';
 import { portalService } from './portalService.js';
+import { doctorProfileService } from './doctorProfileService.js';
+import { clinicConfig } from '../config/clinicConfig.js';
 
-const patientVisible = item => item.patient_id === exampleIds.patient && item.status === 'issued' && !!item.date_issued;
-function present(item) {
-  const doctor = bookingDoctors.find(doctor => doctor.id === item.doctor_id);
+const allCertificates = () => [...medicalCertificates, ...doctorCertificateStore];
+const patientVisible = (item, patientId) => item.patient_id === patientId && item.status === 'issued' && !!item.date_issued;
+function present(item, patientName = portalService.getPreviewProfile('patient').display_name) {
+  const doctor = doctorProfileService.get(item.doctor_id);
   const record = item.medical_record_id ? medicalRecordService.get(item.medical_record_id) : null;
-  return structuredClone({ ...item, doctor: doctor?.name ?? 'Doctor unavailable', specialty: doctor?.specialty ?? '',
-    patientName: portalService.getPreviewProfile('patient').display_name, clinic: certificateClinic,
+  return structuredClone({ ...item, doctor: doctor?.display_name ?? 'Doctor unavailable', specialty: doctor?.specialty ?? '',
+    license_number: doctor?.license_number ?? 'Not available', ptr_number: doctor?.ptr_number ?? 'Not available',
+    signature_available: Boolean(doctor?.signature_path), patientName, clinic: clinicConfig,
     relatedRecord: record ? { id: record.id, encounter_at: record.encounter_at, visitType: record.visitType } : null });
 }
 // Read-only mock patient scope, not authentication or backend authorization.
 export const certificateService = {
-  list() { return medicalCertificates.filter(patientVisible).map(present).sort((a, b) => b.date_issued.localeCompare(a.date_issued)); },
-  get(id) { const item = medicalCertificates.find(item => item.id === id && patientVisible(item)); return item ? present(item) : null; },
+  list() { return this.listForPatient(exampleIds.patient); },
+  listForPatient(patientId, patientName) {
+    return allCertificates().filter(item => patientVisible(item, patientId)).map(item => present(item, patientName))
+      .sort((a, b) => b.date_issued.localeCompare(a.date_issued));
+  },
+  get(id) {
+    const item = allCertificates().find(item => item.id === id && patientVisible(item, exampleIds.patient));
+    return item ? present(item) : null;
+  },
 };
 export function formatCertificateDate(value) {
   return value ? new Date(value + 'T00:00:00+08:00').toLocaleDateString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'long' }) : 'Not specified';

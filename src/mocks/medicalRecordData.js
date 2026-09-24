@@ -39,7 +39,7 @@ export const prescriptions = [
 ];
 
 export const recordCertificates = [{
-  id: exampleIds.certificate, patient_id: exampleIds.patient,
+  id: exampleIds.certificate, medical_certificate_number: 'MC-MOCK-20260902-001', patient_id: exampleIds.patient,
   doctor_id: patientDashboardData.recentRecord.doctor_id, medical_record_id: exampleIds.record,
   date_issued: '2026-09-02', purpose: 'Sick Leave', diagnosis_summary: 'Acute upper respiratory infection',
   valid_until: null, status: 'issued', created_at: '2026-09-02T10:30:00+08:00', updated_at: '2026-09-02T10:30:00+08:00',

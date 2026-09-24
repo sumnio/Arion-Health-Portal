@@ -30,6 +30,7 @@
 .patient-certificates .certificate-cross { font-size: 36px; color: #284764; }
 .patient-certificates .certificate-paper .certificate-sample { font-size: 10px; letter-spacing: .1em; text-align: center; margin: 18px 0; }
 .patient-certificates .certificate-paper-title { text-align: center; font-family: Georgia, serif; text-transform: uppercase; font-size: clamp(20px, 2vw, 26px); font-weight: 700; }
+.patient-certificates .certificate-paper .certificate-number { text-align: center; font-size: 12px; font-weight: 700; color: #334c68; }
 .patient-certificates .certificate-patient-label { text-align: center; margin-top: 20px; font-size: 12px; }
 .patient-certificates .certificate-paper .certificate-patient-name { font-family: Georgia, serif; text-align: center; font-size: 24px; font-weight: 700; color: #152d4b; }
 .patient-certificates .certificate-paper dl { margin: 26px 0; }
@@ -37,6 +38,7 @@
 .patient-certificates .certificate-paper dt { font-size: 13px; color: #152d4b; margin: 0; line-height: 1.6; }
 .patient-certificates .certificate-paper footer { display: grid; gap: 6px; text-align: right; padding-top: 22px; border-top: 1px solid #e3e9f0; font-size: 12px; color: #52657b; }
 .patient-certificates .certificate-paper footer strong { color: #152d4b; font-size: 14px; }
+.patient-certificates .certificate-signature { min-height: 42px; display: flex; justify-content: flex-end; align-items: end; font-family: "Segoe Script", cursive; font-size: 19px; color: #203a54; }
 .patient-certificates .certificate-download { margin-top: 20px; }
 .patient-certificates .certificate-download button:disabled { background: #e7edf4; color: #52657b; cursor: not-allowed; }
 .patient-certificates .certificate-download p { font-size: 12px; }
