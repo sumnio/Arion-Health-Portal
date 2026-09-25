@@ -1,5 +1,21 @@
 # Arion Health Portal
 
+## Backend transition status
+
+The selected backend direction is Node.js, Express, and MongoDB through Mongoose. Milestone 13 establishes only the backend project structure, environment loading, MongoDB connection lifecycle, foundational middleware, centralized error handling, and `GET /api/health`.
+
+Frontend features continue to use the current service layer and in-memory mock repositories. Patient, appointment, scheduling, queue, clinical, certificate, account, and authentication data have not been migrated to the Express API yet. Later milestones will replace mock repository access behind the existing frontend service boundary without moving backend access into React components.
+
+Current transition:
+
+```text
+React -> service layer -> mock repositories
+                         (current feature data)
+
+React -> service layer -> Express API -> MongoDB
+                         (target architecture; infrastructure only for now)
+```
+
 ## Purpose
 Arion Health Portal is a clinic management and patient portal system.
 

@@ -1,6 +1,6 @@
 # Arion Health Portal
 
-React, React Router, Vite, and Tailwind foundation with 27 approved routes and shared Patient, Doctor, Staff, and Admin layouts. Milestone 2 implements the landing, login, and patient registration pages; role pages remain placeholders.
+Arion Health Portal contains a React frontend and an initial Node.js, Express, and MongoDB backend foundation. Frontend features still use the current mock repositories; feature API migration has not started.
 
 ## Run locally
 
@@ -21,6 +21,30 @@ npm run build
 npm run preview
 ```
 
+## Backend foundation
+
+Install and configure the backend independently:
+
+```sh
+cd server
+npm install
+copy .env.example .env
+```
+
+Set `MONGODB_URI` in `server/.env` to a development MongoDB connection string. Keep that file local; `.env` files are ignored by Git. Do not place credentials in `.env.example`.
+
+Then run:
+
+```sh
+npm run dev
+```
+
+The API starts only after MongoDB connects. The health endpoint is `GET http://localhost:5000/api/health`. Backend tests use an ephemeral HTTP port and do not require a live database:
+
+```sh
+npm test
+```
+
 ## Structure
 
 - `src/app`: approved route definitions, router, contextual navigation.
@@ -31,8 +55,12 @@ npm run preview
 - `src/mocks`: preview profiles and navigation IDs; imported only by services.
 - `src/styles`: Tailwind entry and responsive layout styling.
 - `scripts`: route coverage and navigation checks against the approved sitemap.
+- `server/src/config`: environment and MongoDB connection setup.
+- `server/src/controllers`, `server/src/routes`: the health endpoint only.
+- `server/src/middleware`: JSON 404 and centralized error handling.
+- `server/test`: backend foundation tests.
 
-Future backend integrations belong behind services. No Supabase SDK or database calls are present. Services may later delegate to Supabase or an Express API without putting provider-specific access in UI components.
+Feature integrations remain behind frontend services. The Express foundation is present, but frontend feature services have not been connected to it yet.
 
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 

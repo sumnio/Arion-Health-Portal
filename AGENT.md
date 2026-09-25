@@ -14,7 +14,7 @@ Always read:
 - React
 - Tailwind CSS
 - React Router
-- Backend provider to be selected: Supabase or Express + Node.js + MongoDB
+- Backend: Express + Node.js + MongoDB (foundation established under `server/`)
 - Vercel
 
 ## Roles
@@ -47,8 +47,8 @@ Always read:
 
 ## Backend portability
 
-- Do not assume Supabase or Express + Node.js + MongoDB is selected until the backend decision is made.
+- The selected backend direction is Express + Node.js + MongoDB.
 - Keep database and backend access behind service modules or API abstractions.
 - Do not call a database, Supabase, or another provider directly throughout UI components.
-- Structure the code so either Supabase or an Express + Node.js + MongoDB backend can be used without rewriting the frontend.
+- Keep the frontend service boundary independent from Express implementation details so feature services can migrate incrementally.
 - Keep frontend components independent from backend provider-specific logic.

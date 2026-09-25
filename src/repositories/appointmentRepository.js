@@ -41,6 +41,11 @@ function resolve(item, now) {
 export const appointmentRepository = {
   list(now = new Date()) { return [...relativeAppointments.map(item=>resolve(item,now)), ...fixedAppointments, ...createdAppointments]; },
   get(id, now = new Date()) { return this.list(now).find(item=>item.id===id) ?? null; },
+  getForDate(id, date) {
+    const relative = relativeAppointments.find(item => item.id === id);
+    if (relative) return { ...relative, appointment_at: `${date}T${relative.time}:00+08:00`, check_in_at: relative.check_in_at ?? (relative.check_in_time ? `${date}T${relative.check_in_time}:00+08:00` : relative.status === 'completed' ? `${date}T${relative.time}:00+08:00` : null) };
+    return [...fixedAppointments, ...createdAppointments].find(item => item.id === id && item.appointment_at.slice(0, 10) === date) ?? null;
+  },
   create(values) { const entity={ id:createMockId(), ...values }; createdAppointments.push(entity); return entity; },
   update(id, changes) {
     const entity=[...relativeAppointments,...fixedAppointments,...createdAppointments].find(item=>item.id===id);

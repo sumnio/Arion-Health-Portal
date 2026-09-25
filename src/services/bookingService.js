@@ -57,8 +57,8 @@ export const bookingService = {
     if (!values.reason?.trim()) errors.reason = 'Enter a reason for your visit.';
     return errors;
   },
-  confirm(values) {
-    const errors = this.validate(values);
+  confirm(values, now = new Date()) {
+    const errors = this.validate(values, now);
     if (Object.keys(errors).length) return { errors };
     // Validation and reservation are synchronous so repeat submissions cannot claim the same slot.
     const appointment = appointmentRepository.create({ patient_id: exampleIds.patient, doctor_id: values.doctor,

@@ -45,6 +45,6 @@ test('Patient booking consumes published ranges and preserves occupied-slot prev
   assert.deepEqual(bookingService.getSlots(maria, '2026-09-20', patientNow), []);
   const values = { service: 'general_consultation', doctor: maria, date: '2026-09-25', time: '08:00', reason: 'Availability integration test' };
   assert.equal(bookingService.getSlots(maria, values.date, patientNow).find(item => item.time === values.time).available, true);
-  assert(bookingService.confirm(values).confirmation);
+  assert(bookingService.confirm(values, patientNow).confirmation);
   assert.equal(bookingService.getSlots(maria, values.date, patientNow).find(item => item.time === values.time).available, false);
 });
