@@ -330,6 +330,8 @@ Do not order the queue by Appointment `created_at`.
 - Prevent duplicate check-in: normal check-in requires `check_in_at` to be null and must not replace an existing check-in timestamp.
 - Walk-ins follow the same rules. Staff first selects or registers the Patient, creates the same-day Appointment, and then checks the patient in. Queue placement uses Urgent -> Senior/PWD -> Normal and the same within-tier timestamp ordering.
 - These rules introduce no additional queue fields or priority values.
+- The backend creates Staff walk-in Appointments directly as `confirmed`, records the authenticated Staff UserProfile in `created_by`, and sets `check_in_at` only through the Staff check-in transition using server time.
+- Active queue queries include only current-clinic-day Appointments with `status = confirmed` and non-null `check_in_at`. Doctor completion and Staff no-show transitions preserve the Appointment while removing it from active queue results.
 
 ---
 
@@ -595,6 +597,8 @@ When operationally necessary, Staff may read only this limited MedicalRecord pro
 Staff must not access detailed `MedicalRecord.notes`, full Prescription details, MedicalCertificate contents, or sensitive clinical narrative beyond the approved short diagnosis summary. Detailed clinical information remains Doctor-only.
 
 Staff must not create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit Patient clinical history; or manage Doctor, Staff, or Admin accounts.
+
+The Staff backend exposes a dedicated limited projection containing only Patient name, MedicalRecord encounter time, attending Doctor display name, and diagnosis summary. It does not reuse the Doctor/Patient detailed response and never includes notes, Prescriptions, or MedicalCertificate contents.
 
 Staff must not mark an Appointment `completed`. Staff may read the resulting shared status after the assigned Doctor completes the consultation.
 

@@ -690,6 +690,10 @@ Doctor consultation through normal appointment flow
 MedicalRecord linked to that Appointment
 ```
 
+The Staff API registers a new walk-in as Patient only (`user_profile_id = null`) and creates no UserProfile/AuthAccount. Its same-day Appointment is immediately `confirmed`, with `created_by` referencing the authenticated Staff UserProfile. Check-in later sets `check_in_at` from server time. No separate walk-in or queue entity is introduced.
+
+The active queue is a projection of current-day confirmed Appointments with non-null `check_in_at`. Ordering derives Urgent -> Senior/PWD -> Normal from Appointment priority and Patient DOB/PWD data, then uses check-in time. No-show and Doctor completion preserve the Appointment but exclude it from this projection.
+
 `MedicalRecord.appointment_id` normally references the same-day Appointment. Null is reserved for exceptional/manual records.
 
 If a guest later registers for the portal, an authorized process can verify the patient's identity and set the existing `Patient.user_profile_id` to the new patient-role UserProfile's ID. Keep `Patient.id` unchanged to preserve all linked appointments, medical records, and certificates.

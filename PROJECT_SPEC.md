@@ -16,6 +16,18 @@ Doctors may read only records from their own consultations through `GET /api/doc
 
 `PATCH /api/doctor/appointments/:appointmentId/complete` is restricted to the assigned Doctor. It requires a confirmed, checked-in Appointment and its saved MedicalRecord. Staff, Patient, and Admin roles cannot complete consultations or call clinical creation endpoints.
 
+## Staff operations API status
+
+Staff can search basic Patient information with `GET /api/staff/patients?search=`, register guest walk-ins with `POST /api/staff/patients/walk-in`, and create same-day walk-in Appointments with `POST /api/staff/patients/:patientId/walk-in-appointments`. Walk-in registration creates only a Patient with `user_profile_id = null`; it creates no UserProfile or AuthAccount. Clear matches by contact number or exact name plus DOB are rejected so Staff can reuse the existing Patient identity. Name alone is never treated as a definitive duplicate.
+
+Staff-created walk-in Appointments are immediately `confirmed`, matching the approved Staff UI flow. They use the existing Appointment entity, preserve `Patient.id`, store the authenticated Staff UserProfile in `created_by`, and remain subject to same-Doctor slot uniqueness. Scheduled pending appointments continue to use `PATCH /api/staff/appointments/:appointmentId/confirm`.
+
+`PATCH /api/staff/appointments/:appointmentId/check-in` sets `check_in_at` from server time for an unchecked confirmed Appointment. `GET /api/staff/queue` returns only confirmed, checked-in Appointments on the current clinic day. Queue order is Urgent, then the shared Senior/PWD tier, then Normal; same-tier ordering uses `check_in_at`. Senior status is derived from DOB and is not stored. `PATCH /api/staff/appointments/:appointmentId/priority` accepts only `normal` or `urgent`.
+
+`PATCH /api/staff/appointments/:appointmentId/no-show` preserves an eligible due, unchecked pending/confirmed Appointment while changing its status to `no_show`, which removes it from the queue. Doctor completion likewise removes an Appointment from Staff queue results. No Staff completion endpoint exists.
+
+`GET /api/staff/patients/:patientId/record-summary` returns only Patient name, encounter time, attending Doctor, and diagnosis summary. It excludes notes, prescriptions, and certificate content.
+
 Current transition:
 
 ```text
@@ -23,7 +35,7 @@ React -> service layer -> mock repositories
                          (current feature data)
 
 React -> service layer -> Express API -> MongoDB
-                         (authentication, authorization, Patient/appointment, and scheduling APIs implemented)
+                         (authentication, authorization, Patient/appointment, scheduling, clinical, and Staff operations APIs implemented)
 ```
 
 ## Patient and appointment backend API

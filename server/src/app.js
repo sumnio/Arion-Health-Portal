@@ -13,6 +13,8 @@ import { createSchedulingModule } from './services/schedulingModule.js';
 import { createClinicalModule } from './services/clinicalModule.js';
 import { createDoctorClinicalRouter } from './routes/doctorClinicalRoutes.js';
 import { createPatientClinicalRouter } from './routes/patientClinicalRoutes.js';
+import { createStaffOperationsRouter } from './routes/staffOperationsRoutes.js';
+import { createStaffOperationsModule } from './services/staffOperationsModule.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -60,6 +62,7 @@ export function createApp(
       bookingAvailabilityService: schedulingModule.bookingAvailabilityService,
     });
   const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({ clinic: schedulingModule.clinic });
+  const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic });
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
@@ -73,6 +76,7 @@ export function createApp(
     '/api/staff/appointments',
     createStaffAppointmentRouter({ authModule, patientAppointmentModule }),
   );
+  app.use('/api/staff', createStaffOperationsRouter({ authModule, staffOperationsModule }));
   if (enableAuthorizationProbes) {
     app.use('/api/authz-test', createAuthorizationProbeRouter(authModule));
   }

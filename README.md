@@ -70,6 +70,14 @@ The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Avai
 - `GET /api/patient/records/:recordId`
 - `GET /api/patient/certificates`
 - `GET /api/patient/certificates/:certificateId`
+- `GET /api/staff/patients?search=`
+- `POST /api/staff/patients/walk-in`
+- `POST /api/staff/patients/:patientId/walk-in-appointments`
+- `PATCH /api/staff/appointments/:appointmentId/check-in`
+- `PATCH /api/staff/appointments/:appointmentId/priority`
+- `PATCH /api/staff/appointments/:appointmentId/no-show`
+- `GET /api/staff/queue`
+- `GET /api/staff/patients/:patientId/record-summary`
 
 Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
@@ -85,6 +93,8 @@ Doctor scheduling routes resolve the Doctor from the authenticated UserProfile. 
 
 Clinical routes enforce authenticated ownership. Doctors create one immutable MedicalRecord per eligible assigned Appointment, optionally with linked Prescriptions, and may issue immutable certificates with server-generated numbers. Patients can read only their own records and issued certificates. Certificate responses resolve Doctor credentials and shared clinic information without returning the protected signature path. Only the assigned Doctor can complete a confirmed, checked-in consultation after its MedicalRecord exists. Staff and Admin are not clinical superusers.
 
+Staff operational routes support basic Patient search, guest walk-in registration without an account, same-day confirmed walk-in Appointments, check-in, canonical priority changes, no-show transitions, and the active waiting queue. Queue order is Urgent, Senior/PWD, then Normal, with check-in time ordering inside each tier. Staff has a separate restricted record-summary projection and no consultation-completion or clinical-editing endpoint.
+
 Disposable live validation commands use generated credentials and remove only their own records:
 
 ```sh
@@ -93,6 +103,7 @@ npm run validate:authorization
 npm run validate:patient-api
 npm run validate:scheduling
 npm run validate:clinical
+npm run validate:staff-api
 ```
 
 ## Structure
