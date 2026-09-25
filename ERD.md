@@ -12,6 +12,7 @@ The Arion Health Portal contains the following main entities and external identi
 - Doctor
 - Staff
 - DoctorAvailability
+- DoctorPublishedAvailability
 - DoctorBlockedTime
 - Appointment
 - MedicalRecord
@@ -37,7 +38,7 @@ UserProfile
 
 `UserProfile` stores application identity, role, common contact information, and account status, not authentication credentials.
 
-A UserProfile may correspond to one role-specific profile. Doctor and Staff use `UserProfile.id` as their primary key and foreign key. Patient has its own UUID primary key (the relational reference uses `gen_random_uuid()`) and a nullable, unique `user_profile_id` foreign key to `UserProfile.id`.
+A UserProfile may correspond to one role-specific profile. In the Mongoose implementation, Doctor and Staff have their own `_id` plus a required unique `user_profile_id` reference. Patient has its own `_id` and a nullable, unique `user_profile_id` reference.
 
 Admin is represented by `UserProfile.role = admin`; there is no separate Admin entity.
 
@@ -48,9 +49,9 @@ UserProfile 0..1 ─── 0..1 Patient
                 via Patient.user_profile_id (nullable, unique)
 
 UserProfile 1 ─── 0..1 Doctor
-                via Doctor.id
+                via Doctor.user_profile_id
 UserProfile 1 ─── 0..1 Staff
-                via Staff.id
+                via Staff.user_profile_id
 ```
 
 Relationship:
@@ -91,7 +92,7 @@ The UserProfile fields match `SCHEMA.md`:
 
 `display_name` and `contact_number` belong in UserProfile for account holders. Patient retains its own `full_name` and `contact_number` so a walk-in can exist without an account. Account contact information does not replace Patient contact information.
 
-Doctor and Staff must not contain username-based authentication fields. The existing optional, unique Staff `username` is a non-authentication identifier only, not a login credential. Shared account fields belong in UserProfile.
+Doctor and Staff contain no username-based authentication fields. Shared account fields belong in UserProfile.
 
 - The only MVP account statuses are `active` and `inactive`.
 - Use deactivation instead of hard deletion. Inactive accounts must not be allowed to log in or retain application access based solely on their preserved role/profile links.
@@ -109,8 +110,8 @@ The Staff fields match `SCHEMA.md`:
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid, PK/FK | References `UserProfile.id` |
-| username | text, unique, nullable | Existing optional non-authentication identifier; not a login credential |
+| id | identifier, PK | MongoDB `_id` |
+| user_profile_id | identifier, FK, unique | Required reference to `UserProfile.id` |
 
 Staff display name, contact number, role, and account status come from UserProfile. Authentication credentials do not belong in Staff.
 
@@ -212,13 +213,14 @@ The Doctor fields match `SCHEMA.md`:
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid, PK/FK | References `UserProfile.id` |
+| id | identifier, PK | MongoDB `_id` |
+| user_profile_id | identifier, FK, unique | Required reference to `UserProfile.id` |
 | specialty | text | Doctor specialty |
 | license_number | text | Doctor license number; later displayed on issued medical certificates |
 | ptr_number | text | Doctor PTR number; later displayed on issued medical certificates |
 | signature_path | text | Reference to the doctor's securely stored signature image; not image binary |
 
-Doctor contains only these five fields. Display name, contact number, and account status come from `UserProfile.display_name`, `UserProfile.contact_number`, and `UserProfile.status` through the existing shared ID relationship. They are not duplicated in Doctor. Doctor has no password or username fields.
+Doctor contains only these fields. Display name, contact number, and account status come from `UserProfile.display_name`, `UserProfile.contact_number`, and `UserProfile.status` through `Doctor.user_profile_id`. They are not duplicated in Doctor. Doctor has no password or username fields.
 
 The actual signature image must be stored in protected object/file storage; Supabase Storage is one option when that provider is selected. Doctor stores only `signature_path`, never the image binary. License and PTR numbers will appear on issued medical certificates. Saved medical records and issued medical certificates remain read-only.
 
@@ -295,6 +297,24 @@ Doctor 1 ─── * DoctorAvailability
 
 ---
 
+# Doctor Published Availability
+
+DoctorPublishedAvailability stores the date-specific ranges a Doctor has actually published for booking.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | identifier, PK | MongoDB `_id` |
+| doctor_id | identifier, FK | References `Doctor.id` |
+| availability_date | date | Specific published calendar date |
+| start_time | time | Start of published range |
+| end_time | time | End of published range; later than `start_time` |
+| created_at | timestamp | Managed by Mongoose timestamps |
+| updated_at | timestamp | Managed by Mongoose timestamps |
+
+Relationship: Doctor 1 -> many DoctorPublishedAvailability, via `DoctorPublishedAvailability.doctor_id`.
+
+---
+
 # Doctor Blocked Time
 
 Represents one-time or temporary exceptions to the regular schedule. A block can cover a whole day or part of a day, such as leave, a meeting, a conference, clinic closure, an emergency absence, a personal break, a temporary lunch-time change, or another one-time unavailable period.
@@ -323,7 +343,7 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 ### Unresolved implementation details
 
-The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability is the approved concept for specific dates/time ranges confirmed for patient booking, but its persistence fields and relationships still require approval before backend implementation. It is currently represented only in frontend mock/service data and is not added to this relationship diagram yet.
+The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability now stores the specific published date and time ranges.
 
 Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
 
@@ -351,7 +371,7 @@ The same doctor must not have two active appointments in the same 30-minute slot
 - Follow-up
 - Check-up
 
-These are the only approved fixed MVP visit types. Do not create a Service or Department table. The current Appointment field list has no dedicated visit-type field; its storage representation remains to be approved before backend implementation. Do not conflate visit type with the free-text reason for visit or add a field without approval.
+These are the only approved fixed MVP visit types. Appointment stores them in `visit_type` using `general_consultation`, `follow_up`, and `check_up`. Do not create a Service or Department table or conflate visit type with the free-text reason for visit.
 
 ### Normal walk-in appointment flow
 
@@ -372,13 +392,14 @@ The Appointment fields match `SCHEMA.md`:
 | appointment_at | timestamptz | Scheduled appointment date/time |
 | check_in_at | timestamptz, nullable | Actual patient check-in time |
 | status | enum | `pending`, `confirmed`, `completed`, `cancelled`, `no_show` |
+| visit_type | enum | `general_consultation`, `follow_up`, `check_up` |
 | reason | text | Reason for visit |
 | priority | enum | `normal`, `urgent` |
 | created_by | uuid, nullable | User who created the appointment; the exact reference target remains unresolved |
 | created_at | timestamptz | Relational reference defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
-The same Doctor cannot have two active Appointments in the same 30-minute slot. Different Doctors may have Appointments at the same time.
+The same Doctor cannot have two blocking Appointments in the same 30-minute slot. Mongoose enforces a partial unique `(doctor_id, appointment_at)` index for `pending`, `confirmed`, and `completed`; `cancelled` and `no_show` do not block the slot. Different Doctors may have Appointments at the same time.
 
 ---
 
@@ -401,6 +422,8 @@ Appointment 1 ─── 0..1 MedicalRecord
 ```
 
 Normal walk-in consultations use a same-day Appointment, and MedicalRecord normally links to that Appointment. Nullable `appointment_id` supports exceptional/manual records outside the normal flow; it is not the default for walk-ins.
+
+The Mongoose model uses a partial unique index for non-null `appointment_id`, so a normal Appointment has at most one MedicalRecord while exceptional/manual records may retain a null link.
 
 Once saved, a MedicalRecord is read-only. Doctors may create a record for an eligible consultation that does not already have one and may view permitted saved records, but they may not edit or delete saved records. Staff receives only the approved limited read-only projection, and Admin has no clinical editing permission.
 
@@ -480,6 +503,8 @@ The Prescription fields match `SCHEMA.md`:
 | medicine | text | Medicine name |
 | dosage | text | Dose, strength, frequency |
 | instructions | text, nullable | Patient instructions |
+| created_at | timestamp | Managed by Mongoose timestamps |
+| updated_at | timestamp | Managed by Mongoose timestamps |
 
 Prescriptions remain linked to their MedicalRecord and do not exist as independent clinical records.
 
@@ -594,7 +619,7 @@ UserProfile
                   Patient + Doctor
 ```
 
-Doctor also has a one-to-many relationship with DoctorBlockedTime for one-time schedule exceptions. Blocked intervals override recurring availability; they do not replace or delete Appointment history.
+Doctor also has one-to-many relationships with DoctorPublishedAvailability for date-specific published ranges and DoctorBlockedTime for one-time schedule exceptions. Blocked intervals override published availability; they do not replace or delete Appointment history.
 
 `Patient*` links through nullable, unique `Patient.user_profile_id`; its own `id` is independent of UserProfile. Admin remains a UserProfile role only.
 
@@ -613,6 +638,7 @@ Patient 1 -> many Appointment
 Doctor 1 -> many Appointment
 
 Doctor 1 -> many DoctorAvailability
+Doctor 1 -> many DoctorPublishedAvailability
 Doctor 1 -> many DoctorBlockedTime
 
 Patient 1 -> many MedicalRecord

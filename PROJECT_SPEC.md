@@ -181,7 +181,7 @@ QR verification, public certificate verification, external sharing, advanced dig
 
 DoctorAvailability stores `id`, `doctor_id`, `day_of_week`, `start_time`, `end_time`, and `is_active` for recurring weekly hours. A doctor may publish multiple availability ranges on the same day. For example, 9:00 AM-12:00 PM and 1:00 PM-5:00 PM leaves a recurring lunch break between the ranges. This is the preferred representation for a regular lunch break or other recurring break; it does not require DoctorBlockedTime.
 
-DoctorPublishedAvailability is the approved concept for specific dates and time ranges the Doctor has actually confirmed for patient booking. It is distinct from the recurring DoctorAvailability template. Its exact persistence fields remain to be approved before backend implementation; the frontend currently represents it only as provider-independent mock/service data.
+DoctorPublishedAvailability stores the specific dates and time ranges the Doctor has actually confirmed for patient booking. It is distinct from the recurring DoctorAvailability template. Its Mongoose fields are `id`, `doctor_id`, `availability_date`, `start_time`, `end_time`, `created_at`, and `updated_at`.
 
 DoctorBlockedTime stores `id`, `doctor_id`, `start_at`, `end_at`, and `reason` for one-time or temporary whole-day and partial-day exceptions. Examples include leave, a meeting, a conference, clinic closure, an emergency absence, a personal break, a temporary lunch-time change, or another one-time unavailable period.
 
@@ -199,7 +199,7 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 ### Unresolved implementation details
 
-The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability is approved conceptually, but its persistence fields and relationships still require approval before backend implementation.
+The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability records those date-specific ranges through a required Doctor reference, date, and ordered start/end times.
 
 Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
 
@@ -227,7 +227,7 @@ The same doctor must not have two active appointments in the same 30-minute slot
 - Follow-up
 - Check-up
 
-These are the only approved fixed MVP visit types. Do not create a Service or Department table. The current Appointment field list has no dedicated visit-type field; its storage representation remains to be approved before backend implementation. Do not conflate visit type with the free-text reason for visit or add a field without approval.
+These are the only approved fixed MVP visit types. Appointment stores them in `visit_type` using canonical values `general_consultation`, `follow_up`, and `check_up`. Do not create a Service or Department table or conflate visit type with the free-text reason for visit.
 
 ### Normal walk-in appointment flow
 
@@ -260,7 +260,7 @@ Queue priority is:
 - Deactivation preserves UserProfile and related Patient, Doctor, and Staff records. Historical appointments, medical records, prescriptions, certificates, and their relationships remain intact; account lifecycle must not cascade-delete them.
 - Reactivating or relinking account access for a returning Patient must reuse the existing `Patient.id`; do not create a second medical-history identity.
 - For account holders, shared display name and contact number belong in UserProfile. Keep `Patient.contact_number` in Patient for walk-ins without accounts.
-- Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. The selected authentication system handles credentials. Do not add username-based authentication fields to Doctor or Staff; the existing optional Staff username is a non-authentication identifier only.
+- Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. The selected authentication system handles credentials. Do not add username fields to Doctor or Staff.
 
 ## Patient identity and portal account linking
 
@@ -273,8 +273,8 @@ Queue priority is:
 
 ## Backend portability
 
-The backend provider is not selected by this specification. The React frontend must use a service/API abstraction so the approved behavior can be implemented with Supabase or with an Express + Node.js API backed by MongoDB without rewriting UI components.
+The selected backend direction is an Express + Node.js API backed by MongoDB/Mongoose. The React frontend must continue using its service/API abstraction so replacing the current mock repositories does not require rewriting UI components.
 
 Authentication, active-account checks, role authorization, ownership checks, least-privilege access, history preservation, and protected signature access are provider-independent requirements. Supabase RLS may enforce database access when Supabase is selected; an Express implementation must enforce equivalent checks in the API and persistence layers.
 
-This document does not convert the relational reference schema into MongoDB collections or define an Express API.
+The Mongoose model milestone maps the approved entities to separate collections and ObjectId references. Feature APIs, authentication, and frontend service migration remain later work.

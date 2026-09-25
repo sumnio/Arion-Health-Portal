@@ -1,6 +1,6 @@
 # Arion Health Portal - Revised Database Schema
 
-This is the approved logical and relational reference schema for the Arion Health Portal MVP. Its UUID, PostgreSQL type, constraint, and default syntax is retained as the current reference until the backend is selected; it does not require Supabase as the only implementation. A future Express + Node.js + MongoDB design must preserve the approved data, relationships, constraints, and access rules without treating this document as a MongoDB collection design.
+This is the approved logical schema for the Arion Health Portal MVP. Relational type examples remain useful as a reference, while the selected MEN backend implements the same entities with Mongoose documents, generated `_id` ObjectIds, ObjectId references, and `created_at`/`updated_at` timestamps. The implementation must preserve the approved data, relationships, constraints, and access rules.
 
 Main revisions:
 - UUID primary keys
@@ -12,6 +12,13 @@ Main revisions:
 - Appointment date/time uses timestamps
 - Queue/check-in support is included
 - Created/updated timestamps are included
+
+### MongoDB/Mongoose mapping
+
+- Each model uses MongoDB `_id` as its `id`; relationship fields use ObjectId references.
+- Mongoose timestamps map to `created_at` and `updated_at`.
+- `Doctor.user_profile_id` and `Staff.user_profile_id` are required unique links. `Patient.user_profile_id` is a nullable unique link so multiple walk-ins can remain unlinked.
+- No hard-delete cascade middleware is used. Account deactivation preserves every historical reference.
 
 ---
 
@@ -107,13 +114,14 @@ Senior status must be calculated from `dob`; do not add a stored `is_senior` fie
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid, PK/FK | References `UserProfile.id` |
+| id | identifier, PK | MongoDB `_id` |
+| user_profile_id | identifier, FK, unique | Required reference to `UserProfile.id` |
 | specialty | text | Doctor specialty |
 | license_number | text | Doctor license number; later displayed on issued medical certificates |
 | ptr_number | text | Doctor PTR number; later displayed on issued medical certificates |
 | signature_path | text | Reference to the doctor's securely stored signature image; not image binary |
 
-Doctor contains only the five fields above. `display_name`, `contact_number`, and account `status` come from the linked UserProfile through `Doctor.id = UserProfile.id`; do not duplicate them in Doctor. Doctor has no password or username fields.
+Doctor contains only the fields above. `display_name`, `contact_number`, and account `status` come from the linked UserProfile through `Doctor.user_profile_id`; do not duplicate them in Doctor. Doctor has no password or username fields.
 
 The signature image must be stored in protected object/file storage. Supabase Storage is one option when that provider is selected. `signature_path` stores only its reference; the actual image binary must not be stored in Doctor.
 
@@ -125,10 +133,10 @@ Doctors manage their own availability through the existing `/doctor/schedule` wo
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid, PK/FK | References `UserProfile.id` |
-| username | text, unique, nullable | Existing optional staff identifier only; not a login credential or authentication field |
+| id | identifier, PK | MongoDB `_id` |
+| user_profile_id | identifier, FK, unique | Required reference to `UserProfile.id` |
 
-Authentication remains outside the Staff table. The optional Staff username does not enable username-based authentication; do not add authentication fields to Doctor or Staff. Shared display name, contact number, role, and account status belong in UserProfile.
+Authentication remains outside the Staff model. Staff has no username or authentication fields. Shared display name, contact number, role, and account status belong in UserProfile.
 
 ---
 
@@ -160,6 +168,24 @@ Monday
 
 ---
 
+## DoctorPublishedAvailability
+
+Represents a date-specific time range the Doctor has actually published for patient booking. It is separate from the recurring weekly DoctorAvailability template.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | identifier, PK | MongoDB `_id` |
+| doctor_id | identifier, FK | References `Doctor.id` |
+| availability_date | date | Specific published calendar date |
+| start_time | time | Start of the published range |
+| end_time | time | End of the published range; must be later than `start_time` |
+| created_at | timestamp | Managed by Mongoose timestamps |
+| updated_at | timestamp | Managed by Mongoose timestamps |
+
+A Doctor may publish multiple non-overlapping ranges for one date. The 30-day publication horizon and clinic-hours boundary are service rules; the 14-day patient booking window is a separate service rule.
+
+---
+
 ## DoctorBlockedTime
 
 Represents one-time or temporary exceptions to the regular schedule. A block can cover a whole day or part of a day, such as leave, a meeting, a conference, clinic closure, an emergency absence, a personal break, a temporary lunch-time change, or another one-time unavailable period.
@@ -188,7 +214,7 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 ### Unresolved implementation details
 
-The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability is the approved concept for specific dates/time ranges confirmed for patient booking, but its persistence fields and relationships still require approval before backend implementation. The frontend may use provider-independent mock/service data for this concept; no schema fields are added here.
+The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. Date-specific publication is stored in DoctorPublishedAvailability.
 
 Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
 
@@ -216,7 +242,7 @@ The same doctor must not have two active appointments in the same 30-minute slot
 - Follow-up
 - Check-up
 
-These are the only approved fixed MVP visit types. Do not create a Service or Department table. The current Appointment field list has no dedicated visit-type field; its storage representation remains to be approved before backend implementation. Do not conflate visit type with the free-text reason for visit or add a field without approval.
+These are the only approved fixed MVP visit types. Appointment stores them in `visit_type` with canonical values `general_consultation`, `follow_up`, and `check_up`. Do not create a Service or Department table, and do not conflate visit type with the free-text reason for visit.
 
 ### Normal walk-in appointment flow
 
@@ -237,11 +263,14 @@ Replaces the previous `Schedule` entity.
 | appointment_at | timestamptz | Scheduled appointment date/time |
 | check_in_at | timestamptz, nullable | Actual patient check-in time |
 | status | enum | `pending`, `confirmed`, `completed`, `cancelled`, `no_show` |
+| visit_type | enum | `general_consultation`, `follow_up`, `check_up` |
 | reason | text | Reason for visit |
 | priority | enum | `normal`, `urgent` |
 | created_by | uuid, nullable | User who created appointment |
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
+
+Mongoose declares a partial unique index on `(doctor_id, appointment_at)` for `pending`, `confirmed`, and `completed` appointments. `cancelled` and `no_show` appointments do not reserve the slot. This enforces one blocking appointment per Doctor per exact 30-minute slot while allowing different Doctors to use the same time.
 
 ### Consultation completion rules
 
@@ -304,6 +333,8 @@ Replaces the previous generic `Records` entity.
 
 Normal scheduled and walk-in consultations link MedicalRecord to their Appointment. Walk-ins use a same-day appointment. A MedicalRecord may have `appointment_id = null` only for exceptional/manual records outside the normal appointment flow.
 
+Mongoose uses a partial unique index on non-null `appointment_id`, enforcing one MedicalRecord for a normal Appointment while allowing multiple exceptional records with a null appointment link.
+
 Once saved, a MedicalRecord is read-only. Doctors may create a record for an eligible consultation that does not already have one and may view permitted saved records, but they may not edit or delete saved records. Staff receives only the limited read-only projection described in the security section, and Admin has no clinical editing permission.
 
 ---
@@ -319,6 +350,8 @@ A medical record can have multiple prescriptions.
 | medicine | text | Medicine name |
 | dosage | text | Dose, strength, frequency |
 | instructions | text, nullable | Patient instructions |
+| created_at | timestamp | Managed by Mongoose timestamps |
+| updated_at | timestamp | Managed by Mongoose timestamps |
 
 Example:
 
@@ -407,13 +440,13 @@ For the MVP, use one patient per doctor per 30-minute appointment slot. Already-
 
 ## Medical record per appointment
 
-If one appointment should only produce one MedicalRecord:
+For the selected Mongoose implementation, one non-null appointment link produces at most one MedicalRecord:
 
 ```text
 UNIQUE(appointment_id)
 ```
 
-when `appointment_id` is not null.
+when `appointment_id` is not null. This is implemented as a partial unique index so null exceptional/manual links do not conflict.
 
 Exceptional/manual records outside the normal appointment flow may have:
 
