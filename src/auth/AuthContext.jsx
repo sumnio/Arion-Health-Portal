@@ -1,0 +1,75 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
+import { ApiError, setUnauthorizedHandler } from '../services/apiClient.js';
+import { authService } from '../services/authService.js';
+
+const AuthContext = createContext(null);
+
+export const initialAuthState = { user: null, status: 'initializing', accessMessage: '' };
+
+export function authStateReducer(state, action) {
+  switch (action.type) {
+    case 'authenticated':
+      return { user: action.user, status: 'authenticated', accessMessage: '' };
+    case 'guest':
+      return { user: null, status: 'guest', accessMessage: action.message || '' };
+    default:
+      return state;
+  }
+}
+
+export function classifySessionError(error) {
+  if (error instanceof ApiError && error.status === 401) return { type: 'guest' };
+  if (error instanceof ApiError && error.status === 403 && error.code === 'ACCOUNT_INACTIVE') {
+    return { type: 'guest', message: 'This account is inactive. Contact an administrator for access.' };
+  }
+  return { type: 'guest', message: error?.message || 'Unable to restore your session. Please log in again.' };
+}
+
+export function AuthProvider({ children }) {
+  const [state, dispatch] = useReducer(authStateReducer, initialAuthState);
+
+  const refreshCurrentUser = useCallback(async () => {
+    try {
+      const user = await authService.getCurrentUser();
+      dispatch({ type: 'authenticated', user });
+      return user;
+    } catch (error) {
+      dispatch(classifySessionError(error));
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const clearHandler = setUnauthorizedHandler(() => dispatch({ type: 'guest' }));
+    refreshCurrentUser();
+    return clearHandler;
+  }, [refreshCurrentUser]);
+
+  const login = useCallback(async (credentials) => {
+    const user = await authService.login(credentials);
+    dispatch({ type: 'authenticated', user });
+    return user;
+  }, []);
+  const register = useCallback((payload) => authService.registerPatient(payload), []);
+  const logout = useCallback(async () => {
+    try { await authService.logout(); }
+    finally { dispatch({ type: 'guest' }); }
+  }, []);
+
+  const value = useMemo(() => ({
+    ...state,
+    authenticated: state.status === 'authenticated',
+    login,
+    register,
+    logout,
+    refreshCurrentUser,
+  }), [state, login, register, logout, refreshCurrentUser]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const value = useContext(AuthContext);
+  if (!value) throw new Error('useAuth must be used inside AuthProvider.');
+  return value;
+}

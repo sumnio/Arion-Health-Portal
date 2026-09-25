@@ -7,6 +7,6 @@ export default function PublicLayout() {
     <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="portal-header"><Brand /><nav aria-label="Public navigation">{home ? <><Link className="public-button secondary" to="/login">Login</Link><Link className="public-button primary" to="/register">Register</Link></> : <Link className="back-home" to="/">← Back to Home</Link>}</nav></header>
     <main id="main-content" tabIndex="-1"><Outlet /></main>
-    <footer className="portal-footer"><span><strong>Arion Health Portal</strong><br />Your Health. Our Priority.</span><span>Mock preview · No data is saved</span></footer>
+    <footer className="portal-footer"><span><strong>Arion Health Portal</strong><br />Your Health. Our Priority.</span><span>Secure portal access</span></footer>
   </div>;
 }

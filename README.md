@@ -1,6 +1,6 @@
 # Arion Health Portal
 
-Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Frontend features still use the current mock repositories; the backend authentication, authorization, Patient profile, and Patient appointment APIs are implemented but have not replaced the mock UI flows.
+Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Login, Patient registration, logout, session restoration, and role route guards use the backend authentication API. Non-auth frontend features still use their mock repositories until their specific migration milestones.
 
 ## Run locally
 
@@ -8,12 +8,17 @@ Use Node.js 24 LTS and npm.
 
 ```sh
 npm ci
+```
+
+Copy `.env.example` to `.env.local` first and set `VITE_API_BASE_URL` to the backend origin. The example uses `http://127.0.0.1:5000`.
+
+```sh
 npm run dev
 ```
 
-Open the local URL printed by Vite. On Login, enter a sample email and any non-empty sample password, select Patient, Doctor, Staff, or Admin under the mock preview role, and submit. Registration is patient-only, validates required fields, a non-future birth date, and matching passwords, then displays a mock completion message. Form values are not persisted or sent to a backend; no real account or authenticated session is created. Role pages remain accessible previews, not enforced access control.
+Start the configured backend first, then open the local URL printed by Vite. Login uses real account credentials and the trusted backend role; it no longer asks for a preview role. Patient registration creates a real Patient account and then directs the user to login. Authentication uses an HttpOnly cookie, so the frontend sends credentials and stores no JWT in localStorage or sessionStorage. Startup restores the session through `/api/auth/me`, and protected routes require the correct active role.
 
-All detail placeholders remain reachable through mock example links. Public pages follow the approved wireframe structure while omitting unapproved address storage, legal routes, social login, password recovery, and other wireframe-only features. Public styles are scoped to the public layout. Mock authentication behavior lives behind `src/services/authService.js`.
+Profile, appointment, booking, schedule, clinical, certificate, queue, and Admin management screens still use mock feature repositories. Public pages retain their approved design and omit social login, password recovery, and other unapproved features. Authentication calls live behind `src/services/authService.js` and the centralized `src/services/apiClient.js`.
 
 ```sh
 npm test
@@ -138,7 +143,7 @@ npm run validate:admin-api
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, and authentication tests.
 
-Feature integrations remain behind frontend services. Backend authentication and Patient/appointment APIs are independently testable, while the frontend mock authentication and feature services remain unchanged until their planned migration.
+Feature integrations remain behind frontend services. Frontend authentication is connected to the backend, while all non-auth feature services remain mocked until their planned migrations.
 
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 

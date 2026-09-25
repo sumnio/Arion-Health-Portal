@@ -18,7 +18,9 @@ a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .nav-link { display: block; padding: 13px 16px; border-radius: 8px; font-size: 14px; }
 .nav-link:hover { background: #eef3f7; }
 .nav-link.active { background: var(--active); color: var(--accent); font-weight: 700; }
-.exit-link { padding: 20px 16px; border-top: 1px solid #dfe7ee; font-size: 14px; }
+.exit-link { padding: 20px 16px; border: 0; border-top: 1px solid #dfe7ee; background: transparent; color: inherit; text-align: left; font: inherit; font-size: 14px; cursor: pointer; }
+.exit-link:hover { background: #eef3f7; }
+.auth-loading { min-height: 100dvh; display: grid; place-items: center; padding: 24px; color: #52657b; background: #f5f8fb; }
 main { padding: 36px; min-width: 0; outline: none; }
 .page-heading { margin-bottom: 26px; }
 .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: #607087; margin: 0 0 10px; }

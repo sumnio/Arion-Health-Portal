@@ -48,8 +48,8 @@
 .auth-symbol { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #edf2f5; color: #496778; font-size: 23px; margin-bottom: 16px; }
 .public-v2 .auth-heading h1 { font-size: 26px; letter-spacing: -.025em; }
 .auth-heading p { font-size: 14px; color: #607180; margin: 10px 0 0; line-height: 1.6; }
-.mock-notice { font-size: 12px; color: #516776; line-height: 1.6; background: #f0f5f8; border-radius: 6px; padding: 12px 14px; margin: 0 0 24px; }
-.mock-notice p { margin: 4px 0 0; }
+.auth-notice { font-size: 12px; color: #516776; line-height: 1.6; background: #f0f5f8; border-radius: 6px; padding: 12px 14px; margin: 0 0 24px; }
+.auth-notice p { margin: 4px 0 0; }
 .form-field { margin-bottom: 20px; min-width: 0; }
 .form-field label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
 .form-field :is(input,select) { width: 100%; min-width: 0; min-height: 46px; border: 1px solid #cbd7e1; background: #fff; border-radius: 6px; padding: 11px 12px; font: inherit; font-size: 14px; color: #263f51; }

@@ -4,7 +4,7 @@
 
 The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, Patient profile and appointment APIs, Doctor scheduling/bookability APIs, clinical record/certificate/Doctor completion APIs, Staff operations APIs, and Admin account-management APIs.
 
-Frontend features continue to use the current service layer and in-memory mock repositories. The backend APIs are independently testable, but frontend mock login, profile, appointment, scheduling, clinical, and certificate flows have not been migrated. Queue and account-management feature data also remain in mock repositories.
+Frontend authentication now uses the backend API through a centralized credentialed HTTP client. Login, Patient registration, logout, session restoration, and protected route guards are real. Profile, appointment, scheduling, clinical, certificate, queue, and account-management feature data remain in frontend mock repositories until their specific migration milestones.
 
 ## Clinical API status
 
@@ -127,9 +127,9 @@ Unauthenticated users attempting a protected route are redirected to `/login`. A
 
 Authentication answers who the user is; role-based authorization determines what the user may do. Frontend route guards must later be combined with backend authorization and database-enforced access controls. Supabase RLS may provide part of those controls when Supabase is selected. Hiding routes or buttons is not sufficient security.
 
-The current mock role selector, role-preview login behavior, and “Exit mock preview” controls are temporary development aids. Remove them when the frontend is intentionally migrated to the backend authentication API.
+The frontend uses these backend authentication endpoints through its service layer. Every request includes credentials so the browser can send the HttpOnly cookie. Application startup calls `/api/auth/me` before protected content renders; a normal initial `401` becomes guest state. Login redirects by the trusted returned UserProfile role, protected route groups enforce the matching active role, and logout clears frontend state even when the server session has already expired. The former mock role selector, preview login, and “Exit mock preview” controls have been removed.
 
-The frontend still uses mock authentication. The backend implements registration, login, logout, authenticated-user lookup, password hashing, active-account enforcement, reusable role/permission checks, and an ownership-check abstraction. Password recovery, email verification, MFA, frontend migration, feature-specific authorization queries, and database access policies remain later work.
+The frontend never reads or stores the JWT in localStorage or sessionStorage. Password recovery, email verification, and MFA remain later work. All non-auth frontend feature repositories remain mocked.
 
 ### Backend authorization foundation
 
@@ -375,4 +375,4 @@ The selected backend direction is an Express + Node.js API backed by MongoDB/Mon
 
 Authentication, active-account checks, role authorization, ownership checks, least-privilege access, history preservation, and protected signature access are provider-independent requirements. Supabase RLS may enforce database access when Supabase is selected; an Express implementation must enforce equivalent checks in the API and persistence layers.
 
-The Mongoose model milestone maps the approved entities to separate collections and ObjectId references. Feature APIs, authentication, and frontend service migration remain later work.
+The Mongoose models map the approved entities to separate collections and ObjectId references. Backend feature APIs and frontend authentication are active; frontend feature-service migration remains incremental later work.
