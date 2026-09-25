@@ -60,6 +60,16 @@ The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Avai
 - `GET`, `POST /api/doctor/blocked-times`
 - `DELETE /api/doctor/blocked-times/:id`
 - `GET /api/patient/doctors/:doctorId/available-slots?date=YYYY-MM-DD`
+- `POST /api/doctor/appointments/:appointmentId/medical-record`
+- `PATCH /api/doctor/appointments/:appointmentId/complete`
+- `GET /api/doctor/patients/:patientId/records`
+- `GET /api/doctor/records/:recordId`
+- `POST /api/doctor/records/:recordId/certificates`
+- `GET /api/doctor/certificates/:certificateId`
+- `GET /api/patient/records`
+- `GET /api/patient/records/:recordId`
+- `GET /api/patient/certificates`
+- `GET /api/patient/certificates/:certificateId`
 
 Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
@@ -73,6 +83,8 @@ Patient routes resolve ownership from the authenticated UserProfile and never ac
 
 Doctor scheduling routes resolve the Doctor from the authenticated UserProfile. Publication is limited to 30 days, must fit an active recurring range, and uses 30-minute boundaries. `CLINIC_TIME_ZONE` defaults to `Asia/Manila`. Optional `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` remain blank until clinic hours are approved; configure both together to enable server enforcement.
 
+Clinical routes enforce authenticated ownership. Doctors create one immutable MedicalRecord per eligible assigned Appointment, optionally with linked Prescriptions, and may issue immutable certificates with server-generated numbers. Patients can read only their own records and issued certificates. Certificate responses resolve Doctor credentials and shared clinic information without returning the protected signature path. Only the assigned Doctor can complete a confirmed, checked-in consultation after its MedicalRecord exists. Staff and Admin are not clinical superusers.
+
 Disposable live validation commands use generated credentials and remove only their own records:
 
 ```sh
@@ -80,6 +92,7 @@ npm run validate:auth
 npm run validate:authorization
 npm run validate:patient-api
 npm run validate:scheduling
+npm run validate:clinical
 ```
 
 ## Structure

@@ -2,9 +2,19 @@
 
 ## Backend transition status
 
-The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, Patient profile and appointment APIs, and Doctor scheduling/bookability APIs.
+The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, Patient profile and appointment APIs, Doctor scheduling/bookability APIs, and the approved clinical record, certificate, and Doctor completion APIs.
 
-Frontend features continue to use the current service layer and in-memory mock repositories. The backend authentication, Patient/appointment, and scheduling APIs are independently testable, but the frontend mock login, profile, appointment, and Doctor schedule flows have not been migrated to them. Queue, clinical, certificate, and account-management feature data remain in the mock repositories.
+Frontend features continue to use the current service layer and in-memory mock repositories. The backend APIs are independently testable, but frontend mock login, profile, appointment, scheduling, clinical, and certificate flows have not been migrated. Queue and account-management feature data also remain in mock repositories.
+
+## Clinical API status
+
+The assigned active Doctor may create one MedicalRecord for a confirmed Appointment through `POST /api/doctor/appointments/:appointmentId/medical-record`. Patient and Doctor IDs are resolved from the Appointment and authenticated Doctor; clients cannot choose them. Zero or more validated Prescriptions are created with the MedicalRecord. MongoDB transactions are used when supported, with explicit cleanup fallback for development deployments that do not support transactions.
+
+Doctors may read only records from their own consultations through `GET /api/doctor/patients/:patientId/records` and `GET /api/doctor/records/:recordId`. Patients may read only their own records through `GET /api/patient/records` and `GET /api/patient/records/:recordId`. No MedicalRecord or Prescription edit/delete API exists in the MVP.
+
+`POST /api/doctor/records/:recordId/certificates` directly issues a certificate, matching the approved UI flow. The server generates its unique human-readable certificate number and links the authenticated Doctor, Patient, and MedicalRecord. Patients see only their own issued certificates; Doctors see only certificates they issued. Responses resolve Doctor display name, specialty, license number, PTR number, and signature availability from the Doctor profile, and include shared clinic display configuration without exposing the protected signature path. Issued certificates have no edit/delete API.
+
+`PATCH /api/doctor/appointments/:appointmentId/complete` is restricted to the assigned Doctor. It requires a confirmed, checked-in Appointment and its saved MedicalRecord. Staff, Patient, and Admin roles cannot complete consultations or call clinical creation endpoints.
 
 Current transition:
 

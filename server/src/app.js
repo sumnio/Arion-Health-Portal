@@ -10,6 +10,9 @@ import { createDoctorAvailabilityRouter } from './routes/doctorAvailabilityRoute
 import { createAuthModule } from './services/authModule.js';
 import { createPatientAppointmentModule } from './services/patientAppointmentModule.js';
 import { createSchedulingModule } from './services/schedulingModule.js';
+import { createClinicalModule } from './services/clinicalModule.js';
+import { createDoctorClinicalRouter } from './routes/doctorClinicalRoutes.js';
+import { createPatientClinicalRouter } from './routes/patientClinicalRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -32,6 +35,8 @@ export function createApp(
     clinicTimeZone = 'Asia/Manila',
     clinicOpenTime = '',
     clinicCloseTime = '',
+    clinicName = 'Arion Health Clinic',
+    clinicLocation = '123 Wellness Avenue, Quezon City (mock address)',
   } = {},
   dependencies = {},
 ) {
@@ -46,19 +51,24 @@ export function createApp(
       timeZone: clinicTimeZone,
       openTime: clinicOpenTime,
       closeTime: clinicCloseTime,
+      name: clinicName,
+      location: clinicLocation,
     },
   });
   const patientAppointmentModule =
     dependencies.patientAppointmentModule ?? createPatientAppointmentModule({
       bookingAvailabilityService: schedulingModule.bookingAvailabilityService,
     });
+  const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({ clinic: schedulingModule.clinic });
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
+  app.use('/api/doctor', createDoctorClinicalRouter({ authModule, clinicalModule }));
   app.use(
     '/api/patient',
     createPatientRouter({ authModule, patientAppointmentModule }),
   );
+  app.use('/api/patient', createPatientClinicalRouter({ authModule, clinicalModule }));
   app.use(
     '/api/staff/appointments',
     createStaffAppointmentRouter({ authModule, patientAppointmentModule }),

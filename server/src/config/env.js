@@ -22,5 +22,7 @@ export function loadConfig(environment = process.env) {
     clinicTimeZone: environment.CLINIC_TIME_ZONE?.trim() || 'Asia/Manila',
     clinicOpenTime: environment.CLINIC_OPEN_TIME?.trim() || '',
     clinicCloseTime: environment.CLINIC_CLOSE_TIME?.trim() || '',
+    clinicName: environment.CLINIC_NAME?.trim() || 'Arion Health Clinic',
+    clinicLocation: environment.CLINIC_LOCATION?.trim() || '123 Wellness Avenue, Quezon City (mock address)',
   };
 }

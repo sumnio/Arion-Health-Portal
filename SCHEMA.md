@@ -358,6 +358,8 @@ Mongoose uses a partial unique index on non-null `appointment_id`, enforcing one
 
 Once saved, a MedicalRecord is read-only. Doctors may create a record for an eligible consultation that does not already have one and may view permitted saved records, but they may not edit or delete saved records. Staff receives only the limited read-only projection described in the security section, and Admin has no clinical editing permission.
 
+The backend normal-consultation endpoint derives `patient_id` and `doctor_id` from the Appointment and authenticated Doctor and requires a non-null `appointment_id`. Record and Prescription creation uses a MongoDB transaction when supported, with explicit cleanup fallback where transactions are unavailable. No PATCH or DELETE API exists for MedicalRecord or Prescription in the MVP.
+
 ---
 
 ## Prescription
@@ -418,6 +420,8 @@ Certificate lifecycle rules:
 - Once status becomes `issued`, the certificate is read-only. The MVP provides no Edit, Update, Delete, Reissue, or Modify action for an issued certificate.
 - Patients and Staff cannot edit certificates. Admin cannot edit certificate clinical content. Doctors issue certificates only through the approved creation flow.
 - QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and real PDF generation remain future scope.
+
+The current backend endpoint directly creates the certificate as `issued`, matching the approved Doctor UI submission behavior. `medical_certificate_number` is generated server-side and protected by the unique database index. Patient reads filter to the authenticated Patient's issued certificates; Doctor reads filter to certificates issued by the authenticated Doctor. The protected `signature_path` is not returned directly; API responses expose signature availability with the Doctor's display name, specialty, license number, and PTR number.
 
 Example:
 

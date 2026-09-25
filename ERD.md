@@ -438,6 +438,8 @@ Once saved, a MedicalRecord is read-only. Doctors may create a record for an eli
 
 For the normal scheduled and walk-in flow, the assigned Doctor saves the linked MedicalRecord and then explicitly marks the Appointment `completed`. A cancelled, no-show, or already completed Appointment cannot be completed. Appointment status is shared across Doctor, Staff, and Patient views; there is no separate role-specific completion field.
 
+Backend ownership follows these relationships: the Doctor is resolved from the authenticated UserProfile, the Appointment must reference that Doctor, and MedicalRecord Patient/Doctor links are copied from the Appointment rather than accepted from the request. Completion additionally requires `Appointment.status = confirmed`, non-null `check_in_at`, and the linked MedicalRecord. These checks add no new fields or relationships.
+
 ---
 
 # MedicalRecord Structure
@@ -546,6 +548,8 @@ Clinic location is simple application/global configuration used for certificate 
 
 Drafts exist only during the approved Doctor creation flow. After status becomes `issued`, the certificate is read-only: no Edit, Update, Delete, Reissue, or Modify action is allowed. Patients and Staff cannot edit certificates, and Admin cannot edit certificate clinical content.
 
+The current backend creation endpoint directly persists `issued`, matching the approved UI submission. Certificate numbers are generated server-side and database-unique. Doctor and Patient read endpoints filter by the stored relationship IDs. Responses resolve Doctor credentials and signature availability without exposing the protected `signature_path`.
+
 QR verification, public certificate verification, external sharing, advanced digital signatures, payment integration, and real PDF generation remain future scope.
 
 A MedicalRecord can have zero or multiple medical certificates.
@@ -589,6 +593,8 @@ Doctor 1 ─── * MedicalCertificate
 ```
 
 The doctor referenced by `doctor_id` is the certificate signer.
+
+Detailed clinical APIs allow Doctors to read only records and certificates matching their Doctor profile, and Patients only records and issued certificates matching the Patient linked to their authenticated UserProfile. Staff and Admin are denied these detailed endpoints.
 
 ---
 

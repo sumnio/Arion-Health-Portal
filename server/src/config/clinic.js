@@ -4,6 +4,8 @@ export function createClinicConfig({
   timeZone = 'Asia/Manila',
   openTime = '',
   closeTime = '',
+  name = 'Arion Health Clinic',
+  location = '123 Wellness Avenue, Quezon City (mock address)',
 } = {}) {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
@@ -16,5 +18,11 @@ export function createClinicConfig({
   if (openTime && (!timePattern.test(openTime) || !timePattern.test(closeTime) || openTime >= closeTime)) {
     throw new Error('Clinic hours must use ordered 30-minute HH:MM values.');
   }
-  return Object.freeze({ timeZone, openTime: openTime || null, closeTime: closeTime || null });
+  return Object.freeze({
+    timeZone,
+    openTime: openTime || null,
+    closeTime: closeTime || null,
+    name: String(name).trim() || 'Arion Health Clinic',
+    location: String(location).trim(),
+  });
 }
