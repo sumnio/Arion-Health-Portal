@@ -6,8 +6,10 @@ import { createAuthRouter } from './routes/authRoutes.js';
 import { createAuthorizationProbeRouter } from './routes/authorizationProbeRoutes.js';
 import { createPatientRouter } from './routes/patientRoutes.js';
 import { createStaffAppointmentRouter } from './routes/staffAppointmentRoutes.js';
+import { createDoctorAvailabilityRouter } from './routes/doctorAvailabilityRoutes.js';
 import { createAuthModule } from './services/authModule.js';
 import { createPatientAppointmentModule } from './services/patientAppointmentModule.js';
+import { createSchedulingModule } from './services/schedulingModule.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -27,6 +29,9 @@ export function createApp(
     nodeEnv = 'development',
     authSecret = '',
     enableAuthorizationProbes = false,
+    clinicTimeZone = 'Asia/Manila',
+    clinicOpenTime = '',
+    clinicCloseTime = '',
   } = {},
   dependencies = {},
 ) {
@@ -36,10 +41,20 @@ export function createApp(
   app.use(express.json());
   app.use(cookieParser());
   const authModule = dependencies.authModule ?? createAuthModule({ authSecret });
+  const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({
+    clinic: {
+      timeZone: clinicTimeZone,
+      openTime: clinicOpenTime,
+      closeTime: clinicCloseTime,
+    },
+  });
   const patientAppointmentModule =
-    dependencies.patientAppointmentModule ?? createPatientAppointmentModule();
+    dependencies.patientAppointmentModule ?? createPatientAppointmentModule({
+      bookingAvailabilityService: schedulingModule.bookingAvailabilityService,
+    });
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv }));
+  app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
   app.use(
     '/api/patient',
     createPatientRouter({ authModule, patientAppointmentModule }),

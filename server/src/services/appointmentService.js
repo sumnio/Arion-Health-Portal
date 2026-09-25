@@ -44,17 +44,36 @@ function compareAppointments(left, right, now) {
   return leftUpcoming ? leftTime - rightTime : rightTime - leftTime;
 }
 
-export function createAppointmentService({ repository, patientService, now = () => new Date() }) {
+export function createAppointmentService({
+  repository,
+  patientService,
+  bookingAvailabilityService,
+  now = () => new Date(),
+}) {
   async function ownPatient(userProfileId) {
     return patientService.resolveOwnPatient(userProfileId);
   }
 
   return {
+    async getAvailableSlots(doctorId, date) {
+      if (!bookingAvailabilityService) {
+        throw httpError(503, 'SCHEDULING_UNAVAILABLE', 'Scheduling service is unavailable.');
+      }
+      return bookingAvailabilityService.getPatientSlots(doctorId, date);
+    },
+
     async createForPatient(userProfileId, body) {
       const patient = await ownPatient(userProfileId);
-      const input = validateAppointmentCreate(body, now());
+      const input = validateAppointmentCreate(
+        body,
+        now(),
+        bookingAvailabilityService?.timeZone ?? 'Asia/Manila',
+      );
       if (!(await repository.doctorExists(input.doctor_id))) {
         throw httpError(404, 'DOCTOR_NOT_FOUND', 'Doctor was not found.');
+      }
+      if (bookingAvailabilityService) {
+        await bookingAvailabilityService.assertBookable(input.doctor_id, input.appointment_at);
       }
       try {
         const created = await repository.create({

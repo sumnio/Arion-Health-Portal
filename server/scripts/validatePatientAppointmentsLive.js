@@ -8,10 +8,13 @@ import {
   Appointment,
   AuthAccount,
   Doctor,
+  DoctorAvailability,
+  DoctorPublishedAvailability,
   Patient,
   UserProfile,
 } from '../src/models/index.js';
 import { requireAuthSecret } from '../src/services/tokenService.js';
+import { addDays, clinicDate, dateOnlyToUtc, zonedDateTimeToUtc } from '../src/utils/schedulingTime.js';
 
 const config = loadConfig();
 const marker = randomUUID().replaceAll('-', '');
@@ -72,9 +75,22 @@ async function main() {
   });
   doctorId = doctor._id;
 
-  const appointmentAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  appointmentAt.setUTCMinutes(appointmentAt.getUTCMinutes() < 30 ? 30 : 0, 0, 0);
-  if (appointmentAt.getUTCMinutes() === 0) appointmentAt.setUTCHours(appointmentAt.getUTCHours() + 1);
+  const timeZone = config.clinicTimeZone || 'Asia/Manila';
+  const appointmentDate = addDays(clinicDate(new Date(), timeZone), 1);
+  const appointmentAt = zonedDateTimeToUtc(appointmentDate, '09:00', timeZone);
+  await DoctorAvailability.create({
+    doctor_id: doctorId,
+    day_of_week: dateOnlyToUtc(appointmentDate).getUTCDay(),
+    start_time: '09:00',
+    end_time: '10:00',
+    is_active: true,
+  });
+  await DoctorPublishedAvailability.create({
+    doctor_id: doctorId,
+    availability_date: dateOnlyToUtc(appointmentDate),
+    start_time: '09:00',
+    end_time: '10:00',
+  });
 
   const app = createApp(config);
   server = app.listen(0, '127.0.0.1');
@@ -192,7 +208,11 @@ try {
   if (server) await new Promise((resolve) => server.close(resolve));
   if (appointmentId) await Appointment.deleteOne({ _id: appointmentId });
   if (patientId) await Patient.deleteOne({ _id: patientId });
-  if (doctorId) await Doctor.deleteOne({ _id: doctorId });
+  if (doctorId) {
+    await DoctorAvailability.deleteMany({ doctor_id: doctorId });
+    await DoctorPublishedAvailability.deleteMany({ doctor_id: doctorId });
+    await Doctor.deleteOne({ _id: doctorId });
+  }
   if (profileIds.length) {
     await AuthAccount.deleteMany({ user_profile_id: { $in: profileIds } });
     await UserProfile.deleteMany({ _id: { $in: profileIds } });

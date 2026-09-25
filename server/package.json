@@ -9,7 +9,8 @@
     "test": "node --test",
     "validate:auth": "node scripts/validateAuthLive.js",
     "validate:authorization": "node scripts/validateAuthorizationLive.js",
-    "validate:patient-api": "node scripts/validatePatientAppointmentsLive.js"
+    "validate:patient-api": "node scripts/validatePatientAppointmentsLive.js",
+    "validate:scheduling": "node scripts/validateSchedulingLive.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

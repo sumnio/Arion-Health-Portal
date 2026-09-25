@@ -348,11 +348,13 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability now stores the specific published date and time ranges.
 
-Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
+Clinic operating-hour values remain intentionally TBD. Optional `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` configuration values provide the backend boundary and must be supplied together as ordered 30-minute `HH:MM` values. Blank values mean no clinic-hours restriction is applied. This adds no Clinic entity.
 
 The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
 
 Appointment `created_by` is a nullable reference to `UserProfile.id`. Patient self-booking records the authenticated Patient UserProfile ID, and the future Staff walk-in API records the authenticated Staff UserProfile ID. Imported, system-generated, or legacy Appointments may use null when no authenticated creator is available. Deactivating the creator preserves both the reference and Appointment history.
+
+Scheduling uses the centralized `CLINIC_TIME_ZONE` configuration, currently defaulting to `Asia/Manila` for development. DoctorPublishedAvailability dates are stored as date-only values normalized to UTC midnight; range times are clinic-local. Appointment and DoctorBlockedTime values are absolute timestamps. Both slot lookup and appointment creation use this same conversion boundary.
 
 ### Patient appointment booking rules
 
@@ -403,6 +405,8 @@ The Appointment fields match `SCHEMA.md`:
 | updated_at | timestamptz | Updated when changed |
 
 The same Doctor cannot have two blocking Appointments in the same 30-minute slot. Mongoose enforces a partial unique `(doctor_id, appointment_at)` index for `pending`, `confirmed`, and `completed`; `cancelled` and `no_show` do not block the slot. Different Doctors may have Appointments at the same time.
+
+Patient-facing slot generation uses only DoctorPublishedAvailability within 14 days, then removes DoctorBlockedTime overlaps, past slots, and blocking Appointments. Recurring DoctorAvailability is a publication template and is never exposed directly as bookable. Creating a block that overlaps a blocking Appointment is rejected, and deleting schedule rows does not delete or alter Appointment history.
 
 `patient_id`, `doctor_id`, and `created_by` have separate meanings: Patient receiving care, Doctor assigned to the consultation, and UserProfile account that created the Appointment. The creator relationship stores only the UserProfile reference and does not expose or copy authentication credentials. UserProfile deactivation does not null `created_by` and does not delete the Appointment.
 

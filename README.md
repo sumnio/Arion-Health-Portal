@@ -39,7 +39,7 @@ Then run:
 npm run dev
 ```
 
-The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Available foundation endpoints are:
+The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Available endpoints include:
 
 - `GET /api/health`
 - `POST /api/auth/register`
@@ -53,6 +53,13 @@ The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Avai
 - `GET /api/patient/appointments/:appointmentId`
 - `PATCH /api/patient/appointments/:appointmentId/cancel`
 - `PATCH /api/staff/appointments/:appointmentId/confirm`
+- `GET`, `POST /api/doctor/availability`
+- `PATCH`, `DELETE /api/doctor/availability/:id`
+- `GET`, `POST /api/doctor/published-availability`
+- `DELETE /api/doctor/published-availability/:id`
+- `GET`, `POST /api/doctor/blocked-times`
+- `DELETE /api/doctor/blocked-times/:id`
+- `GET /api/patient/doctors/:doctorId/available-slots?date=YYYY-MM-DD`
 
 Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
@@ -62,7 +69,9 @@ npm test
 
 Backend authorization uses reusable authentication, active-account, role, permission, and ownership middleware. Unauthenticated requests return 401; authenticated requests denied by account status, role, permission, or ownership return 403. Admin permissions are limited to account management, Staff permissions remain operational, and Doctor clinical actions still require feature-specific assignment checks. Internal authorization probe routes are disabled during normal API operation.
 
-Patient routes resolve ownership from the authenticated UserProfile and never accept a Patient ID for self-service operations. Appointment creation produces `pending` appointments, uses canonical visit types, enforces future 30-minute slots within 14 days, and returns 409 for active same-Doctor slot conflicts. Patients may cancel only their own pending or confirmed appointments; cancellation preserves the record. The Staff confirmation endpoint only permits pending-to-confirmed. Doctor publication, blocked-time, and clinic-hours validation are deferred to the scheduling API milestone.
+Patient routes resolve ownership from the authenticated UserProfile and never accept a Patient ID for self-service operations. Appointment creation produces `pending` appointments, uses canonical visit types, and requires an explicitly published, unblocked, unoccupied 30-minute slot within 14 days. Patients may cancel only their own pending or confirmed appointments; cancellation preserves the record. The Staff confirmation endpoint only permits pending-to-confirmed.
+
+Doctor scheduling routes resolve the Doctor from the authenticated UserProfile. Publication is limited to 30 days, must fit an active recurring range, and uses 30-minute boundaries. `CLINIC_TIME_ZONE` defaults to `Asia/Manila`. Optional `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` remain blank until clinic hours are approved; configure both together to enable server enforcement.
 
 Disposable live validation commands use generated credentials and remove only their own records:
 
@@ -70,6 +79,7 @@ Disposable live validation commands use generated credentials and remove only th
 npm run validate:auth
 npm run validate:authorization
 npm run validate:patient-api
+npm run validate:scheduling
 ```
 
 ## Structure

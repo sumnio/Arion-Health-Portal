@@ -21,6 +21,7 @@ export function createPatientRouter({ authModule, patientAppointmentModule }) {
 
   router.get('/profile', controller.profile);
   router.patch('/profile', controller.updateProfile);
+  router.get('/doctors/:doctorId/available-slots', controller.availableSlots);
   router.post('/appointments', controller.createAppointment);
   router.get('/appointments', controller.listAppointments);
   router.get('/appointments/:appointmentId', controller.appointment);

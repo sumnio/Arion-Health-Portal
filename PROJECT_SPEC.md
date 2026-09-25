@@ -2,9 +2,9 @@
 
 ## Backend transition status
 
-The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, and the first Patient profile and appointment APIs.
+The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, Patient profile and appointment APIs, and Doctor scheduling/bookability APIs.
 
-Frontend features continue to use the current service layer and in-memory mock repositories. The backend authentication and Patient/appointment APIs are independently testable, but the frontend mock login, profile, and appointment flows have not been migrated to them. Scheduling publication, queue, clinical, certificate, and account-management feature data remain in the mock repositories.
+Frontend features continue to use the current service layer and in-memory mock repositories. The backend authentication, Patient/appointment, and scheduling APIs are independently testable, but the frontend mock login, profile, appointment, and Doctor schedule flows have not been migrated to them. Queue, clinical, certificate, and account-management feature data remain in the mock repositories.
 
 Current transition:
 
@@ -13,7 +13,7 @@ React -> service layer -> mock repositories
                          (current feature data)
 
 React -> service layer -> Express API -> MongoDB
-                         (authentication, authorization, and Patient/appointment APIs implemented)
+                         (authentication, authorization, Patient/appointment, and scheduling APIs implemented)
 ```
 
 ## Patient and appointment backend API
@@ -37,7 +37,26 @@ Patients may cancel only their own `pending` or `confirmed` appointments. Cancel
 
 The minimal Staff lifecycle action `PATCH /api/staff/appointments/:appointmentId/confirm` is implemented. It requires an active Staff account and the approved Staff operations permission, and only permits `pending -> confirmed`. Check-in, queue, no-show, walk-in, generic status updates, and Doctor completion remain outside this API milestone.
 
-Server-side validation of date-specific DoctorPublishedAvailability, DoctorBlockedTime overlap, and configured clinic operating hours is deferred to the Doctor availability API milestone. The existing MongoDB partial unique index remains the final guard against same-Doctor active slot collisions in the meantime. The frontend continues using mock repositories until its planned API migration.
+Server-side booking now requires date-specific DoctorPublishedAvailability, removes DoctorBlockedTime overlaps and active occupied slots, and applies configured clinic hours when present. The existing MongoDB partial unique index remains the final concurrency guard against same-Doctor active slot collisions. The frontend continues using mock repositories until its planned API migration.
+
+## Doctor scheduling and bookability backend API
+
+Authenticated Doctors manage only their own schedule through:
+
+- `GET`, `POST /api/doctor/availability`
+- `PATCH`, `DELETE /api/doctor/availability/:id`
+- `GET`, `POST /api/doctor/published-availability`
+- `DELETE /api/doctor/published-availability/:id`
+- `GET`, `POST /api/doctor/blocked-times`
+- `DELETE /api/doctor/blocked-times/:id`
+
+The API resolves Doctor ownership from the authenticated UserProfile and never accepts `doctor_id` for an own-schedule mutation. Multiple non-overlapping recurring ranges on one weekday are supported. Date-specific publication must be today through 30 days ahead, align to 30-minute boundaries, remain within one active recurring range, and not overlap another published range for that Doctor/date.
+
+Patients retrieve bookable times through `GET /api/patient/doctors/:doctorId/available-slots?date=YYYY-MM-DD`. Recurring availability alone never produces Patient slots. Slot generation starts from explicitly published ranges, then removes past times, DoctorBlockedTime overlaps, and appointments in the blocking statuses `pending`, `confirmed`, and `completed`. The Patient date must be within the 14-day horizon. `POST /api/patient/appointments` applies the same calculation before persistence, while the MongoDB partial unique index handles concurrent same-Doctor slot attempts.
+
+DoctorBlockedTime accepts timestamp intervals for partial-day or whole-day blocks. A new block that overlaps an active existing Appointment is rejected with HTTP 409; the Appointment is never cancelled, moved, or deleted. Removing recurring, published, or blocked schedule records also leaves Appointment history intact.
+
+Scheduling uses `CLINIC_TIME_ZONE`, currently defaulting to the centralized development assumption `Asia/Manila`. DoctorPublishedAvailability stores a date-only value normalized to UTC midnight plus clinic-local `start_time` and `end_time`. Appointment and DoctorBlockedTime values are absolute timestamps. `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` form an optional configuration boundary and must be supplied together as ordered 30-minute `HH:MM` values. Their exact production values remain TBD; when blank, no invented clinic-hours restriction is applied.
 
 ## Purpose
 Arion Health Portal is a clinic management and patient portal system.
@@ -250,7 +269,7 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. DoctorPublishedAvailability records those date-specific ranges through a required Doctor reference, date, and ordered start/end times.
 
-Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
+Clinic operating-hour values remain intentionally TBD. The backend configuration boundary is now `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME`; both are optional and must be configured together. No fixed values or additional scheduling entity are introduced here.
 
 The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
 

@@ -6,12 +6,14 @@ import { createPatientService } from './patientService.js';
 export function createPatientAppointmentModule({
   patients = patientRepository,
   appointments = appointmentRepository,
+  bookingAvailabilityService,
   now,
 } = {}) {
   const patientService = createPatientService({ repository: patients });
   const appointmentService = createAppointmentService({
     repository: appointments,
     patientService,
+    bookingAvailabilityService,
     now,
   });
   return { patientService, appointmentService };

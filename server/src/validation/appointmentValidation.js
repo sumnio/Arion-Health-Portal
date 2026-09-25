@@ -1,9 +1,14 @@
 import mongoose from 'mongoose';
 import { APPOINTMENT_VISIT_TYPES } from '../models/index.js';
 import { httpError } from '../utils/httpError.js';
+import {
+  addDays,
+  appointmentLocalParts,
+  clinicDate,
+  SLOT_TIME_PATTERN,
+} from '../utils/schedulingTime.js';
 
 const allowedCreateFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason']);
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function validateObjectId(value, field = 'id') {
   if (!mongoose.isObjectIdOrHexString(value)) {
@@ -12,7 +17,7 @@ export function validateObjectId(value, field = 'id') {
   return value;
 }
 
-export function validateAppointmentCreate(body, now = new Date()) {
+export function validateAppointmentCreate(body, now = new Date(), timeZone = 'Asia/Manila') {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'INVALID_INPUT', 'Request body must be an object.');
   }
@@ -36,10 +41,11 @@ export function validateAppointmentCreate(body, now = new Date()) {
   if (appointmentAt <= now) {
     throw httpError(400, 'APPOINTMENT_IN_PAST', 'appointment_at must be in the future.');
   }
-  if (appointmentAt > new Date(now.getTime() + 14 * DAY_MS)) {
+  const local = appointmentLocalParts(appointmentAt, timeZone);
+  if (local.date > addDays(clinicDate(now, timeZone), 14)) {
     throw httpError(400, 'OUTSIDE_BOOKING_WINDOW', 'appointment_at must be within 14 days.');
   }
-  if (![0, 30].includes(appointmentAt.getUTCMinutes()) || appointmentAt.getUTCSeconds() !== 0) {
+  if (!SLOT_TIME_PATTERN.test(local.time) || appointmentAt.getUTCSeconds() !== 0 || appointmentAt.getUTCMilliseconds() !== 0) {
     throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must start on a 30-minute boundary.');
   }
 

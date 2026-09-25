@@ -231,11 +231,13 @@ Bookable slot logic: Published DoctorAvailability within the patient's next 14 d
 
 The approved DoctorAvailability fields describe weekly recurrence and do not record specific published dates. `is_active` enables/disables a weekly period; it must not be treated as proof that all dates in the next 30 days were published. Date-specific publication is stored in DoctorPublishedAvailability.
 
-Clinic operating-hour values are intentionally TBD. Their configuration representation needs approval before backend implementation. No fixed clinic hours or additional scheduling entity is introduced here.
+Clinic operating-hour values remain intentionally TBD. The backend exposes optional `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` configuration values; both must be configured together as ordered 30-minute `HH:MM` values. When absent, no invented clinic-hours restriction is applied. No Clinic entity is introduced.
 
 The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
 
 Appointment `created_by` is a nullable reference to `UserProfile.id`. It stores the authenticated account that originally created the Appointment. Patient self-booking uses the authenticated Patient UserProfile ID, and the future Staff walk-in API must use the authenticated Staff UserProfile ID. Imported, system-generated, or legacy records may use null when no authenticated creator exists. Account deactivation preserves the reference and Appointment history.
+
+Backend scheduling uses `CLINIC_TIME_ZONE`, with `Asia/Manila` as the current centralized development default. DoctorPublishedAvailability `availability_date` is a date-only calendar value normalized to UTC midnight for storage; its `start_time` and `end_time` are interpreted in the configured clinic timezone. Appointment and DoctorBlockedTime fields remain absolute timestamps. Patient slot generation and booking must use the same conversion boundary.
 
 ### Patient appointment booking rules
 
@@ -250,6 +252,8 @@ A patient slot is bookable only when all conditions hold:
 5. No other active appointment occupies that doctor's slot.
 
 The same doctor must not have two active appointments in the same 30-minute slot. Different doctors may have appointments at the same time.
+
+The backend exposes only explicitly published slots within the Patient's 14-day horizon. It subtracts DoctorBlockedTime and appointments with `pending`, `confirmed`, or `completed` status. A new block overlapping one of those active appointments is rejected; schedule changes do not delete, move, or cancel existing Appointments.
 
 ### Fixed MVP visit types
 

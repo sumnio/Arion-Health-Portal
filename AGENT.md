@@ -38,6 +38,8 @@ Always read:
 - Implement only the requested milestone.
 - Keep frontend mock repositories active until a milestone explicitly migrates a feature to the backend API.
 - Patient self-service APIs must derive Patient ownership from the authenticated UserProfile; never trust a client-supplied `patient_id`.
+- Doctor scheduling APIs must derive Doctor ownership from the authenticated UserProfile; never trust a client-supplied `doctor_id` for own-schedule mutations.
+- Keep scheduling time conversion centralized. The current development timezone is `Asia/Manila`; clinic opening and closing times remain optional until approved values are configured.
 
 ## Authentication rules
 
