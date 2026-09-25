@@ -5,6 +5,7 @@ import {
   validateClinicalObjectId,
   validateMedicalRecordCreate,
 } from '../validation/clinicalValidation.js';
+import { addDays, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
 
 function id(value) {
   const resolved = value?._id ?? value?.id ?? value;
@@ -26,7 +27,12 @@ function doctorView(doctor) {
 }
 
 function patientView(patient) {
-  return { id: id(patient), full_name: patient?.full_name ?? null };
+  return {
+    id: id(patient), full_name: patient?.full_name ?? null,
+    dob: patient?.dob ? new Date(patient.dob).toISOString().slice(0, 10) : null,
+    sex: patient?.sex ?? null, contact_number: patient?.contact_number ?? null,
+    allergies: patient?.allergies ?? [], is_pwd: patient?.is_pwd === true,
+  };
 }
 
 function appointmentView(appointment) {
@@ -74,6 +80,24 @@ export function createClinicalService({ repository, clinic, now = () => new Date
   }
 
   return {
+    async listDoctorAppointments(profileId, filters = {}) {
+      const doctor = await doctorFor(profileId);
+      let start;
+      let end;
+      if (filters.date != null) {
+        if (!isValidDateOnly(filters.date)) throw httpError(400, 'VALIDATION_ERROR', 'date must use YYYY-MM-DD.');
+        start = zonedDateTimeToUtc(filters.date, '00:00', clinic.timeZone);
+        end = zonedDateTimeToUtc(addDays(filters.date, 1), '00:00', clinic.timeZone);
+      }
+      if (filters.patient_id != null) validateClinicalObjectId(filters.patient_id, 'patient_id');
+      const appointments = await repository.listAppointmentsForDoctor(id(doctor), { start, end, patientId: filters.patient_id });
+      const records = await repository.listRecordAppointmentIds(appointments.map((item) => item._id ?? item.id));
+      const recordByAppointment = new Map(records.map((record) => [id(record.appointment_id), id(record)]));
+      return appointments.map((appointment) => ({
+        ...appointmentView(appointment), patient: patientView(appointment.patient_id),
+        priority: appointment.priority, medical_record_id: recordByAppointment.get(id(appointment)) ?? null,
+      }));
+    },
     async createRecord(profileId, appointmentId, body) {
       validateClinicalObjectId(appointmentId, 'appointmentId');
       const input = validateMedicalRecordCreate(body);
@@ -103,6 +127,15 @@ export function createClinicalService({ repository, clinic, now = () => new Date
       validateClinicalObjectId(patientId, 'patientId');
       const doctor = await doctorFor(profileId);
       return Promise.all((await repository.listRecordsForDoctorPatient(id(doctor), patientId)).map((item) => presentRecord(repository, item)));
+    },
+    async listDoctorPatientCertificates(profileId, patientId) {
+      validateClinicalObjectId(patientId, 'patientId');
+      const doctor = await doctorFor(profileId);
+      const items = repository.listIssuedCertificatesForDoctorPatient
+        ? await repository.listIssuedCertificatesForDoctorPatient(id(doctor), patientId)
+        : [];
+      return items
+        .map((item) => presentCertificate(item, clinic));
     },
     async getDoctorRecord(profileId, recordId) {
       validateClinicalObjectId(recordId, 'recordId');

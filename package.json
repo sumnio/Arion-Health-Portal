@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test scripts/routes.test.js scripts/booking.test.js scripts/appointments.test.js scripts/records.test.js scripts/certificates.test.js scripts/profile.test.js scripts/doctor-records.test.js scripts/doctor-completion.test.js scripts/doctor-availability.test.js scripts/doctor-certificates.test.js scripts/doctor-history.test.js scripts/staff-calendar.test.js scripts/staff-queue.test.js scripts/staff-walkin.test.js scripts/staff-patients.test.js scripts/admin-doctors.test.js scripts/admin-staff.test.js scripts/admin-patients.test.js scripts/repositories.test.js scripts/auth-integration.test.js scripts/patient-api-integration.test.js"
+    "test": "node --test scripts/routes.test.js scripts/booking.test.js scripts/appointments.test.js scripts/records.test.js scripts/certificates.test.js scripts/profile.test.js scripts/doctor-records.test.js scripts/doctor-completion.test.js scripts/doctor-availability.test.js scripts/doctor-certificates.test.js scripts/doctor-history.test.js scripts/staff-calendar.test.js scripts/staff-queue.test.js scripts/staff-walkin.test.js scripts/staff-patients.test.js scripts/admin-doctors.test.js scripts/admin-staff.test.js scripts/admin-patients.test.js scripts/repositories.test.js scripts/auth-integration.test.js scripts/patient-api-integration.test.js scripts/doctor-api-integration.test.js"
   },
   "dependencies": {
     "react": "^19.3.0",

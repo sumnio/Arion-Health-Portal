@@ -1,41 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import CertificatePreview from '../../components/certificates/CertificatePreview.jsx';
 import RecordSection from '../../components/records/RecordSection.jsx';
 import FormField from '../../components/public/FormField.jsx';
 import StatusBadge from '../../components/dashboard/StatusBadge.jsx';
-import { doctorCertificateService } from '../../services/doctorCertificateService.js';
-import { formatEncounter } from '../../services/medicalRecordService.js';
+import { clinicConfig } from '../../config/clinicConfig.js';
+import { doctorApiErrorMessage, doctorApiService } from '../../services/doctorApiService.js';
+import { clinicToday, formatEncounter } from '../../services/dateTimeService.js';
 import '../../styles/doctor-certificate.css';
 
-function Preview({ context, values, issued }) {
-  const certificateNumber = values.medical_certificate_number ?? doctorCertificateService.previewNumber(values.date_issued);
-  return <RecordSection title="Certificate Preview"><article className="doctor-certificate-paper"><header><h3>✚ {context.clinic.name}</h3><p>{context.clinic.location}</p></header><p className="sample-label">MOCK PREVIEW · NOT FOR OFFICIAL USE</p><h3>Medical Certificate</h3><p className="certificate-number">Certificate No. {certificateNumber}</p><h4>{context.patient.name}</h4><dl><dt>Purpose</dt><dd>{values.purpose || 'Enter certificate purpose'}</dd><dt>Diagnosis summary</dt><dd>{values.diagnosis_summary || 'Enter diagnosis summary'}</dd><dt>Date issued</dt><dd>{values.date_issued || '—'}</dd>{values.valid_until && <><dt>Valid until</dt><dd>{values.valid_until}</dd></>}<dt>Status</dt><dd>{issued ? 'Issued' : 'Draft'}</dd></dl><footer><div className="doctor-signature" aria-label={context.doctor.signature_path ? 'Doctor signature on file' : 'Doctor signature unavailable'}>{context.doctor.signature_path ? <span>{context.doctor.display_name}</span> : <span>Signature unavailable</span>}</div><strong>{context.doctor.display_name}</strong><p>{context.doctor.specialty}</p><p>License No. {context.doctor.license_number} · PTR No. {context.doctor.ptr_number}</p><p>Issuing doctor · Mock certificate</p></footer></article></RecordSection>;
+function DraftPreview({ record, values }) {
+  const doctor = record.doctorProfile;
+  return <RecordSection title="Certificate Preview"><article className="doctor-certificate-paper"><header><h3>✚ {clinicConfig.name}</h3><p>{clinicConfig.location}</p></header><p className="sample-label">DRAFT PREVIEW</p><h3>Medical Certificate</h3><p className="certificate-number">Certificate number assigned when issued</p><h4>{record.patientName}</h4><dl><dt>Purpose</dt><dd>{values.purpose || 'Enter certificate purpose'}</dd><dt>Diagnosis summary</dt><dd>{values.diagnosis_summary || 'Enter diagnosis summary'}</dd><dt>Date issued</dt><dd>{values.date_issued}</dd>{values.valid_until && <><dt>Valid until</dt><dd>{values.valid_until}</dd></>}<dt>Status</dt><dd>Draft</dd></dl><footer><div className="doctor-signature">{doctor?.signature_available ? doctor.display_name : 'Signature available after issue'}</div><strong>{doctor?.display_name}</strong><p>{doctor?.specialty}</p><p>License No. {doctor?.license_number} · PTR No. {doctor?.ptr_number}</p></footer></article></RecordSection>;
 }
+
 export default function DoctorIssueCertificate() {
-  const { id } = useParams();
-  return <CertificateForm key={id} id={id} />;
-}
-function CertificateForm({ id }) {
-  const context = doctorCertificateService.context(id);
-  const [values, setValues] = useState({ purpose: '', diagnosis_summary: context.record?.diagnosis ?? '', date_issued: context.date ?? '', valid_until: '' });
-  const [errors, setErrors] = useState({});
-  const [issued, setIssued] = useState(null);
-  const [requestId] = useState(() => crypto.randomUUID());
-  if (context.error) return <div className="doctor-certificate-page"><h1>Certificate Unavailable</h1><RecordSection title="Unable to load medical record"><p role="alert">{context.error}</p><Link className="action-link" to="/doctor/schedule">Back to Schedule</Link></RecordSection></div>;
-  const back = <Link className="action-link" to={`/doctor/patients/${context.patient.id}`}>Back to Patient Details</Link>;
-  function submit(event) {
-    event.preventDefault();
-    if (issued) return;
-    const result = doctorCertificateService.issue(id, values, requestId);
-    setErrors(result.errors ?? {});
-    if (result.certificate) setIssued(result.certificate);
-  }
-  return <div className="doctor-certificate-page"><h1>{issued ? 'Medical Certificate Issued' : 'Issue Medical Certificate'}</h1><p>{issued ? 'The certificate was issued in mock state for this preview.' : 'Create a certificate from the selected consultation. Fields marked * are required.'}</p><div className="doctor-certificate-layout"><div>
-    <RecordSection title="Patient and Medical Record"><h3>{context.patient.name}</h3><p>{context.patient.age} years old · {context.patient.sex}</p><p>Issuing doctor: {context.doctor.display_name}</p><p>Consultation: {formatEncounter(context.record.encounter_at)}</p><p>Diagnosis: {context.record.diagnosis}</p><p className="record-reference">Related medical record: {context.record.id}</p></RecordSection>
-    {issued ? <RecordSection title="Certificate issued"><p role="status">Successfully issued. This submission cannot create another certificate.</p><StatusBadge status="issued" /><div className="certificate-actions">{back}<button type="button" className="action-link" disabled>Download PDF</button></div><p>PDF generation will be added later.</p><p>Mock certificates remain available until the application reloads.</p></RecordSection> : <form onSubmit={submit} noValidate><RecordSection title="Certificate Details"><StatusBadge status="draft" />{Object.keys(errors).length > 0 && <p className="certificate-error" role="alert">{errors.form ?? 'Please correct the highlighted fields.'}</p>}
-    { [['purpose','Purpose','text'], ['date_issued','Date issued','date'], ['valid_until','Valid until (optional)','date']].map(([name,label,type]) => <div key={name}><FormField name={name} label={label + (name !== 'valid_until' ? ' *' : '')} type={type} value={values[name]} required={name !== 'valid_until'} aria-invalid={!!errors[name]} aria-describedby={errors[name] ? name+'-error' : undefined} onChange={event => setValues(previous => ({...previous,[name]:event.target.value}))} />{errors[name] && <p id={name+'-error'} className="certificate-error">{errors[name]}</p>}</div>)}
-    <label htmlFor="diagnosis_summary">Diagnosis summary *</label><textarea id="diagnosis_summary" required rows={4} value={values.diagnosis_summary} aria-invalid={!!errors.diagnosis_summary} aria-describedby={errors.diagnosis_summary ? 'summary-error' : undefined} onChange={event => setValues(previous => ({...previous,diagnosis_summary:event.target.value}))} />{errors.diagnosis_summary && <p id="summary-error" className="certificate-error">{errors.diagnosis_summary}</p>}
-    <div className="certificate-actions"><Link className="action-link" to={`/doctor/patients/${context.patient.id}`}>Cancel</Link><button className="action-link primary-action" type="submit">Issue Certificate</button></div></RecordSection></form>}
-    {doctorCertificateService.list(id).length > 0 && <RecordSection title="Issued in this preview"><ul>{doctorCertificateService.list(id).map(item => <li key={item.id}>{item.medical_certificate_number} · {item.purpose} · {item.date_issued} · Issued</li>)}</ul></RecordSection>}
-  </div><Preview context={context} values={issued ?? values} issued={!!issued} /></div></div>;
+  const { id } = useParams(); const [record, setRecord] = useState(null); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState('');
+  const [values, setValues] = useState({ purpose: '', diagnosis_summary: '', date_issued: clinicToday(), valid_until: '' }); const [errors, setErrors] = useState({}); const [issued, setIssued] = useState(null); const [submitting, setSubmitting] = useState(false);
+  useEffect(() => { let active = true; doctorApiService.getRecord(id).then((item) => { if (!active) return; setRecord(item); setValues((old) => ({ ...old, diagnosis_summary: item.diagnosis })); }).catch((error) => active && setLoadError(doctorApiErrorMessage(error, 'Medical record not found.'))).finally(() => active && setLoading(false)); return () => { active = false; }; }, [id]);
+  if (loading) return <div className="doctor-certificate-page"><h1>Issue Medical Certificate</h1><p role="status">Loading medical record…</p></div>;
+  if (loadError || !record) return <div className="doctor-certificate-page"><h1>Certificate Unavailable</h1><RecordSection title="Unable to load medical record"><p role="alert">{loadError}</p><Link className="action-link" to="/doctor/schedule">Back to Schedule</Link></RecordSection></div>;
+  const patientId = record.patient?.id; const back = <Link className="action-link" to={patientId ? `/doctor/patients/${patientId}` : '/doctor/schedule'}>Back to Patient Details</Link>;
+  async function submit(event) { event.preventDefault(); const nextErrors = {}; if (!values.purpose.trim()) nextErrors.purpose = 'Enter a purpose.'; if (!values.diagnosis_summary.trim()) nextErrors.diagnosis_summary = 'Enter a diagnosis summary.'; if (values.valid_until && values.valid_until < values.date_issued) nextErrors.valid_until = 'Valid until must be on or after the issue date.'; if (Object.keys(nextErrors).length) { setErrors(nextErrors); return; } setSubmitting(true); setErrors({}); try { setIssued(await doctorApiService.issueCertificate(id, values, record.patientName)); } catch (error) { setErrors({ form: doctorApiErrorMessage(error, 'Unable to issue this certificate.') }); } finally { setSubmitting(false); } }
+  return <div className="doctor-certificate-page"><h1>{issued ? 'Medical Certificate Issued' : 'Issue Medical Certificate'}</h1><p>{issued ? 'The issued certificate was reloaded from the server and is read-only.' : 'Create a certificate from the selected consultation. Fields marked * are required.'}</p><div className="doctor-certificate-layout"><div>
+    <RecordSection title="Patient and Medical Record"><h3>{record.patientName}</h3><p>Issuing doctor: {record.doctor}</p><p>Consultation: {formatEncounter(record.encounter_at)}</p><p>Diagnosis: {record.diagnosis}</p><p className="record-reference">Related medical record: {record.id}</p></RecordSection>
+    {issued ? <RecordSection title="Certificate issued"><p role="status">Successfully issued. This certificate cannot be edited, deleted, or reissued here.</p><StatusBadge status="issued" /><div className="certificate-actions">{back}<button type="button" className="action-link" disabled>Download PDF</button></div><p>PDF generation will be added later.</p></RecordSection> : <form onSubmit={submit} noValidate><RecordSection title="Certificate Details"><StatusBadge status="draft" />{errors.form && <p className="certificate-error" role="alert">{errors.form}</p>}
+      {[['purpose','Purpose','text'], ['date_issued','Date issued','date'], ['valid_until','Valid until (optional)','date']].map(([name,label,type]) => <div key={name}><FormField name={name} label={label + (name !== 'valid_until' ? ' *' : '')} type={type} value={values[name]} required={name !== 'valid_until'} onChange={event => setValues(previous => ({ ...previous, [name]: event.target.value }))} />{errors[name] && <p className="certificate-error">{errors[name]}</p>}</div>)}
+      <label htmlFor="diagnosis_summary">Diagnosis summary *</label><textarea id="diagnosis_summary" rows={4} value={values.diagnosis_summary} onChange={event => setValues(previous => ({ ...previous, diagnosis_summary: event.target.value }))} />{errors.diagnosis_summary && <p className="certificate-error">{errors.diagnosis_summary}</p>}
+      <div className="certificate-actions">{back}<button disabled={submitting} className="action-link primary-action" type="submit">{submitting ? 'Issuing…' : 'Issue Certificate'}</button></div></RecordSection></form>}
+  </div>{issued ? <RecordSection title="Issued Certificate"><CertificatePreview certificate={{ ...issued, patientName: record.patientName }} /></RecordSection> : <DraftPreview record={record} values={values} />}</div></div>;
 }

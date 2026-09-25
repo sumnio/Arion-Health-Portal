@@ -57,7 +57,8 @@ test('patient certificate presentation is read-only and uses shared legitimacy s
   assert.match(preview, /ptr_number/);
   assert.match(preview, /signature_available/);
   assert.match(facts, /Certificate number/);
-  assert.match(doctorPage, /context\.clinic\.name/);
+  assert.match(doctorPage, /clinicConfig\.name/);
+  assert.match(doctorPage, /Certificate number assigned when issued/);
   assert.doesNotMatch(doctorPage, /Arion Health Clinic|Quezon City/);
   assert.doesNotMatch(fixtureSource, /Arion Health Clinic|Wellness Avenue/);
   assert.doesNotMatch(preview + facts, />Edit|>Delete|>Reissue/);

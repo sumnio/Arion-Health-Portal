@@ -1,10 +1,17 @@
 export function createDoctorClinicalController({ clinicalService }) {
   return {
+    async appointments(request, response) {
+      response.json({ appointments: await clinicalService.listDoctorAppointments(request.authUser.user_profile_id, request.query) });
+    },
     async createRecord(request, response) {
       response.status(201).json({ medical_record: await clinicalService.createRecord(request.authUser.user_profile_id, request.params.appointmentId, request.body) });
     },
     async patientRecords(request, response) {
-      response.json({ medical_records: await clinicalService.listDoctorPatientRecords(request.authUser.user_profile_id, request.params.patientId) });
+      const [medicalRecords, medicalCertificates] = await Promise.all([
+        clinicalService.listDoctorPatientRecords(request.authUser.user_profile_id, request.params.patientId),
+        clinicalService.listDoctorPatientCertificates(request.authUser.user_profile_id, request.params.patientId),
+      ]);
+      response.json({ medical_records: medicalRecords, medical_certificates: medicalCertificates });
     },
     async record(request, response) {
       response.json({ medical_record: await clinicalService.getDoctorRecord(request.authUser.user_profile_id, request.params.recordId) });

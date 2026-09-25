@@ -67,6 +67,13 @@ function createContext() {
     async findPatientById(patientId) { return clone(patients.get(String(patientId))); },
     async findAppointmentById(id) { return clone(appointments.get(String(id))); },
     async findRecordByAppointmentId(id) { return clone([...records.values()].find((item) => item.appointment_id === String(id))); },
+    async listAppointmentsForDoctor(doctorId, { start, end, patientId } = {}) {
+      return [...appointments.values()].filter((item) => item.doctor_id === String(doctorId)
+        && (!patientId || item.patient_id === String(patientId))
+        && (!start || (new Date(item.appointment_at) >= start && new Date(item.appointment_at) < end)))
+        .map((item) => ({ ...clone(item), patient_id: clone(patients.get(item.patient_id)) }));
+    },
+    async listRecordAppointmentIds(appointmentIds) { return [...records.values()].filter((item) => appointmentIds.map(String).includes(String(item.appointment_id))).map((item) => ({ _id: item._id, appointment_id: item.appointment_id })); },
     async createRecordWithPrescriptions(data, inputs) {
       if ([...records.values()].some((item) => item.appointment_id === String(data.appointment_id))) throw Object.assign(new Error('duplicate'), { code: 11000 });
       const record = { _id: nextId(), ...clone(data), patient_id: String(data.patient_id), doctor_id: String(data.doctor_id), appointment_id: String(data.appointment_id), created_at: new Date(), updated_at: new Date() };
@@ -87,6 +94,7 @@ function createContext() {
     async listIssuedCertificatesForPatient(patientId) { return [...certificates.values()].filter((item) => item.patient_id === String(patientId) && item.status === 'issued').map(populateCertificate); },
     async findIssuedCertificateForPatient(id, patientId) { const item = certificates.get(String(id)); return item?.patient_id === String(patientId) && item.status === 'issued' ? populateCertificate(item) : null; },
     async findCertificateForDoctor(id, doctorId) { const item = certificates.get(String(id)); return item?.doctor_id === String(doctorId) ? populateCertificate(item) : null; },
+    async listIssuedCertificatesForDoctorPatient(doctorId, patientId) { return [...certificates.values()].filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId) && item.status === 'issued').map(populateCertificate); },
     async completeConfirmedCheckedIn(id, doctorId) { const item = appointments.get(String(id)); if (!item || item.doctor_id !== String(doctorId) || item.status !== 'confirmed' || !item.check_in_at) return null; item.status = 'completed'; return clone(item); },
   };
   const tokens = createTokenService(SECRET);
@@ -104,6 +112,8 @@ async function withServer(app, callback) {
 function request(base, path, { method = 'GET', cookie, body } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }); }
 const recordBody = { diagnosis: 'Viral upper respiratory infection', notes: 'Rest advised', follow_up: 'Return in seven days', prescriptions: [{ medicine: 'Paracetamol', dosage: '500 mg', instructions: 'Every six hours as needed' }] };
 const certificateBody = { purpose: 'Fit to Work', diagnosis_summary: 'Recovered from viral infection', date_issued: '2026-09-25', valid_until: '2026-10-02' };
+
+test('Doctor reads only own assigned appointments with safe Patient context', async () => { const context = createContext(); await withServer(context.app, async (base) => { const response = await request(base, `/api/doctor/appointments?patient_id=${ids.patient}`, { cookie: context.cookie(ids.doctorProfile) }); assert.equal(response.status, 200); const body = await response.json(); assert.equal(body.appointments.length, 5); assert.equal(body.appointments[0].patient.full_name, 'Alex Patient'); assert.equal(body.appointments.some((item) => item.id === ids.otherDoctorAppointment), false); assert.equal('address' in body.appointments[0].patient, false); assert.equal((await request(base, '/api/doctor/appointments', { cookie: context.cookie(ids.patientProfile) })).status, 403); }); });
 
 async function createRecord(context, base, appointmentId = ids.confirmed) {
   const response = await request(base, `/api/doctor/appointments/${appointmentId}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: recordBody });

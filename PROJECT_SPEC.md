@@ -4,7 +4,7 @@
 
 The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, Patient profile and appointment APIs, Doctor scheduling/bookability APIs, clinical record/certificate/Doctor completion APIs, Staff operations APIs, and Admin account-management APIs.
 
-Frontend authentication now uses the backend API through a centralized credentialed HTTP client. Login, Patient registration, logout, session restoration, and protected route guards are real. Profile, appointment, scheduling, clinical, certificate, queue, and account-management feature data remain in frontend mock repositories until their specific migration milestones.
+Frontend authentication now uses the backend API through a centralized credentialed HTTP client. Login, Patient registration, logout, session restoration, and protected route guards are real. Patient and Doctor portal feature data also use live APIs. Staff queue/calendar/walk-in and Admin account-management frontend data remain in mock repositories until their specific migration milestones.
 
 ## Clinical API status
 
@@ -65,9 +65,9 @@ Patient appointment creation accepts only `doctor_id`, `appointment_at`, canonic
 
 Patients may cancel only their own `pending` or `confirmed` appointments. Cancellation changes the status to `cancelled` and preserves the document. Completed, cancelled, and no-show appointments reject cancellation. No cancellation cutoff has been invented.
 
-The minimal Staff lifecycle action `PATCH /api/staff/appointments/:appointmentId/confirm` is implemented. It requires an active Staff account and the approved Staff operations permission, and only permits `pending -> confirmed`. Check-in, queue, no-show, walk-in, generic status updates, and Doctor completion remain outside this API milestone.
+The Staff lifecycle action `PATCH /api/staff/appointments/:appointmentId/confirm` requires an active Staff account and permits only `pending -> confirmed`. The backend also implements the approved check-in, queue, no-show, priority, and walk-in operations. Consultation completion remains Doctor-owned.
 
-Server-side booking now requires date-specific DoctorPublishedAvailability, removes DoctorBlockedTime overlaps and active occupied slots, and applies configured clinic hours when present. The existing MongoDB partial unique index remains the final concurrency guard against same-Doctor active slot collisions. The frontend continues using mock repositories until its planned API migration.
+Server-side booking requires date-specific DoctorPublishedAvailability, removes DoctorBlockedTime overlaps and active occupied slots, and applies configured clinic hours when present. The existing MongoDB partial unique index remains the final concurrency guard against same-Doctor active slot collisions. Patient booking and Doctor scheduling now use these live APIs; Staff and Admin frontend migrations remain later work.
 
 ## Doctor scheduling and bookability backend API
 
@@ -129,7 +129,7 @@ Authentication answers who the user is; role-based authorization determines what
 
 The frontend uses these backend authentication endpoints through its service layer. Every request includes credentials so the browser can send the HttpOnly cookie. Application startup calls `/api/auth/me` before protected content renders; a normal initial `401` becomes guest state. Login redirects by the trusted returned UserProfile role, protected route groups enforce the matching active role, and logout clears frontend state even when the server session has already expired. The former mock role selector, preview login, and “Exit mock preview” controls have been removed.
 
-The frontend never reads or stores the JWT in localStorage or sessionStorage. Password recovery, email verification, and MFA remain later work. All non-auth frontend feature repositories remain mocked.
+The frontend never reads or stores the JWT in localStorage or sessionStorage. Password recovery, email verification, and MFA remain later work. Patient and Doctor feature repositories are live; Staff and Admin remain mocked.
 
 ### Backend authorization foundation
 
@@ -375,4 +375,4 @@ The selected backend direction is an Express + Node.js API backed by MongoDB/Mon
 
 Authentication, active-account checks, role authorization, ownership checks, least-privilege access, history preservation, and protected signature access are provider-independent requirements. Supabase RLS may enforce database access when Supabase is selected; an Express implementation must enforce equivalent checks in the API and persistence layers.
 
-The Mongoose models map the approved entities to separate collections and ObjectId references. Backend feature APIs and frontend authentication are active. Patient dashboard, profile, booking, appointment, record, and certificate pages now use the authenticated Patient API through a centralized frontend repository/service boundary. Doctor, Staff, and Admin frontend feature migration remains incremental later work.
+The Mongoose models map the approved entities to separate collections and ObjectId references. Backend feature APIs and frontend authentication are active. Patient dashboard, profile, booking, appointment, record, and certificate pages use the authenticated Patient API. Doctor dashboard, schedule/availability, consultation detail/history, medical-record/prescription creation, certificate issuance/view, and completion use the authenticated Doctor API. `GET /api/doctor/appointments` supplies the minimal ownership-scoped assigned-appointment projection required by the existing Doctor routes, with optional date and Patient filters. Staff and Admin frontend feature migration remains later work.

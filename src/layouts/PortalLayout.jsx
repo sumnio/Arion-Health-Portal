@@ -31,7 +31,7 @@ export default function PortalLayout({ role }) {
     </header>
     <aside id={collapsible ? role + '-sidebar' : undefined} className={'sidebar' + (menuOpen ? ' sidebar-open' : '')} onKeyDown={closeOnEscape} onClick={event => { if (event.target.closest('a')) setMenuPath(null); }}><Navigation label={role + ' navigation'} routes={routeGroups[role].filter(route => !route.path.includes(':id'))} /><button className="exit-link" type="button" onClick={signOut}>Log out</button></aside>
     <main id="main-content" tabIndex="-1"><Outlet /></main>
-    <footer className="portal-footer">Arion Health Portal · {role === 'patient' ? 'Connected to the clinic API' : 'Feature data remains mocked'}</footer>
+    <footer className="portal-footer">Arion Health Portal · {['patient', 'doctor'].includes(role) ? 'Connected to the clinic API' : 'Feature data remains mocked'}</footer>
   </div>;
 }
 

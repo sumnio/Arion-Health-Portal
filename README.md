@@ -1,6 +1,6 @@
 # Arion Health Portal
 
-Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Login, Patient registration, logout, session restoration, and role route guards use the backend authentication API. Non-auth frontend features still use their mock repositories until their specific migration milestones.
+Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Authentication plus Patient and Doctor portal features use the backend API. Staff and Admin frontend features still use their mock repositories until their specific migration milestones.
 
 ## Run locally
 
@@ -18,7 +18,7 @@ npm run dev
 
 Start the configured backend first, then open the local URL printed by Vite. Login uses real account credentials and the trusted backend role; it no longer asks for a preview role. Patient registration creates a real Patient account and then directs the user to login. Authentication uses an HttpOnly cookie, so the frontend sends credentials and stores no JWT in localStorage or sessionStorage. Startup restores the session through `/api/auth/me`, and protected routes require the correct active role.
 
-Profile, appointment, booking, schedule, clinical, certificate, queue, and Admin management screens still use mock feature repositories. Public pages retain their approved design and omit social login, password recovery, and other unapproved features. Authentication calls live behind `src/services/authService.js` and the centralized `src/services/apiClient.js`.
+Patient profile, booking, appointment, record, and certificate screens and all Doctor screens use live APIs. Staff queue/calendar/walk-in screens and Admin management screens remain mock-backed. Public pages retain their approved design and omit social login, password recovery, and other unapproved features. All live calls use the centralized `src/services/apiClient.js` through feature repository/service adapters.
 
 ```sh
 npm test
@@ -134,17 +134,17 @@ npm run validate:admin-api
 - `src/layouts`: public layout and shared shell with four role-specific entry points.
 - `src/pages`: role-specific placeholder page renderers; split into feature pages in future milestones.
 - `src/services`: provider-independent boundary used by the UI.
-- `src/mocks`: preview profiles and navigation IDs; imported only by services.
+- `src/mocks`: remaining Staff/Admin preview data and shared legacy fixtures; imported only by mock-backed services.
 - `src/styles`: Tailwind entry and responsive layout styling.
 - `scripts`: route coverage and navigation checks against the approved sitemap.
 - `server/src/config`: environment and MongoDB connection setup.
 - `server/src/models`, `server/src/repositories`: Mongoose domain models and persistence adapters.
-- `server/src/controllers`, `server/src/routes`: health, authentication, Patient, appointment, and minimal Staff confirmation endpoints.
+- `server/src/controllers`, `server/src/routes`: health, authentication, Patient, Doctor scheduling/clinical, Staff operations, and Admin account endpoints.
 - `server/src/services`, `server/src/validation`: password/token logic, authorization policy, Patient/appointment business rules, and request validation.
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, and authentication tests.
 
-Feature integrations remain behind frontend services. Frontend authentication and all Patient portal features are connected to the backend through the centralized credentialed API client. Doctor, Staff, and Admin feature pages still use their mock repositories until their planned migrations.
+Feature integrations remain behind frontend services. Frontend authentication and all Patient and Doctor portal features are connected to the backend through the centralized credentialed API client. Staff and Admin feature pages still use their mock repositories until their planned migrations. The Doctor integration adds `GET /api/doctor/appointments` for an ownership-scoped schedule/current-consultation projection; it accepts optional `date` and `patient_id` filters and never accepts a client-selected Doctor identity.
 
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 

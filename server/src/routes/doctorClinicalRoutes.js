@@ -8,6 +8,7 @@ export function createDoctorClinicalRouter({ authModule, clinicalModule }) {
   const router = Router();
   const controller = createDoctorClinicalController(clinicalModule);
   router.use(createRequireAuth({ tokens: authModule.tokens, service: authModule.service }), requireActiveUser, requireRole('doctor'));
+  router.get('/appointments', controller.appointments);
   router.post('/appointments/:appointmentId/medical-record', requirePermission(PERMISSIONS.CLINICAL_RECORD_CREATE), controller.createRecord);
   router.patch('/appointments/:appointmentId/complete', requirePermission(PERMISSIONS.CONSULTATION_COMPLETE), controller.complete);
   router.get('/patients/:patientId/records', controller.patientRecords);
