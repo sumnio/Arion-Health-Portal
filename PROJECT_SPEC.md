@@ -2,7 +2,7 @@
 
 ## Backend transition status
 
-The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, Patient profile and appointment APIs, Doctor scheduling/bookability APIs, and the approved clinical record, certificate, and Doctor completion APIs.
+The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, Patient profile and appointment APIs, Doctor scheduling/bookability APIs, clinical record/certificate/Doctor completion APIs, Staff operations APIs, and Admin account-management APIs.
 
 Frontend features continue to use the current service layer and in-memory mock repositories. The backend APIs are independently testable, but frontend mock login, profile, appointment, scheduling, clinical, and certificate flows have not been migrated. Queue and account-management feature data also remain in mock repositories.
 
@@ -28,6 +28,14 @@ Staff-created walk-in Appointments are immediately `confirmed`, matching the app
 
 `GET /api/staff/patients/:patientId/record-summary` returns only Patient name, encounter time, attending Doctor, and diagnosis summary. It excludes notes, prescriptions, and certificate content.
 
+## Admin account API status
+
+Admin-only `/api/admin/doctors` and `/api/admin/staff` APIs provision linked AuthAccount, UserProfile, and Doctor/Staff records. Roles are assigned server-side, passwords are stored only as bcrypt hashes in AuthAccount, and responses never expose hashes. Doctor and Staff list/detail/update routes return only approved non-clinical administrative fields. Provisioning uses MongoDB transactions when available with rollback cleanup when transactions are unavailable.
+
+Doctor, Staff, and linked Patient portal lifecycle routes explicitly deactivate or reactivate the related UserProfile using only `active` and `inactive`. They preserve the role profile ID, UserProfile ID, AuthAccount, Appointments, created-by references, and clinical history. There are no hard-delete endpoints. Existing active-account authorization immediately denies protected access after deactivation.
+
+`GET /api/admin/patients` and `GET /api/admin/patients/:patientId` return basic Patient/account information only and support name/contact search plus `active`, `inactive`, and `no_account` filters. A Patient with `user_profile_id = null` has no portal lifecycle action; Admin cannot create an account for that walk-in through this milestone. Admin remains unable to read or edit clinical data through account routes.
+
 Current transition:
 
 ```text
@@ -35,7 +43,7 @@ React -> service layer -> mock repositories
                          (current feature data)
 
 React -> service layer -> Express API -> MongoDB
-                         (authentication, authorization, Patient/appointment, scheduling, clinical, and Staff operations APIs implemented)
+                         (authentication, authorization, Patient/appointment, scheduling, clinical, Staff operations, and Admin account APIs implemented)
 ```
 
 ## Patient and appointment backend API

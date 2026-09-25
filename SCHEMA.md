@@ -620,6 +620,10 @@ Admin may change the linked UserProfile status only between `active` and `inacti
 
 Admin must not create or edit diagnoses, MedicalRecords, doctor notes, Prescriptions, or MedicalCertificates; issue certificates; alter Doctor clinical decisions; or permanently delete Patient clinical history.
 
+The Admin backend provisions Doctor and Staff accounts as linked `AuthAccount -> UserProfile -> Doctor/Staff` records. Role and initial `active` status are server-controlled, and password hashes remain only in AuthAccount. Provisioning uses a transaction where supported with rollback cleanup otherwise.
+
+Lifecycle endpoints update only `UserProfile.status` between `active` and `inactive`. They preserve all profile IDs, credentials, operational references, and clinical history. Patients with `user_profile_id = null` have no portal status to change and cannot be activated or deactivated through these routes. No Admin hard-delete endpoint exists.
+
 Backend authorization and database access controls must enforce this limited account-administration projection and mutation boundary. UI hiding alone is not authorization.
 
 ---

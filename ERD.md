@@ -670,6 +670,8 @@ Patient 1 -> many MedicalCertificate
 Doctor 1 -> many MedicalCertificate
 ```
 
+Admin provisioning creates the existing linked AuthAccount, UserProfile, and Doctor/Staff records without introducing another account entity. Deactivate/reactivate changes only `UserProfile.status`; it does not remove or replace any node or relationship in this diagram. A walk-in Patient with no UserProfile link has no portal lifecycle operation.
+
 ---
 
 # Walk-in Flow

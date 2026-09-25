@@ -78,6 +78,18 @@ The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Avai
 - `PATCH /api/staff/appointments/:appointmentId/no-show`
 - `GET /api/staff/queue`
 - `GET /api/staff/patients/:patientId/record-summary`
+- `GET`, `POST /api/admin/doctors`
+- `GET`, `PATCH /api/admin/doctors/:doctorId`
+- `PATCH /api/admin/doctors/:doctorId/deactivate`
+- `PATCH /api/admin/doctors/:doctorId/reactivate`
+- `GET`, `POST /api/admin/staff`
+- `GET`, `PATCH /api/admin/staff/:staffId`
+- `PATCH /api/admin/staff/:staffId/deactivate`
+- `PATCH /api/admin/staff/:staffId/reactivate`
+- `GET /api/admin/patients`
+- `GET /api/admin/patients/:patientId`
+- `PATCH /api/admin/patients/:patientId/deactivate`
+- `PATCH /api/admin/patients/:patientId/reactivate`
 
 Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
@@ -95,6 +107,8 @@ Clinical routes enforce authenticated ownership. Doctors create one immutable Me
 
 Staff operational routes support basic Patient search, guest walk-in registration without an account, same-day confirmed walk-in Appointments, check-in, canonical priority changes, no-show transitions, and the active waiting queue. Queue order is Urgent, Senior/PWD, then Normal, with check-in time ordering inside each tier. Staff has a separate restricted record-summary projection and no consultation-completion or clinical-editing endpoint.
 
+Admin routes provision Doctor and Staff accounts with server-assigned roles and bcrypt password hashes, expose safe non-clinical account projections, and manage explicit active/inactive lifecycle transitions. Deactivation preserves every linked identity and historical relationship while existing authorization blocks protected access. Patient administration covers linked portal status only; walk-ins without accounts cannot be activated/deactivated. No Admin hard-delete or clinical-editing route exists.
+
 Disposable live validation commands use generated credentials and remove only their own records:
 
 ```sh
@@ -104,6 +118,7 @@ npm run validate:patient-api
 npm run validate:scheduling
 npm run validate:clinical
 npm run validate:staff-api
+npm run validate:admin-api
 ```
 
 ## Structure

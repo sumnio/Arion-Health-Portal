@@ -15,6 +15,8 @@ import { createDoctorClinicalRouter } from './routes/doctorClinicalRoutes.js';
 import { createPatientClinicalRouter } from './routes/patientClinicalRoutes.js';
 import { createStaffOperationsRouter } from './routes/staffOperationsRoutes.js';
 import { createStaffOperationsModule } from './services/staffOperationsModule.js';
+import { createAdminAccountModule } from './services/adminAccountModule.js';
+import { createAdminAccountRouter } from './routes/adminAccountRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -63,6 +65,7 @@ export function createApp(
     });
   const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({ clinic: schedulingModule.clinic });
   const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic });
+  const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
@@ -77,6 +80,7 @@ export function createApp(
     createStaffAppointmentRouter({ authModule, patientAppointmentModule }),
   );
   app.use('/api/staff', createStaffOperationsRouter({ authModule, staffOperationsModule }));
+  app.use('/api/admin', createAdminAccountRouter({ authModule, adminAccountModule }));
   if (enableAuthorizationProbes) {
     app.use('/api/authz-test', createAuthorizationProbeRouter(authModule));
   }
