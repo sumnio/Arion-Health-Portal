@@ -53,6 +53,15 @@ Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly coo
 npm test
 ```
 
+Backend authorization uses reusable authentication, active-account, role, permission, and ownership middleware. Unauthenticated requests return 401; authenticated requests denied by account status, role, permission, or ownership return 403. Admin permissions are limited to account management, Staff permissions remain operational, and Doctor clinical actions still require feature-specific assignment checks. Internal authorization probe routes are disabled during normal API operation.
+
+Disposable live validation commands use generated credentials and remove only their own records:
+
+```sh
+npm run validate:auth
+npm run validate:authorization
+```
+
 ## Structure
 
 - `src/app`: approved route definitions, router, contextual navigation.
@@ -66,8 +75,8 @@ npm test
 - `server/src/config`: environment and MongoDB connection setup.
 - `server/src/models`, `server/src/repositories`: Mongoose domain models and persistence adapters.
 - `server/src/controllers`, `server/src/routes`: health and authentication endpoints.
-- `server/src/services`, `server/src/validation`: password/token logic and request validation.
-- `server/src/middleware`: authentication, validation, JSON 404, and centralized error handling.
+- `server/src/services`, `server/src/validation`: password/token logic, authorization policy, and request validation.
+- `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, and authentication tests.
 
 Feature integrations remain behind frontend services. The authentication API is independently testable, while the frontend mock authentication and feature services remain unchanged until their planned migration.

@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { healthRouter } from './routes/healthRoutes.js';
 import { createAuthRouter } from './routes/authRoutes.js';
+import { createAuthorizationProbeRouter } from './routes/authorizationProbeRoutes.js';
 import { createAuthModule } from './services/authModule.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -22,6 +23,7 @@ export function createApp(
     corsOrigin = 'http://127.0.0.1:5173',
     nodeEnv = 'development',
     authSecret = '',
+    enableAuthorizationProbes = false,
   } = {},
   dependencies = {},
 ) {
@@ -33,6 +35,9 @@ export function createApp(
   const authModule = dependencies.authModule ?? createAuthModule({ authSecret });
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv }));
+  if (enableAuthorizationProbes) {
+    app.use('/api/authz-test', createAuthorizationProbeRouter(authModule));
+  }
   app.use(notFound);
   app.use(errorHandler);
   return app;

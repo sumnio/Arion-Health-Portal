@@ -33,7 +33,7 @@ The Express backend owns account email and password hashes in a dedicated AuthAc
 
 Authentication uses a server-signed JWT stored in the `arion_auth` HttpOnly cookie. The cookie uses `SameSite=Lax`, an eight-hour expiration, and `Secure` in production. The JWT is not stored in browser localStorage. `AUTH_SECRET` is required when the API starts and must remain outside source control.
 
-The backend authentication endpoints are `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`. Registration is Patient-only, shared login resolves the trusted linked UserProfile, inactive accounts receive the same generic credentials error as other login failures, logout clears the cookie, and `/api/auth/me` returns only safe profile fields. Full role authorization remains a later milestone.
+The backend authentication endpoints are `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`. Registration is Patient-only, shared login resolves the trusted linked UserProfile, inactive accounts receive the same generic credentials error as other login failures, logout clears the cookie, and `/api/auth/me` returns only safe profile fields.
 
 `/register` is Patient self-registration only. Public registration must create only Patient access and must not accept a client-selected Doctor, Staff, or Admin role. Admin provisions Doctor and Staff accounts through approved account-management workflows. The Admin account is provisioned separately and does not use public registration. Patients cannot promote their own role.
 
@@ -57,7 +57,29 @@ Authentication answers who the user is; role-based authorization determines what
 
 The current mock role selector, role-preview login behavior, and “Exit mock preview” controls are temporary development aids. Remove them when the frontend is intentionally migrated to the backend authentication API.
 
-The frontend still uses mock authentication. The backend implements registration, login, logout, authenticated-user lookup, password hashing, and active-account login rejection. Password recovery, email verification, MFA, frontend migration, full role authorization, and database access policies remain later work.
+The frontend still uses mock authentication. The backend implements registration, login, logout, authenticated-user lookup, password hashing, active-account enforcement, reusable role/permission checks, and an ownership-check abstraction. Password recovery, email verification, MFA, frontend migration, feature-specific authorization queries, and database access policies remain later work.
+
+### Backend authorization foundation
+
+Protected backend actions follow this order: validate the JWT cookie, resolve a safe UserProfile, require `status = active`, require an approved role or permission, then apply a resource ownership check when the feature requires it.
+
+- Missing, invalid, or expired authentication returns `401 UNAUTHENTICATED`.
+- A valid authenticated account with the wrong role or failed ownership check returns `403 FORBIDDEN`.
+- A valid cookie whose UserProfile has since become inactive returns `403 ACCOUNT_INACTIVE`.
+- Authorization context contains only `user_profile_id`, `display_name`, `role`, and `status`; it never includes credentials or password hashes.
+
+The approved foundation permissions are:
+
+| Role | Foundation permission scope |
+|---|---|
+| Patient | Patient self-service; later feature routes must also verify Patient ownership |
+| Doctor | Doctor portal, MedicalRecord creation, certificate issuance, and consultation completion subject to assignment/ownership and workflow rules |
+| Staff | Operational Staff workflows only; no record creation, certificate issuance, or consultation completion |
+| Admin | Account management only; Admin is not a clinical superuser |
+
+Only the Doctor assigned to an Appointment may complete its consultation. The role policy admits Doctors to that future action, while the feature endpoint must also resolve the Appointment and apply the ownership helper against the assigned Doctor. No consultation-completion endpoint is added in this milestone.
+
+Authorization probe routes used by automated and live validation are disabled by default and are not normal feature APIs.
 
 ## Core MVP
 

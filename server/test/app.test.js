@@ -37,6 +37,14 @@ test('unknown API routes return a clean JSON 404', async () => {
   });
 });
 
+test('authorization probe routes are disabled during normal application operation', async () => {
+  await withServer(createApp(), async baseUrl => {
+    const response = await fetch(`${baseUrl}/api/authz-test/protected`);
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error.code, 'NOT_FOUND');
+  });
+});
+
 test('central error middleware hides unexpected implementation details', async () => {
   const app = express();
   app.get('/error', () => { throw new Error('private detail'); });

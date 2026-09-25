@@ -267,6 +267,11 @@ test('inactive account cannot log in or receive an authentication cookie', async
       body: validRegistration,
     });
     const { user } = await registration.json();
+    const activeLogin = await request(baseUrl, '/api/auth/login', {
+      method: 'POST',
+      body: { email: validRegistration.email, password: validRegistration.password },
+    });
+    const existingCookie = activeLogin.headers.get('set-cookie').split(';')[0];
     repository.profiles.get(user.user_profile_id).status = 'inactive';
     const response = await request(baseUrl, '/api/auth/login', {
       method: 'POST',
@@ -274,6 +279,9 @@ test('inactive account cannot log in or receive an authentication cookie', async
     });
     assert.equal(response.status, 401);
     assert.equal(response.headers.get('set-cookie'), null);
+    const me = await request(baseUrl, '/api/auth/me', { cookie: existingCookie });
+    assert.equal(me.status, 403);
+    assert.equal((await me.json()).error.code, 'ACCOUNT_INACTIVE');
   });
 });
 

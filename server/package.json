@@ -7,7 +7,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "node --test",
-    "validate:auth": "node scripts/validateAuthLive.js"
+    "validate:auth": "node scripts/validateAuthLive.js",
+    "validate:authorization": "node scripts/validateAuthorizationLive.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

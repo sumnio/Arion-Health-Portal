@@ -54,7 +54,7 @@ export function createAuthService({ repository, passwords, tokens }) {
 
     async getAuthenticatedUser(userProfileId) {
       const profile = await repository.findSafeProfileById(userProfileId);
-      if (!profile || profile.status !== 'active') {
+      if (!profile) {
         throw httpError(401, 'UNAUTHENTICATED', 'Authentication is required.');
       }
       return profile;

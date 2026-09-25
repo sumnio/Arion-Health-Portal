@@ -1,8 +1,8 @@
 import { AUTH_COOKIE_NAME } from '../services/tokenService.js';
 import { httpError } from '../utils/httpError.js';
 
-export function createAuthenticate({ tokens, service }) {
-  return async function authenticate(request, _response, next) {
+export function createRequireAuth({ tokens, service }) {
+  return async function requireAuth(request, _response, next) {
     try {
       const token = request.cookies?.[AUTH_COOKIE_NAME];
       if (!token) throw httpError(401, 'UNAUTHENTICATED', 'Authentication is required.');
@@ -13,10 +13,18 @@ export function createAuthenticate({ tokens, service }) {
       } catch {
         throw httpError(401, 'UNAUTHENTICATED', 'Authentication is required.');
       }
-      request.authUser = await service.getAuthenticatedUser(payload.sub);
+      const profile = await service.getAuthenticatedUser(payload.sub);
+      request.authUser = {
+        user_profile_id: profile.user_profile_id,
+        display_name: profile.display_name,
+        role: profile.role,
+        status: profile.status,
+      };
       next();
     } catch (error) {
       next(error);
     }
   };
 }
+
+export const createAuthenticate = createRequireAuth;
