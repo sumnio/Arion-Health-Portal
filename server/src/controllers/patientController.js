@@ -29,6 +29,10 @@ export function createPatientController({ patientService, appointmentService }) 
       response.json(result);
     },
 
+    async doctors(_request, response) {
+      response.json({ doctors: await appointmentService.listDoctors() });
+    },
+
     async listAppointments(request, response) {
       const appointments = await appointmentService.listForPatient(
         request.authUser.user_profile_id,

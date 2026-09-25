@@ -7,6 +7,19 @@ const doctorDisplayPopulation = {
 };
 
 export const appointmentRepository = {
+  async listActiveDoctors() {
+    const doctors = await Doctor.find()
+      .select('specialty user_profile_id')
+      .populate({
+        path: 'user_profile_id',
+        match: { role: 'doctor', status: 'active' },
+        select: 'display_name',
+      })
+      .sort({ created_at: 1 })
+      .lean();
+    return doctors.filter((doctor) => doctor.user_profile_id);
+  },
+
   async doctorExists(doctorId) {
     return Boolean(await Doctor.exists({ _id: doctorId }));
   },

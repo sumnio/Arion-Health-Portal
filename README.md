@@ -53,6 +53,7 @@ The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Avai
 - `GET /api/auth/me`
 - `GET /api/patient/profile`
 - `PATCH /api/patient/profile`
+- `GET /api/patient/doctors`
 - `POST /api/patient/appointments`
 - `GET /api/patient/appointments`
 - `GET /api/patient/appointments/:appointmentId`
@@ -143,7 +144,7 @@ npm run validate:admin-api
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, and authentication tests.
 
-Feature integrations remain behind frontend services. Frontend authentication is connected to the backend, while all non-auth feature services remain mocked until their planned migrations.
+Feature integrations remain behind frontend services. Frontend authentication and all Patient portal features are connected to the backend through the centralized credentialed API client. Doctor, Staff, and Admin feature pages still use their mock repositories until their planned migrations.
 
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 

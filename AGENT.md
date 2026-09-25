@@ -36,7 +36,7 @@ Always read:
 - Do not expose secrets in frontend code.
 - Keep role-based access in mind.
 - Implement only the requested milestone.
-- Keep frontend mock repositories active until a milestone explicitly migrates a feature to the backend API.
+- Keep frontend mock repositories active until a milestone explicitly migrates a feature to the backend API. Patient portal features were migrated in Milestone 22.2; Doctor, Staff, and Admin feature repositories remain mocked until their own migrations.
 - Patient self-service APIs must derive Patient ownership from the authenticated UserProfile; never trust a client-supplied `patient_id`.
 - Doctor scheduling APIs must derive Doctor ownership from the authenticated UserProfile; never trust a client-supplied `doctor_id` for own-schedule mutations.
 - Keep scheduling time conversion centralized. The current development timezone is `Asia/Manila`; clinic opening and closing times remain optional until approved values are configured.
@@ -52,7 +52,7 @@ Always read:
 - Protected routes require an authenticated user, an active account, and the permitted role. Frontend redirects are navigation behavior, not the security boundary; backend authorization and database access controls must enforce access later. Use RLS when the selected provider supports it.
 - Backend protected actions must compose authentication, active-account, role/permission, and resource-ownership checks as applicable. Return 401 for missing/invalid authentication and 403 for inactive, wrong-role, or failed-ownership access.
 - Admin is not a clinical superuser. Staff cannot create clinical records, issue certificates, or complete consultations. Consultation completion is Doctor-only and must also verify the assigned Doctor.
-- Frontend authentication uses the Express API through a centralized credentialed client. Do not restore mock role selection, preview login, or browser token storage. Non-auth feature repositories remain mocked until their specific migration milestone.
+- Frontend authentication and Patient portal data use the Express API through a centralized credentialed client. Do not restore mock role selection, preview login, or browser token storage. Doctor, Staff, and Admin feature repositories remain mocked until their specific migration milestones.
 
 ## Backend portability
 

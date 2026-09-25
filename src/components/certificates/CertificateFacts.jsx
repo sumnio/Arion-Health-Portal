@@ -1,4 +1,4 @@
-import { formatCertificateDate } from '../../services/certificateService.js';
+import { formatCertificateDate } from '../../services/dateTimeService.js';
 
 export default function CertificateFacts({ certificate }) {
   return <dl className="certificate-facts">

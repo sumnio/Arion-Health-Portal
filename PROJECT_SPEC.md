@@ -375,4 +375,4 @@ The selected backend direction is an Express + Node.js API backed by MongoDB/Mon
 
 Authentication, active-account checks, role authorization, ownership checks, least-privilege access, history preservation, and protected signature access are provider-independent requirements. Supabase RLS may enforce database access when Supabase is selected; an Express implementation must enforce equivalent checks in the API and persistence layers.
 
-The Mongoose models map the approved entities to separate collections and ObjectId references. Backend feature APIs and frontend authentication are active; frontend feature-service migration remains incremental later work.
+The Mongoose models map the approved entities to separate collections and ObjectId references. Backend feature APIs and frontend authentication are active. Patient dashboard, profile, booking, appointment, record, and certificate pages now use the authenticated Patient API through a centralized frontend repository/service boundary. Doctor, Staff, and Admin frontend feature migration remains incremental later work.

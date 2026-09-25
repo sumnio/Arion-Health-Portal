@@ -72,6 +72,7 @@ function createContext() {
   }
   const appointmentRepository = {
     forceDuplicate: false,
+    async listActiveDoctors() { return [structuredClone(doctor)]; },
     async doctorExists(id) { return id === ids.doctor; },
     async create(data) {
       const occupied = [...appointments.values()].some((item) =>
@@ -187,6 +188,17 @@ test('Patient can update approved own profile fields, including documented DOB a
     assert.equal(body.patient.full_name, 'Alex Updated');
     assert.equal(body.patient.dob, '1991-02-20');
     assert.equal(body.patient.is_pwd, true);
+  });
+});
+
+test('Patient can list only safe active Doctor booking fields', async () => {
+  const { app, cookie } = createContext();
+  await withServer(app, async (url) => {
+    const response = await request(url, '/api/patient/doctors', { cookie: cookie(ids.patientProfile) });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      doctors: [{ id: ids.doctor, display_name: 'Dr. Maria Santos', specialty: 'General Medicine' }],
+    });
   });
 });
 

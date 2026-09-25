@@ -55,6 +55,10 @@ export function createAppointmentService({
   }
 
   return {
+    async listDoctors() {
+      return (await repository.listActiveDoctors()).map(presentDoctor);
+    },
+
     async getAvailableSlots(doctorId, date) {
       if (!bookingAvailabilityService) {
         throw httpError(503, 'SCHEDULING_UNAVAILABLE', 'Scheduling service is unavailable.');
