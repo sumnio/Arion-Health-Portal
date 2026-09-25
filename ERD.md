@@ -6,7 +6,7 @@ This ERD is the logical and relational reference model. UUID and PostgreSQL-spec
 
 The Arion Health Portal contains the following main entities and external identity relationship:
 
-- Authenticated identity (a Supabase Auth User when Supabase is selected)
+- AuthAccount
 - UserProfile
 - Patient
 - Doctor
@@ -23,13 +23,12 @@ The Arion Health Portal contains the following main entities and external identi
 
 # Authentication Structure
 
-The selected authentication system handles credentials for portal accounts. Supabase Auth is one supported implementation; an Express-based backend must provide an equivalent authentication boundary. Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. Guest/walk-in Patient records do not require an authenticated identity or a UserProfile.
+AuthAccount handles credentials for portal accounts. Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. Guest/walk-in Patient records do not require an AuthAccount or UserProfile.
 
-The authentication system owns email, password, sessions, login/logout, password recovery/reset where implemented, and future MFA. UserProfile owns application identity, role, common contact information, and active/inactive status. Real login is shared across all four roles and never asks the user to select a role.
+AuthAccount owns normalized email and the bcrypt password hash. UserProfile owns application identity, role, common contact information, and active/inactive status. Real login is shared across all four roles and never asks the user to select a role.
 
 ```text
-Authenticated identity
-(auth.users when Supabase is selected)
+AuthAccount
     │
     │ 1:1
     ▼
@@ -54,10 +53,14 @@ UserProfile 1 ─── 0..1 Staff
                 via Staff.user_profile_id
 ```
 
+AuthAccount fields are `id`, unique `user_profile_id`, unique normalized `email`, `password_hash`, `created_at`, and `updated_at`. The hash is excluded from normal queries and all API responses.
+
+Authentication uses a server-signed JWT stored in an HttpOnly cookie. Password hashes stay in AuthAccount; cookie/token validation establishes identity, while UserProfile status and later role authorization determine access.
+
 Relationship:
 
 ```text
-Authenticated identity 1 ─── 1 UserProfile
+AuthAccount 1 ─── 1 UserProfile
 ```
 
 ```text
@@ -82,7 +85,7 @@ The UserProfile fields match `SCHEMA.md`:
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid, PK/FK | Shared with the authenticated identity; maps to `auth.users.id` when Supabase is selected |
+| id | identifier, PK | MongoDB `_id`; referenced by AuthAccount and role-specific profiles |
 | display_name | text | User's full/display name |
 | role | enum | `patient`, `doctor`, `staff`, `admin` |
 | contact_number | text | Common contact number for the account holder |
@@ -585,10 +588,10 @@ The doctor referenced by `doctor_id` is the certificate signer.
 
 # Complete Relationship Summary
 
-The Patient branch below is optional in both directions: a Patient can exist independently with `user_profile_id = null`, and a UserProfile can have zero or one linked Patient. Doctor and Staff retain their required UserProfile link. The authenticated-identity/UserProfile 1:1 relationship describes provisioned portal accounts.
+The Patient branch below is optional in both directions: a Patient can exist independently with `user_profile_id = null`, and a UserProfile can have zero or one linked Patient. Doctor and Staff retain their required UserProfile link. The AuthAccount/UserProfile 1:1 relationship describes provisioned portal accounts.
 
 ```text
-Authenticated identity
+AuthAccount
     │
     │ 1:1
     ▼
@@ -628,7 +631,7 @@ Doctor also has one-to-many relationships with DoctorPublishedAvailability for d
 # Relationship List
 
 ```text
-Authenticated identity 1 -> 1 UserProfile
+AuthAccount 1 -> 1 UserProfile
 
 UserProfile 0..1 -> 0..1 Patient (via nullable, unique Patient.user_profile_id)
 UserProfile 1 -> 0..1 Doctor

@@ -1,4 +1,5 @@
 export { UserProfile } from './UserProfile.js';
+export { AuthAccount } from './AuthAccount.js';
 export { Patient } from './Patient.js';
 export { Doctor } from './Doctor.js';
 export { Staff } from './Staff.js';

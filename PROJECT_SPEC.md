@@ -4,7 +4,7 @@
 
 The selected backend direction is Node.js, Express, and MongoDB through Mongoose. Milestone 13 establishes only the backend project structure, environment loading, MongoDB connection lifecycle, foundational middleware, centralized error handling, and `GET /api/health`.
 
-Frontend features continue to use the current service layer and in-memory mock repositories. Patient, appointment, scheduling, queue, clinical, certificate, account, and authentication data have not been migrated to the Express API yet. Later milestones will replace mock repository access behind the existing frontend service boundary without moving backend access into React components.
+Frontend features continue to use the current service layer and in-memory mock repositories. Milestone 15 adds independently testable backend authentication endpoints, but the frontend mock login/register flow has not been migrated to them. Patient, appointment, scheduling, queue, clinical, certificate, and account-management feature data remain in the mock repositories.
 
 Current transition:
 
@@ -13,7 +13,7 @@ React -> service layer -> mock repositories
                          (current feature data)
 
 React -> service layer -> Express API -> MongoDB
-                         (target architecture; infrastructure only for now)
+                         (authentication foundation implemented)
 ```
 
 ## Purpose
@@ -29,7 +29,11 @@ Arion Health Portal is a clinic management and patient portal system.
 
 `/login` is the single shared public login route for Patient, Doctor, Staff, and Admin. The final form uses the user's real account credentials and does not ask the user to select a role. After successful authentication, the application reads the trusted linked UserProfile to determine role and account status.
 
-The selected authentication system will own account email, password, authentication sessions, login/logout, password recovery/reset where implemented, and future MFA. Supabase Auth is one supported implementation; an Express-based backend must provide an equivalent authentication boundary. Passwords and password hashes must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, the approved role, common contact information, and account status.
+The Express backend owns account email and password hashes in a dedicated AuthAccount model. Passwords and password hashes must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, the approved role, common contact information, and account status.
+
+Authentication uses a server-signed JWT stored in the `arion_auth` HttpOnly cookie. The cookie uses `SameSite=Lax`, an eight-hour expiration, and `Secure` in production. The JWT is not stored in browser localStorage. `AUTH_SECRET` is required when the API starts and must remain outside source control.
+
+The backend authentication endpoints are `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`. Registration is Patient-only, shared login resolves the trusted linked UserProfile, inactive accounts receive the same generic credentials error as other login failures, logout clears the cookie, and `/api/auth/me` returns only safe profile fields. Full role authorization remains a later milestone.
 
 `/register` is Patient self-registration only. Public registration must create only Patient access and must not accept a client-selected Doctor, Staff, or Admin role. Admin provisions Doctor and Staff accounts through approved account-management workflows. The Admin account is provisioned separately and does not use public registration. Patients cannot promote their own role.
 
@@ -51,9 +55,9 @@ Unauthenticated users attempting a protected route are redirected to `/login`. A
 
 Authentication answers who the user is; role-based authorization determines what the user may do. Frontend route guards must later be combined with backend authorization and database-enforced access controls. Supabase RLS may provide part of those controls when Supabase is selected. Hiding routes or buttons is not sufficient security.
 
-The current mock role selector, role-preview login behavior, and “Exit mock preview” controls are temporary development aids. Remove them when real authentication is implemented.
+The current mock role selector, role-preview login behavior, and “Exit mock preview” controls are temporary development aids. Remove them when the frontend is intentionally migrated to the backend authentication API.
 
-The frontend/mock phase does not implement production authentication, login/logout, password recovery, MFA, backend authorization, or database access policies.
+The frontend still uses mock authentication. The backend implements registration, login, logout, authenticated-user lookup, password hashing, and active-account login rejection. Password recovery, email verification, MFA, frontend migration, full role authorization, and database access policies remain later work.
 
 ## Core MVP
 

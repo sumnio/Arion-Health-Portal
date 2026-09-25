@@ -4,6 +4,7 @@ import express from 'express';
 import { createApp } from '../src/app.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 import { requireMongoUri } from '../src/config/database.js';
+import { requireAuthSecret } from '../src/services/tokenService.js';
 
 async function withServer(app, check) {
   const server = app.listen(0, '127.0.0.1');
@@ -50,4 +51,9 @@ test('central error middleware hides unexpected implementation details', async (
 test('MongoDB configuration fails clearly when the URI is missing', () => {
   assert.throws(() => requireMongoUri(''), /MONGODB_URI is required/);
   assert.equal(requireMongoUri(' mongodb://localhost:27017/arion_test '), 'mongodb://localhost:27017/arion_test');
+});
+
+test('authentication configuration requires a signing secret', () => {
+  assert.throws(() => requireAuthSecret(''), /AUTH_SECRET is required/);
+  assert.equal(requireAuthSecret(' test-secret '), 'test-secret');
 });

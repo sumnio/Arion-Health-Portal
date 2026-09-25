@@ -43,7 +43,7 @@ Always read:
 - `/register` is Patient self-registration only. Doctor and Staff accounts are Admin-provisioned; Admin accounts are provisioned separately.
 - Real authentication must not ask the user to select a role. Role comes from the trusted UserProfile linked to the authenticated user.
 - Protected routes require an authenticated user, an active account, and the permitted role. Frontend redirects are navigation behavior, not the security boundary; backend authorization and database access controls must enforce access later. Use RLS when the selected provider supports it.
-- Mock role selection and “Exit mock preview” controls are temporary development behavior and must be removed when real authentication is implemented.
+- Mock role selection and “Exit mock preview” controls are temporary development behavior and must be removed when the frontend is intentionally migrated to backend authentication.
 
 ## Backend portability
 

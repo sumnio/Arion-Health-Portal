@@ -18,5 +18,6 @@ export function loadConfig(environment = process.env) {
     nodeEnv: environment.NODE_ENV || 'development',
     mongoUri: environment.MONGODB_URI?.trim() || '',
     corsOrigin: environment.CORS_ORIGIN?.trim() || 'http://127.0.0.1:5173',
+    authSecret: environment.AUTH_SECRET?.trim() || '',
   };
 }

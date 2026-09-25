@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 
 import {
   Appointment,
+  AuthAccount,
   Doctor,
   DoctorAvailability,
   DoctorBlockedTime,
@@ -26,6 +27,7 @@ test('all domain models load with their intended collection names', () => {
   assert.deepEqual(
     [
       UserProfile,
+      AuthAccount,
       Patient,
       Doctor,
       Staff,
@@ -39,6 +41,7 @@ test('all domain models load with their intended collection names', () => {
     ].map((model) => model.collection.collectionName),
     [
       'user_profiles',
+      'auth_accounts',
       'patients',
       'doctors',
       'staff',
@@ -164,6 +167,12 @@ test('UserProfile rejects unapproved roles and statuses', async () => {
 test('UserProfile contains no password or password hash path', () => {
   assert.equal(UserProfile.schema.path('password'), undefined);
   assert.equal(UserProfile.schema.path('password_hash'), undefined);
+});
+
+test('AuthAccount owns credentials and declares unique email and profile indexes', () => {
+  assert.equal(AuthAccount.schema.path('password_hash').options.select, false);
+  assert.equal(indexByName(AuthAccount, 'unique_auth_account_email')[1].unique, true);
+  assert.equal(indexByName(AuthAccount, 'unique_auth_account_profile')[1].unique, true);
 });
 
 test('Patient accepts a null UserProfile link for a walk-in', async () => {

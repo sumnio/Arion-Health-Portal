@@ -1,6 +1,6 @@
 # Arion Health Portal
 
-Arion Health Portal contains a React frontend and an initial Node.js, Express, and MongoDB backend foundation. Frontend features still use the current mock repositories; feature API migration has not started.
+Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Frontend features still use the current mock repositories; the backend authentication API is implemented but has not replaced the mock login/register UI.
 
 ## Run locally
 
@@ -31,7 +31,7 @@ npm install
 copy .env.example .env
 ```
 
-Set `MONGODB_URI` in `server/.env` to a development MongoDB connection string. Keep that file local; `.env` files are ignored by Git. Do not place credentials in `.env.example`.
+Set `MONGODB_URI` in `server/.env` to a development MongoDB connection string. Generate a long random `AUTH_SECRET` for signing authentication JWTs. Keep that file local; `.env` files are ignored by Git. Do not place credentials or a real secret in `.env.example`.
 
 Then run:
 
@@ -39,7 +39,15 @@ Then run:
 npm run dev
 ```
 
-The API starts only after MongoDB connects. The health endpoint is `GET http://localhost:5000/api/health`. Backend tests use an ephemeral HTTP port and do not require a live database:
+The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Available foundation endpoints are:
+
+- `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+
+Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
 ```sh
 npm test
@@ -56,11 +64,13 @@ npm test
 - `src/styles`: Tailwind entry and responsive layout styling.
 - `scripts`: route coverage and navigation checks against the approved sitemap.
 - `server/src/config`: environment and MongoDB connection setup.
-- `server/src/controllers`, `server/src/routes`: the health endpoint only.
-- `server/src/middleware`: JSON 404 and centralized error handling.
-- `server/test`: backend foundation tests.
+- `server/src/models`, `server/src/repositories`: Mongoose domain models and persistence adapters.
+- `server/src/controllers`, `server/src/routes`: health and authentication endpoints.
+- `server/src/services`, `server/src/validation`: password/token logic and request validation.
+- `server/src/middleware`: authentication, validation, JSON 404, and centralized error handling.
+- `server/test`: backend foundation, model, and authentication tests.
 
-Feature integrations remain behind frontend services. The Express foundation is present, but frontend feature services have not been connected to it yet.
+Feature integrations remain behind frontend services. The authentication API is independently testable, while the frontend mock authentication and feature services remain unchanged until their planned migration.
 
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 

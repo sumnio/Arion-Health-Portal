@@ -24,11 +24,11 @@ Main revisions:
 
 # 1. Authentication and User Profiles
 
-Authentication credentials will be handled by the selected authentication system. It owns email, password, authentication sessions, login/logout, password recovery/reset where implemented, and future MFA. Supabase Auth is one supported implementation; an Express-based backend must provide an equivalent boundary. Email and password are authentication data and are not fields in the approved UserProfile structure.
+Authentication credentials are owned by the backend AuthAccount model. Email and `password_hash` are authentication data and are not fields in the approved UserProfile structure. Password recovery/reset, email verification, and MFA remain future work.
 
 Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, role, common contact information, and account status, not authentication credentials. Doctor and Staff must not contain username-based authentication fields.
 
-Portal accounts have a UserProfile linked one-to-one with the authenticated identity. In a Supabase implementation, the shared identifier maps to `auth.users.id`. Patient records are independent and only link to a UserProfile when the patient has a portal account. Doctor and Staff retain their shared primary-key relationship with UserProfile.
+Portal accounts have one AuthAccount linked one-to-one with one UserProfile. Patient records are independent and only link to a UserProfile when the patient has a portal account. Doctor and Staff link through their required unique `user_profile_id` references.
 
 Admin is represented by `UserProfile.role = admin`; there is no separate Admin entity.
 
@@ -37,14 +37,29 @@ Admin is represented by `UserProfile.role = admin`; there is no separate Admin e
 - `/login` is shared by Patient, Doctor, Staff, and Admin. Real authentication uses credentials managed by the selected authentication system and never requires manual role selection.
 - `/register` is Patient self-registration only. Public registration must force the trusted application role to `patient`; it must not accept a client-selected role or permit self-registration as Doctor, Staff, or Admin.
 - Admin provisions Doctor and Staff accounts. The Admin account is provisioned separately. Patients cannot promote their own role.
-- The authenticated identity links to UserProfile through the shared UUID. The trusted UserProfile supplies application role and status.
+- AuthAccount links to UserProfile through required unique `user_profile_id`. The trusted UserProfile supplies application role and status.
 - The current mock role selector and “Exit mock preview” controls are temporary and must be removed during real authentication implementation.
+
+## AuthAccount
+
+| Field | Type | Notes |
+|---|---|---|
+| id | identifier, PK | MongoDB `_id` |
+| user_profile_id | identifier, FK, unique | Required reference to `UserProfile.id`; one credential account per profile |
+| email | text, unique | Required; normalized to lowercase |
+| password_hash | text | Required bcrypt hash; excluded from normal query/API output |
+| created_at | timestamp | Managed by Mongoose timestamps |
+| updated_at | timestamp | Managed by Mongoose timestamps |
+
+Plaintext passwords are never persisted. The current implementation hashes with bcryptjs using work factor 12. Successful login produces a server-signed JWT in the HttpOnly `arion_auth` cookie with `SameSite=Lax`, an eight-hour expiration, and `Secure` in production. The signing secret comes from `AUTH_SECRET` and is never returned or logged.
+
+Public Patient registration creates AuthAccount, UserProfile with role `patient`, and linked Patient records in one MongoDB transaction. A request body cannot assign Doctor, Staff, or Admin. If an unlinked walk-in candidate already has the same contact number and date of birth, registration stops for later verified account-linking review instead of automatically matching by name or creating a silent duplicate.
 
 ## UserProfile
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid, PK/FK | Shared with the authenticated identity; maps to `auth.users.id` when Supabase is selected |
+| id | identifier, PK | MongoDB `_id`; referenced by AuthAccount and role-specific profiles |
 | display_name | text | User's full/display name |
 | role | enum | `patient`, `doctor`, `staff`, `admin` |
 | contact_number | text | Common contact number for the account holder |
@@ -414,13 +429,9 @@ If the final project requires only one certificate per medical record, a unique 
 
 ## Authentication
 
-`UserProfile.id` shares the authenticated identity's identifier. For a Supabase implementation, it references:
+`AuthAccount.user_profile_id` is a required unique ObjectId reference to UserProfile. AuthAccount email is also unique after lowercase normalization. `password_hash` is excluded from normal query selection and never appears in API responses.
 
-```text
-auth.users.id
-```
-
-Account lifecycle uses deactivation, not deletion of the authentication identity or UserProfile. Do not configure account deletion to cascade into application profiles or history. Preserve related Patient, Doctor, Staff, Appointment, MedicalRecord, Prescription, and MedicalCertificate records and references.
+Account lifecycle uses UserProfile deactivation, not deletion of AuthAccount or UserProfile. Do not configure account deletion to cascade into application profiles or history. Preserve related Patient, Doctor, Staff, Appointment, MedicalRecord, Prescription, and MedicalCertificate records and references.
 
 ---
 

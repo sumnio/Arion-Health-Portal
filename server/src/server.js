@@ -2,10 +2,12 @@ import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { loadConfig } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { requireAuthSecret } from './services/tokenService.js';
 import './models/index.js';
 
 async function start() {
   const config = loadConfig();
+  requireAuthSecret(config.authSecret);
   await connectDatabase(config.mongoUri);
 
   const server = createServer(createApp(config));
