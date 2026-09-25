@@ -36,6 +36,8 @@ Always read:
 - Do not expose secrets in frontend code.
 - Keep role-based access in mind.
 - Implement only the requested milestone.
+- Keep frontend mock repositories active until a milestone explicitly migrates a feature to the backend API.
+- Patient self-service APIs must derive Patient ownership from the authenticated UserProfile; never trust a client-supplied `patient_id`.
 
 ## Authentication rules
 

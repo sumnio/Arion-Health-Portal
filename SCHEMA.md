@@ -235,7 +235,7 @@ Clinic operating-hour values are intentionally TBD. Their configuration represen
 
 The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
 
-The Appointment `created_by` field identifies the account that created an appointment, but its exact relationship/reference target and deletion behavior have not been approved. Backend implementation must not guess these details.
+Appointment `created_by` is a nullable reference to `UserProfile.id`. It stores the authenticated account that originally created the Appointment. Patient self-booking uses the authenticated Patient UserProfile ID, and the future Staff walk-in API must use the authenticated Staff UserProfile ID. Imported, system-generated, or legacy records may use null when no authenticated creator exists. Account deactivation preserves the reference and Appointment history.
 
 ### Patient appointment booking rules
 
@@ -281,11 +281,13 @@ Replaces the previous `Schedule` entity.
 | visit_type | enum | `general_consultation`, `follow_up`, `check_up` |
 | reason | text | Reason for visit |
 | priority | enum | `normal`, `urgent` |
-| created_by | uuid, nullable | User who created appointment |
+| created_by | identifier, FK, nullable | References `UserProfile.id`; authenticated creator account, or null only for imported/system/legacy records without a known creator |
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
 Mongoose declares a partial unique index on `(doctor_id, appointment_at)` for `pending`, `confirmed`, and `completed` appointments. `cancelled` and `no_show` appointments do not reserve the slot. This enforces one blocking appointment per Doctor per exact 30-minute slot while allowing different Doctors to use the same time.
+
+`patient_id` identifies the Patient receiving care. `doctor_id` identifies the Doctor assigned to the consultation. `created_by` independently identifies the UserProfile account that created the Appointment. Store only the UserProfile reference, never copied names, roles, emails, or credentials. `created_by` is not cleared when that account becomes inactive, and no account lifecycle action may cascade-delete the Appointment.
 
 ### Consultation completion rules
 

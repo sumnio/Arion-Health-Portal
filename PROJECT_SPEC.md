@@ -2,9 +2,9 @@
 
 ## Backend transition status
 
-The selected backend direction is Node.js, Express, and MongoDB through Mongoose. Milestone 13 establishes only the backend project structure, environment loading, MongoDB connection lifecycle, foundational middleware, centralized error handling, and `GET /api/health`.
+The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, and the first Patient profile and appointment APIs.
 
-Frontend features continue to use the current service layer and in-memory mock repositories. Milestone 15 adds independently testable backend authentication endpoints, but the frontend mock login/register flow has not been migrated to them. Patient, appointment, scheduling, queue, clinical, certificate, and account-management feature data remain in the mock repositories.
+Frontend features continue to use the current service layer and in-memory mock repositories. The backend authentication and Patient/appointment APIs are independently testable, but the frontend mock login, profile, and appointment flows have not been migrated to them. Scheduling publication, queue, clinical, certificate, and account-management feature data remain in the mock repositories.
 
 Current transition:
 
@@ -13,8 +13,31 @@ React -> service layer -> mock repositories
                          (current feature data)
 
 React -> service layer -> Express API -> MongoDB
-                         (authentication foundation implemented)
+                         (authentication, authorization, and Patient/appointment APIs implemented)
 ```
+
+## Patient and appointment backend API
+
+The authenticated Patient API provides:
+
+- `GET /api/patient/profile`
+- `PATCH /api/patient/profile`
+- `POST /api/patient/appointments`
+- `GET /api/patient/appointments`
+- `GET /api/patient/appointments/:appointmentId`
+- `PATCH /api/patient/appointments/:appointmentId/cancel`
+
+Every Patient endpoint requires a valid authenticated session, an active UserProfile with role `patient`, and a Patient linked through `Patient.user_profile_id`. The API never accepts `patient_id` for self-service operations. Profile lookup, appointment list/detail, creation, and cancellation are scoped to that linked Patient. Appointment ownership failures use the same not-found response as missing appointments to avoid exposing another Patient's data.
+
+Patient profile updates support the approved contact and emergency-contact fields, PWD status, and the existing profile workflow's `dob` and `sex` fields. Updating `full_name` or `contact_number` also keeps the linked UserProfile's shared display/contact values synchronized. Identifiers, account status, role, allergies, and clinical data cannot be changed through this endpoint.
+
+Patient appointment creation accepts only `doctor_id`, `appointment_at`, canonical `visit_type`, and the schema-required free-text `reason`. The server derives the Patient, sets `created_by` to the authenticated Patient UserProfile ID, sets `status = pending`, `priority = normal`, and `check_in_at = null`, enforces future 30-minute slot boundaries and the approved 14-day Patient booking window, and maps the active same-Doctor/time unique-index collision to HTTP 409. Clients cannot choose or override the creator identity.
+
+Patients may cancel only their own `pending` or `confirmed` appointments. Cancellation changes the status to `cancelled` and preserves the document. Completed, cancelled, and no-show appointments reject cancellation. No cancellation cutoff has been invented.
+
+The minimal Staff lifecycle action `PATCH /api/staff/appointments/:appointmentId/confirm` is implemented. It requires an active Staff account and the approved Staff operations permission, and only permits `pending -> confirmed`. Check-in, queue, no-show, walk-in, generic status updates, and Doctor completion remain outside this API milestone.
+
+Server-side validation of date-specific DoctorPublishedAvailability, DoctorBlockedTime overlap, and configured clinic operating hours is deferred to the Doctor availability API milestone. The existing MongoDB partial unique index remains the final guard against same-Doctor active slot collisions in the meantime. The frontend continues using mock repositories until its planned API migration.
 
 ## Purpose
 Arion Health Portal is a clinic management and patient portal system.
@@ -231,7 +254,7 @@ Clinic operating-hour values are intentionally TBD. Their configuration represen
 
 The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
 
-The Appointment `created_by` field identifies the account that created an appointment, but its exact relationship/reference target and deletion behavior have not been approved. Backend implementation must not guess these details.
+Appointment `created_by` is a nullable reference to `UserProfile.id` and identifies the authenticated account that originally created the Appointment. Patient self-booking records the Patient UserProfile ID. The future Staff walk-in API must record the authenticated Staff UserProfile ID. Imported, system-generated, or legacy Appointments may use null when no authenticated creator is available. The creator is independent of the Patient receiving care (`patient_id`) and Doctor assigned to the consultation (`doctor_id`). Account deactivation preserves this historical reference; it must not null the field or delete the Appointment.
 
 ### Patient appointment booking rules
 

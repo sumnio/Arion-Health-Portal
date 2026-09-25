@@ -1,6 +1,6 @@
 # Arion Health Portal
 
-Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Frontend features still use the current mock repositories; the backend authentication API is implemented but has not replaced the mock login/register UI.
+Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Frontend features still use the current mock repositories; the backend authentication, authorization, Patient profile, and Patient appointment APIs are implemented but have not replaced the mock UI flows.
 
 ## Run locally
 
@@ -46,6 +46,13 @@ The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Avai
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
+- `GET /api/patient/profile`
+- `PATCH /api/patient/profile`
+- `POST /api/patient/appointments`
+- `GET /api/patient/appointments`
+- `GET /api/patient/appointments/:appointmentId`
+- `PATCH /api/patient/appointments/:appointmentId/cancel`
+- `PATCH /api/staff/appointments/:appointmentId/confirm`
 
 Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
@@ -55,11 +62,14 @@ npm test
 
 Backend authorization uses reusable authentication, active-account, role, permission, and ownership middleware. Unauthenticated requests return 401; authenticated requests denied by account status, role, permission, or ownership return 403. Admin permissions are limited to account management, Staff permissions remain operational, and Doctor clinical actions still require feature-specific assignment checks. Internal authorization probe routes are disabled during normal API operation.
 
+Patient routes resolve ownership from the authenticated UserProfile and never accept a Patient ID for self-service operations. Appointment creation produces `pending` appointments, uses canonical visit types, enforces future 30-minute slots within 14 days, and returns 409 for active same-Doctor slot conflicts. Patients may cancel only their own pending or confirmed appointments; cancellation preserves the record. The Staff confirmation endpoint only permits pending-to-confirmed. Doctor publication, blocked-time, and clinic-hours validation are deferred to the scheduling API milestone.
+
 Disposable live validation commands use generated credentials and remove only their own records:
 
 ```sh
 npm run validate:auth
 npm run validate:authorization
+npm run validate:patient-api
 ```
 
 ## Structure
@@ -74,12 +84,12 @@ npm run validate:authorization
 - `scripts`: route coverage and navigation checks against the approved sitemap.
 - `server/src/config`: environment and MongoDB connection setup.
 - `server/src/models`, `server/src/repositories`: Mongoose domain models and persistence adapters.
-- `server/src/controllers`, `server/src/routes`: health and authentication endpoints.
-- `server/src/services`, `server/src/validation`: password/token logic, authorization policy, and request validation.
+- `server/src/controllers`, `server/src/routes`: health, authentication, Patient, appointment, and minimal Staff confirmation endpoints.
+- `server/src/services`, `server/src/validation`: password/token logic, authorization policy, Patient/appointment business rules, and request validation.
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, and authentication tests.
 
-Feature integrations remain behind frontend services. The authentication API is independently testable, while the frontend mock authentication and feature services remain unchanged until their planned migration.
+Feature integrations remain behind frontend services. Backend authentication and Patient/appointment APIs are independently testable, while the frontend mock authentication and feature services remain unchanged until their planned migration.
 
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 

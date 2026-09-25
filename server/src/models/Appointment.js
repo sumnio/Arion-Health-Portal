@@ -48,8 +48,11 @@ const appointmentSchema = new mongoose.Schema(
       default: 'normal',
     },
     check_in_at: { type: Date, default: null },
-    // The creator identifier is approved, but its permanent relationship target is not.
-    created_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+    created_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'UserProfile',
+      default: null,
+    },
   },
   modelOptions,
 );

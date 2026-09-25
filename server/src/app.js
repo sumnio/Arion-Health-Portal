@@ -4,7 +4,10 @@ import cookieParser from 'cookie-parser';
 import { healthRouter } from './routes/healthRoutes.js';
 import { createAuthRouter } from './routes/authRoutes.js';
 import { createAuthorizationProbeRouter } from './routes/authorizationProbeRoutes.js';
+import { createPatientRouter } from './routes/patientRoutes.js';
+import { createStaffAppointmentRouter } from './routes/staffAppointmentRoutes.js';
 import { createAuthModule } from './services/authModule.js';
+import { createPatientAppointmentModule } from './services/patientAppointmentModule.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -33,8 +36,18 @@ export function createApp(
   app.use(express.json());
   app.use(cookieParser());
   const authModule = dependencies.authModule ?? createAuthModule({ authSecret });
+  const patientAppointmentModule =
+    dependencies.patientAppointmentModule ?? createPatientAppointmentModule();
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv }));
+  app.use(
+    '/api/patient',
+    createPatientRouter({ authModule, patientAppointmentModule }),
+  );
+  app.use(
+    '/api/staff/appointments',
+    createStaffAppointmentRouter({ authModule, patientAppointmentModule }),
+  );
   if (enableAuthorizationProbes) {
     app.use('/api/authz-test', createAuthorizationProbeRouter(authModule));
   }

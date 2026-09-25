@@ -352,7 +352,7 @@ Clinic operating-hour values are intentionally TBD. Their configuration represen
 
 The approved patient booking window is up to 14 days ahead. The doctor publication limit remains 30 days and must not be used as the patient booking limit.
 
-The Appointment `created_by` field identifies the account that created an appointment, but its exact relationship/reference target and deletion behavior have not been approved. Backend implementation must not guess these details.
+Appointment `created_by` is a nullable reference to `UserProfile.id`. Patient self-booking records the authenticated Patient UserProfile ID, and the future Staff walk-in API records the authenticated Staff UserProfile ID. Imported, system-generated, or legacy Appointments may use null when no authenticated creator is available. Deactivating the creator preserves both the reference and Appointment history.
 
 ### Patient appointment booking rules
 
@@ -398,11 +398,13 @@ The Appointment fields match `SCHEMA.md`:
 | visit_type | enum | `general_consultation`, `follow_up`, `check_up` |
 | reason | text | Reason for visit |
 | priority | enum | `normal`, `urgent` |
-| created_by | uuid, nullable | User who created the appointment; the exact reference target remains unresolved |
+| created_by | identifier, FK, nullable | References `UserProfile.id`; authenticated creator account, or null for imported/system/legacy records without a known creator |
 | created_at | timestamptz | Relational reference defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
 The same Doctor cannot have two blocking Appointments in the same 30-minute slot. Mongoose enforces a partial unique `(doctor_id, appointment_at)` index for `pending`, `confirmed`, and `completed`; `cancelled` and `no_show` do not block the slot. Different Doctors may have Appointments at the same time.
+
+`patient_id`, `doctor_id`, and `created_by` have separate meanings: Patient receiving care, Doctor assigned to the consultation, and UserProfile account that created the Appointment. The creator relationship stores only the UserProfile reference and does not expose or copy authentication credentials. UserProfile deactivation does not null `created_by` and does not delete the Appointment.
 
 ---
 
@@ -636,6 +638,7 @@ AuthAccount 1 -> 1 UserProfile
 UserProfile 0..1 -> 0..1 Patient (via nullable, unique Patient.user_profile_id)
 UserProfile 1 -> 0..1 Doctor
 UserProfile 1 -> 0..1 Staff
+UserProfile 1 -> 0..many Appointment (via nullable Appointment.created_by)
 
 Patient 1 -> many Appointment
 Doctor 1 -> many Appointment

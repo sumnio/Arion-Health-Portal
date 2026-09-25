@@ -1,0 +1,57 @@
+import { Appointment, Doctor } from '../models/index.js';
+
+const doctorDisplayPopulation = {
+  path: 'doctor_id',
+  select: 'specialty user_profile_id',
+  populate: { path: 'user_profile_id', select: 'display_name' },
+};
+
+export const appointmentRepository = {
+  async doctorExists(doctorId) {
+    return Boolean(await Doctor.exists({ _id: doctorId }));
+  },
+
+  async create(data) {
+    return (await Appointment.create(data)).toObject();
+  },
+
+  async listByPatientId(patientId) {
+    return Appointment.find({ patient_id: patientId })
+      .populate(doctorDisplayPopulation)
+      .lean();
+  },
+
+  async findOwnedById(appointmentId, patientId) {
+    return Appointment.findOne({ _id: appointmentId, patient_id: patientId })
+      .populate(doctorDisplayPopulation)
+      .lean();
+  },
+
+  async findById(appointmentId) {
+    return Appointment.findById(appointmentId).lean();
+  },
+
+  async cancelOwnedEligible(appointmentId, patientId) {
+    return Appointment.findOneAndUpdate(
+      {
+        _id: appointmentId,
+        patient_id: patientId,
+        status: { $in: ['pending', 'confirmed'] },
+      },
+      { $set: { status: 'cancelled' } },
+      { new: true, runValidators: true },
+    )
+      .populate(doctorDisplayPopulation)
+      .lean();
+  },
+
+  async confirmPending(appointmentId) {
+    return Appointment.findOneAndUpdate(
+      { _id: appointmentId, status: 'pending' },
+      { $set: { status: 'confirmed' } },
+      { new: true, runValidators: true },
+    )
+      .populate(doctorDisplayPopulation)
+      .lean();
+  },
+};

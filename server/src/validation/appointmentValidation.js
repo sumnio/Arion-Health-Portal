@@ -1,0 +1,52 @@
+import mongoose from 'mongoose';
+import { APPOINTMENT_VISIT_TYPES } from '../models/index.js';
+import { httpError } from '../utils/httpError.js';
+
+const allowedCreateFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason']);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function validateObjectId(value, field = 'id') {
+  if (!mongoose.isObjectIdOrHexString(value)) {
+    throw httpError(400, 'INVALID_OBJECT_ID', `${field} must be a valid ObjectId.`);
+  }
+  return value;
+}
+
+export function validateAppointmentCreate(body, now = new Date()) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw httpError(400, 'INVALID_INPUT', 'Request body must be an object.');
+  }
+  const unsupported = Object.keys(body).find((field) => !allowedCreateFields.has(field));
+  if (unsupported) {
+    throw httpError(400, 'RESTRICTED_FIELD', `${unsupported} cannot be set by a Patient.`);
+  }
+
+  const doctorId = validateObjectId(body.doctor_id, 'doctor_id');
+  if (!APPOINTMENT_VISIT_TYPES.includes(body.visit_type)) {
+    throw httpError(400, 'INVALID_VISIT_TYPE', 'visit_type is not an approved value.');
+  }
+  if (typeof body.reason !== 'string' || !body.reason.trim()) {
+    throw httpError(400, 'INVALID_INPUT', 'reason is required.');
+  }
+
+  const appointmentAt = new Date(body.appointment_at);
+  if (!body.appointment_at || Number.isNaN(appointmentAt.getTime())) {
+    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time.');
+  }
+  if (appointmentAt <= now) {
+    throw httpError(400, 'APPOINTMENT_IN_PAST', 'appointment_at must be in the future.');
+  }
+  if (appointmentAt > new Date(now.getTime() + 14 * DAY_MS)) {
+    throw httpError(400, 'OUTSIDE_BOOKING_WINDOW', 'appointment_at must be within 14 days.');
+  }
+  if (![0, 30].includes(appointmentAt.getUTCMinutes()) || appointmentAt.getUTCSeconds() !== 0) {
+    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must start on a 30-minute boundary.');
+  }
+
+  return {
+    doctor_id: doctorId,
+    appointment_at: appointmentAt,
+    visit_type: body.visit_type,
+    reason: body.reason.trim(),
+  };
+}

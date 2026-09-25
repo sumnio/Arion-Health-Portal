@@ -332,6 +332,22 @@ test('active same-doctor slot constraint excludes cancelled and no-show statuses
   ]);
 });
 
+test('Appointment created_by is a nullable UserProfile reference', async () => {
+  const path = Appointment.schema.path('created_by');
+  assert.equal(path.options.ref, 'UserProfile');
+  assert.equal(path.options.default, null);
+
+  const appointment = new Appointment({
+    patient_id: objectId(),
+    doctor_id: objectId(),
+    appointment_at: new Date('2026-09-28T13:00:00Z'),
+    visit_type: 'general_consultation',
+    reason: 'Imported appointment',
+  });
+  await appointment.validate();
+  assert.equal(appointment.created_by, null);
+});
+
 test('relationship and scheduling lookup indexes are declared', () => {
   assert.ok(indexByName(Patient, 'patient_contact_lookup'));
   assert.ok(indexByName(Appointment, 'patient_appointment_history'));
