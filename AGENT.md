@@ -29,18 +29,20 @@ Always read:
 - Do not invent features.
 - Do not change approved routes without permission.
 - Do not change the approved schema without permission.
-- Use mock data until instructed to connect the selected backend.
+- Use the live Express API for authentication and all Patient, Doctor, Staff, and Admin portal data.
 - Keep components reusable.
 - Avoid duplicated code.
 - Keep backend logic outside UI components.
 - Do not expose secrets in frontend code.
 - Keep role-based access in mind.
 - Implement only the requested milestone.
-- Keep frontend mock repositories only for legacy test coverage until a later cleanup milestone removes them. Patient, Doctor, Staff, and Admin portal features use live APIs.
+- Legacy frontend mock repositories and services are deterministic test fixtures only. Production pages, components, layouts, and authentication must not import them or fall back to their data.
 - Patient self-service APIs must derive Patient ownership from the authenticated UserProfile; never trust a client-supplied `patient_id`.
 - Doctor scheduling APIs must derive Doctor ownership from the authenticated UserProfile; never trust a client-supplied `doctor_id` for own-schedule mutations.
 - Keep scheduling time conversion centralized. The current development timezone is `Asia/Manila`; clinic opening and closing times remain optional until approved values are configured.
 - Clinical APIs must derive Patient and Doctor ownership from authenticated profiles and linked Appointments. Saved MedicalRecords, Prescriptions, and issued MedicalCertificates are read-only; consultation completion belongs only to the assigned Doctor after check-in and MedicalRecord creation.
+- Patient cancellation is allowed only for a future pending or confirmed Appointment before check-in and before a MedicalRecord exists. Checked-in, recorded, completed, cancelled, and no-show Appointments must reject Patient cancellation in both UI and API enforcement.
+- Issued certificate PDFs are available in authenticated Doctor and Patient flows. PDF content must use authorized certificate responses and must never expose `Doctor.signature_path` or introduce a public certificate route.
 - Staff operational APIs may search/register Patients, create same-day walk-in Appointments, confirm, check in, set canonical priority, mark eligible no-shows, and read the waiting queue. Staff must not complete consultations or receive detailed clinical content.
 - Admin account APIs provision Doctor and Staff credentials with server-forced roles and manage active/inactive lifecycle for Doctor, Staff, and linked Patient portal accounts. They never hard-delete identities or expose clinical content.
 

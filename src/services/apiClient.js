@@ -10,6 +10,21 @@ export class ApiError extends Error {
   }
 }
 
+export function apiErrorMessage(error, {
+  fallback = 'The request could not be completed. Please try again.',
+  forbidden = 'You do not have access to this operation.',
+  notFound = fallback,
+  codeMessages = {},
+} = {}) {
+  if (!(error instanceof ApiError)) return fallback;
+  if (codeMessages[error.code]) return codeMessages[error.code];
+  if (error.status === 401) return 'Your session has expired. Please log in again.';
+  if (error.status === 403) return forbidden;
+  if (error.status === 404) return notFound;
+  if ([400, 409].includes(error.status)) return error.message || fallback;
+  return fallback;
+}
+
 let unauthorizedHandler = null;
 
 export function setUnauthorizedHandler(handler) {

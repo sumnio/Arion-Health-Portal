@@ -2,5 +2,5 @@
 // remain intentionally undefined and are not part of certificate data.
 export const clinicConfig = Object.freeze({
   name: 'Arion Health Clinic',
-  location: '123 Wellness Avenue, Quezon City (mock address)',
+  location: 'Clinic location is supplied when the certificate is issued.',
 });

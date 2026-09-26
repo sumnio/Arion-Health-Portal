@@ -5,7 +5,6 @@ import StaffPatients from './StaffPatients.jsx';
 import StaffRegisterWalkIn from './StaffRegisterWalkIn.jsx';
 import StaffWalkInAppointment from './StaffWalkInAppointment.jsx';
 import PlaceholderPage from '../../components/PlaceholderPage.jsx';
-import { getPageLinks } from '../../app/pageLinks.js';
 export default function StaffPage({ route }) {
   if (route.path === '/staff/dashboard') return <StaffDashboard />;
   if (route.path === '/staff/calendar') return <StaffCalendar />;
@@ -13,6 +12,6 @@ export default function StaffPage({ route }) {
   if (route.path === '/staff/patients') return <StaffPatients />;
   if (route.path === '/staff/patients/new') return <StaffRegisterWalkIn />;
   if (route.path === '/staff/patients/:id/walk-in') return <StaffWalkInAppointment />;
-  return <PlaceholderPage title={route.title} links={getPageLinks(route.path)} />;
+  return <PlaceholderPage title={route.title} />;
 }
 

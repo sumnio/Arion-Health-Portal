@@ -27,3 +27,19 @@ export function slotRange(time) {
 
 export function formatEncounter(value) { return new Date(value).toLocaleString('en-US', { timeZone: clinicTimeZone, dateStyle: 'long', timeStyle: 'short' }); }
 export function formatCertificateDate(value) { return value ? new Date(value + 'T00:00:00+08:00').toLocaleDateString('en-US', { timeZone: clinicTimeZone, dateStyle: 'long' }) : 'Not specified'; }
+
+export function clinicDateTimeParts(value) {
+  const date = new Date(value);
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: clinicTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const part = (type) => parts.find((item) => item.type === type)?.value;
+  return {
+    date: `${part('year')}-${part('month')}-${part('day')}`,
+    time: new Intl.DateTimeFormat('en-GB', { timeZone: clinicTimeZone, hour: '2-digit', minute: '2-digit', hour12: false }).format(date),
+  };
+}
+
+export function shiftCalendarDate(date, offset) {
+  const result = new Date(date + 'T00:00:00Z');
+  result.setUTCDate(result.getUTCDate() + offset);
+  return result.toISOString().slice(0, 10);
+}

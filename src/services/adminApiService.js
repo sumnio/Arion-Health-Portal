@@ -1,4 +1,4 @@
-import { ApiError } from './apiClient.js';
+import { apiErrorMessage } from './apiClient.js';
 import { adminApiRepository } from '../repositories/adminApiRepository.js';
 
 function page(result = {}) {
@@ -16,17 +16,18 @@ function clean(values, keys) {
 }
 
 export function adminApiErrorMessage(error, fallback = 'Unable to load Admin data.') {
-  const known = {
-    EMAIL_ALREADY_REGISTERED: 'That email is already registered.',
-    LICENSE_NUMBER_EXISTS: 'That Doctor license number is already in use.',
-    PTR_NUMBER_EXISTS: 'That Doctor PTR number is already in use.',
-    ACCOUNT_STATUS_UNCHANGED: error?.message,
-    PATIENT_HAS_NO_PORTAL_ACCOUNT: 'This Patient has no portal account to update.',
-  };
-  if (known[error?.code]) return known[error.code];
-  if (error instanceof ApiError && error.status === 403) return 'You do not have access to this Admin operation.';
-  if (error instanceof ApiError && [400, 404, 409].includes(error.status)) return error.message;
-  return error?.message || fallback;
+  return apiErrorMessage(error, {
+    fallback,
+    forbidden: 'You do not have access to this Admin operation.',
+    notFound: fallback,
+    codeMessages: {
+      EMAIL_ALREADY_REGISTERED: 'That email is already registered.',
+      LICENSE_NUMBER_EXISTS: 'That Doctor license number is already in use.',
+      PTR_NUMBER_EXISTS: 'That Doctor PTR number is already in use.',
+      ACCOUNT_STATUS_UNCHANGED: error?.message,
+      PATIENT_HAS_NO_PORTAL_ACCOUNT: 'This Patient has no portal account to update.',
+    },
+  });
 }
 
 export function createAdminApiService(repository = adminApiRepository) {

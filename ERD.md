@@ -75,7 +75,7 @@ The Auth-to-UserProfile relationship supplies three separate checks for protecte
 
 Post-login role redirects lead to the matching dashboard but provide navigation only. Frontend route guards do not replace backend authorization and database access controls. Supabase RLS is one possible enforcement mechanism when that provider is selected. Hiding UI controls is not sufficient.
 
-The existing mock role selector and preview-exit controls are temporary development behavior and must be removed when real authentication replaces the mock flow.
+The former mock role selector and preview-exit controls have been removed. The frontend restores the authenticated session through `/api/auth/me`.
 
 ---
 
@@ -550,7 +550,7 @@ Drafts exist only during the approved Doctor creation flow. After status becomes
 
 The current backend creation endpoint directly persists `issued`, matching the approved UI submission. Certificate numbers are generated server-side and database-unique. Doctor and Patient read endpoints filter by the stored relationship IDs. Responses resolve Doctor credentials and signature availability without exposing the protected `signature_path`.
 
-QR verification, public certificate verification, external sharing, advanced digital signatures, payment integration, and real PDF generation remain future scope.
+Issued certificates can be downloaded as PDFs from authenticated Doctor and Patient views using the authorized certificate response. QR verification, public certificate verification, external sharing, advanced digital signatures, payment integration, and server-side PDF generation remain future scope.
 
 A MedicalRecord can have zero or multiple medical certificates.
 

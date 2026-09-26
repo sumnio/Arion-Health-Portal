@@ -1,21 +1,12 @@
-import { ApiError } from './apiClient.js';
+import { apiErrorMessage } from './apiClient.js';
 import { doctorApiRepository } from '../repositories/doctorApiRepository.js';
-import { clinicToday, formatSlot } from './dateTimeService.js';
+import { clinicDateTimeParts, clinicToday, formatSlot } from './dateTimeService.js';
 
 export const doctorWeekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const visitLabels = { general_consultation: 'General Consultation', follow_up: 'Follow-up', check_up: 'Check-up' };
 
-function localParts(value) {
-  const date = new Date(value);
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
-  const part = (type) => parts.find((item) => item.type === type)?.value;
-  const day = `${part('year')}-${part('month')}-${part('day')}`;
-  const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
-  return { date: day, time };
-}
-
 export function normalizeDoctorAppointment(item) {
-  const local = localParts(item.appointment_at);
+  const local = clinicDateTimeParts(item.appointment_at);
   return {
     ...item, date: local.date, time: local.time, timeLabel: formatSlot(local.time),
     patient: item.patient ?? null, patientName: item.patient?.full_name ?? 'Patient unavailable',
@@ -48,12 +39,7 @@ function normalizeCertificate(item, patientName = '') {
 }
 
 export function doctorApiErrorMessage(error, fallback = 'Unable to load Doctor data.') {
-  if (error instanceof ApiError) {
-    if (error.status === 403) return 'You do not have access to this Doctor information.';
-    if (error.status === 404) return fallback;
-    if ([400, 409].includes(error.status)) return error.message;
-  }
-  return error?.message || 'Unable to connect to the server. Please try again.';
+  return apiErrorMessage(error, { fallback, forbidden: 'You do not have access to this Doctor information.', notFound: fallback });
 }
 
 export function createDoctorApiService(repository = doctorApiRepository) {

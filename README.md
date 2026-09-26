@@ -20,6 +20,14 @@ Start the configured backend first, then open the local URL printed by Vite. Log
 
 Patient profile, booking, appointment, record, and certificate screens, all Doctor screens, all Staff operational screens, and Admin account-management screens use live APIs. Public pages retain their approved design and omit social login, password recovery, and other unapproved features. All live calls use the centralized `src/services/apiClient.js` through feature repository/service adapters.
 
+The normal local development origins are:
+
+- Frontend: `http://127.0.0.1:5173`
+- Backend: `http://127.0.0.1:5000`
+- Backend `CORS_ORIGIN`: `http://127.0.0.1:5173`
+
+Use matching origins when testing cookie authentication. Configure production origins through environment variables; do not hardcode development origins in feature pages.
+
 ```sh
 npm test
 npm run build
@@ -37,6 +45,8 @@ copy .env.example .env
 ```
 
 Set `MONGODB_URI` in `server/.env` to a development MongoDB connection string. Generate a long random `AUTH_SECRET` for signing authentication JWTs. Keep that file local; `.env` files are ignored by Git. Do not place credentials or a real secret in `.env.example`.
+
+Set `CLINIC_LOCATION` to the real clinic address before issuing certificates. If it is omitted, certificate views show a clear “Clinic location not configured” value instead of fake clinic information.
 
 Then run:
 
@@ -109,11 +119,13 @@ npm test
 
 Backend authorization uses reusable authentication, active-account, role, permission, and ownership middleware. Unauthenticated requests return 401; authenticated requests denied by account status, role, permission, or ownership return 403. Admin permissions are limited to account management, Staff permissions remain operational, and Doctor clinical actions still require feature-specific assignment checks. Internal authorization probe routes are disabled during normal API operation.
 
-Patient routes resolve ownership from the authenticated UserProfile and never accept a Patient ID for self-service operations. Appointment creation produces `pending` appointments, uses canonical visit types, and requires an explicitly published, unblocked, unoccupied 30-minute slot within 14 days. Patients may cancel only their own pending or confirmed appointments; cancellation preserves the record. The Staff confirmation endpoint only permits pending-to-confirmed.
+Patient routes resolve ownership from the authenticated UserProfile and never accept a Patient ID for self-service operations. Appointment creation produces `pending` appointments, uses canonical visit types, and requires an explicitly published, unblocked, unoccupied 30-minute slot within 14 days. Patients may cancel only their own future pending or confirmed appointments before check-in and before a MedicalRecord exists; cancellation preserves the record. Checked-in, recorded, completed, cancelled, and no-show appointments reject Patient cancellation. The Staff confirmation endpoint only permits pending-to-confirmed.
 
 Doctor scheduling routes resolve the Doctor from the authenticated UserProfile. Publication is limited to 30 days, must fit an active recurring range, and uses 30-minute boundaries. `CLINIC_TIME_ZONE` defaults to `Asia/Manila`. Optional `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` remain blank until clinic hours are approved; configure both together to enable server enforcement.
 
 Clinical routes enforce authenticated ownership. Doctors create one immutable MedicalRecord per eligible assigned Appointment, optionally with linked Prescriptions, and may issue immutable certificates with server-generated numbers. Patients can read only their own records and issued certificates. Certificate responses resolve Doctor credentials and shared clinic information without returning the protected signature path. Only the assigned Doctor can complete a confirmed, checked-in consultation after its MedicalRecord exists. Staff and Admin are not clinical superusers.
+
+Issued certificates can be downloaded as PDFs from the authenticated Doctor issuance success state and Patient certificate-detail screen. PDF generation uses the already authorized response in the browser, adds no public certificate route, and does not include the protected signature storage path.
 
 Staff operational routes support basic Patient search, guest walk-in registration without an account, same-day confirmed walk-in Appointments, check-in, canonical priority changes, no-show transitions, and the active waiting queue. Queue order is Urgent, Senior/PWD, then Normal, with check-in time ordering inside each tier. Staff has a separate restricted record-summary projection and no consultation-completion or clinical-editing endpoint.
 
@@ -133,12 +145,12 @@ npm run validate:admin-api
 
 ## Structure
 
-- `src/app`: approved route definitions, router, contextual navigation.
+- `src/app`: approved route definitions and router.
 - `src/components`: reusable branding, navigation, and placeholder content.
 - `src/layouts`: public layout and shared shell with four role-specific entry points.
-- `src/pages`: role-specific placeholder page renderers; split into feature pages in future milestones.
+- `src/pages`: live role-specific feature pages.
 - `src/services`: provider-independent boundary used by the UI.
-- `src/mocks`: legacy fixtures retained for existing unit coverage; live role pages do not import them.
+- `src/mocks`: legacy deterministic fixtures retained only for existing unit coverage; they are excluded from the production module graph.
 - `src/styles`: Tailwind entry and responsive layout styling.
 - `scripts`: route coverage and navigation checks against the approved sitemap.
 - `server/src/config`: environment and MongoDB connection setup.
@@ -149,6 +161,8 @@ npm run validate:admin-api
 - `server/test`: backend foundation, model, and authentication tests.
 
 Feature integrations remain behind frontend services. Frontend authentication and all Patient, Doctor, Staff, and Admin portal features are connected to the backend through the centralized credentialed API client. Admin integration uses the existing account-management APIs for dashboard totals, paginated search, provisioning, approved profile updates, and active/inactive lifecycle changes. Staff integration adds safe Staff-only appointment/calendar, active Doctor directory, basic Patient detail, and cancellation endpoints; detailed clinical data remains unavailable, while the dedicated record-summary endpoint returns only encounter, Doctor, and diagnosis summary. The Doctor integration adds `GET /api/doctor/appointments` for an ownership-scoped schedule/current-consultation projection; it accepts optional date and Patient filters and never accepts a client-selected Doctor identity.
+
+Milestone 22 is complete. Runtime role modules have no dependency on the retained mock fixtures, API errors use shared safe status handling, and date/time normalization is centralized. Regression coverage protects route guards, real API repository usage, cancellation restrictions, authenticated certificate PDF availability, and protected signature-path exclusion.
 
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 

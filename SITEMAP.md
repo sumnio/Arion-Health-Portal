@@ -10,7 +10,7 @@ Authentication notes:
 - Unauthenticated access to any protected route redirects to `/login`.
 - An authenticated user with the wrong role is sent to `/unauthorized` or denied access.
 - Inactive accounts do not receive normal portal access.
-- The current mock role selector and “Exit mock preview” controls are temporary development aids and must be removed when production authentication is implemented.
+- The former mock role selector and “Exit mock preview” controls have been removed. Session restoration uses `/api/auth/me`.
 
 PATIENT
 /patient/dashboard

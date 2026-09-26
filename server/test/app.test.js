@@ -4,6 +4,7 @@ import express from 'express';
 import { createApp } from '../src/app.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 import { requireMongoUri } from '../src/config/database.js';
+import { loadConfig } from '../src/config/env.js';
 import { requireAuthSecret } from '../src/services/tokenService.js';
 
 async function withServer(app, check) {
@@ -64,4 +65,10 @@ test('MongoDB configuration fails clearly when the URI is missing', () => {
 test('authentication configuration requires a signing secret', () => {
   assert.throws(() => requireAuthSecret(''), /AUTH_SECRET is required/);
   assert.equal(requireAuthSecret(' test-secret '), 'test-secret');
+});
+
+test('unconfigured clinic location never falls back to fake clinic data', () => {
+  const config = loadConfig({});
+  assert.equal(config.clinicLocation, 'Clinic location not configured');
+  assert.doesNotMatch(config.clinicLocation, /mock|wellness avenue/i);
 });

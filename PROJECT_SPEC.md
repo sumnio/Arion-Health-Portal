@@ -6,6 +6,8 @@ The selected backend direction is Node.js, Express, and MongoDB through Mongoose
 
 Frontend authentication now uses the backend API through a centralized credentialed HTTP client. Login, Patient registration, logout, session restoration, and protected route guards are real. Patient, Doctor, Staff, and Admin portal feature data use live APIs.
 
+Milestone 22 integration is complete. Production React modules use role-specific API repositories and services over the centralized `apiClient`; they do not import or fall back to legacy mock data. The remaining `src/mocks` and legacy in-memory repositories/services are retained only as deterministic fixtures for pre-integration unit coverage and are excluded from the production module graph.
+
 ## Clinical API status
 
 The assigned active Doctor may create one MedicalRecord for a confirmed Appointment through `POST /api/doctor/appointments/:appointmentId/medical-record`. Patient and Doctor IDs are resolved from the Appointment and authenticated Doctor; clients cannot choose them. Zero or more validated Prescriptions are created with the MedicalRecord. MongoDB transactions are used when supported, with explicit cleanup fallback for development deployments that do not support transactions.

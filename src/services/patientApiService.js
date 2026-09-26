@@ -1,6 +1,6 @@
-import { ApiError } from './apiClient.js';
+import { apiErrorMessage } from './apiClient.js';
 import { patientApiRepository } from '../repositories/patientApiRepository.js';
-import { clinicToday, slotRange } from './dateTimeService.js';
+import { clinicDateTimeParts, clinicToday, slotRange } from './dateTimeService.js';
 
 export const patientVisitTypes = Object.freeze([
   { id: 'general_consultation', name: 'General Consultation' },
@@ -73,17 +73,8 @@ function profilePatch(values) {
   };
 }
 
-function clinicDateTime(value) {
-  const date = new Date(value);
-  const dateParts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
-  const part = (type) => dateParts.find((item) => item.type === type)?.value;
-  const day = `${part('year')}-${part('month')}-${part('day')}`;
-  const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
-  return { date: day, time };
-}
-
 export function normalizeAppointment(item) {
-  const local = clinicDateTime(item.appointment_at);
+  const local = clinicDateTimeParts(item.appointment_at);
   return {
     ...item,
     doctor_id: item.doctor?.id ?? null,
@@ -123,15 +114,13 @@ export function normalizeCertificate(item, { patientName = '', relatedRecord = n
   };
 }
 
-export function patientApiErrorMessage(error, fallback) {
-  if (error instanceof ApiError) {
-    if (error.code === 'APPOINTMENT_SLOT_CONFLICT') return 'This appointment slot is no longer available.';
-    if (error.status === 403) return 'You do not have access to this information.';
-    if (error.status === 404) return fallback;
-    if (error.status === 409) return error.message;
-    if (error.status === 400) return error.message;
-  }
-  return error?.message || 'Unable to connect to the server. Please try again.';
+export function patientApiErrorMessage(error, fallback = 'Unable to load Patient data.') {
+  return apiErrorMessage(error, {
+    fallback,
+    forbidden: 'You do not have access to this information.',
+    notFound: fallback,
+    codeMessages: { APPOINTMENT_SLOT_CONFLICT: 'This appointment slot is no longer available.' },
+  });
 }
 
 export function createPatientApiService(repository = patientApiRepository) {

@@ -40,7 +40,7 @@ export function createApp(
     clinicOpenTime = '',
     clinicCloseTime = '',
     clinicName = 'Arion Health Clinic',
-    clinicLocation = '123 Wellness Avenue, Quezon City (mock address)',
+    clinicLocation = 'Clinic location not configured',
   } = {},
   dependencies = {},
 ) {

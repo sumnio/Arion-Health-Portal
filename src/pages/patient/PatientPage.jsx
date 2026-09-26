@@ -1,5 +1,4 @@
 import PlaceholderPage from '../../components/PlaceholderPage.jsx';
-import { getPageLinks } from '../../app/pageLinks.js';
 import PatientDashboard from './PatientDashboard.jsx';
 import PatientBooking from './PatientBooking.jsx';
 import PatientAppointments from './PatientAppointments.jsx';
@@ -19,6 +18,6 @@ export default function PatientPage({ route }) {
   if (route.path === '/patient/records/:id') return <PatientRecordDetail />;
   if (route.path === '/patient/certificates') return <PatientCertificates />;
   if (route.path === '/patient/certificates/:id') return <PatientCertificateDetail />;
-  return <PlaceholderPage title={route.title} links={getPageLinks(route.path)} />;
+  return <PlaceholderPage title={route.title} />;
 }
 

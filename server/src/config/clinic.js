@@ -5,7 +5,7 @@ export function createClinicConfig({
   openTime = '',
   closeTime = '',
   name = 'Arion Health Clinic',
-  location = '123 Wellness Avenue, Quezon City (mock address)',
+  location = 'Clinic location not configured',
 } = {}) {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
