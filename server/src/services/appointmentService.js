@@ -19,7 +19,7 @@ function presentDoctor(doctor) {
   };
 }
 
-function presentAppointment(appointment) {
+function presentAppointment(appointment, hasMedicalRecord = false) {
   return {
     id: String(appointment._id ?? appointment.id),
     patient_id: String(appointment.patient_id?._id ?? appointment.patient_id),
@@ -32,6 +32,7 @@ function presentAppointment(appointment) {
     check_in_at: appointment.check_in_at
       ? new Date(appointment.check_in_at).toISOString()
       : null,
+    has_medical_record: hasMedicalRecord,
   };
 }
 
@@ -52,6 +53,17 @@ export function createAppointmentService({
 }) {
   async function ownPatient(userProfileId) {
     return patientService.resolveOwnPatient(userProfileId);
+  }
+
+  async function hasMedicalRecord(appointmentId) {
+    return repository.medicalRecordExists ? repository.medicalRecordExists(appointmentId) : false;
+  }
+
+  async function recordedAppointmentIds(appointments) {
+    const ids = appointments.map((item) => item._id ?? item.id);
+    if (repository.listRecordedAppointmentIds) return new Set(await repository.listRecordedAppointmentIds(ids));
+    const entries = await Promise.all(ids.map(async (appointmentId) => [String(appointmentId), await hasMedicalRecord(appointmentId)]));
+    return new Set(entries.filter(([, recorded]) => recorded).map(([appointmentId]) => appointmentId));
   }
 
   return {
@@ -105,8 +117,9 @@ export function createAppointmentService({
       const patient = await ownPatient(userProfileId);
       const current = now();
       const appointments = await repository.listByPatientId(patient._id ?? patient.id);
+      const recorded = await recordedAppointmentIds(appointments);
       return appointments
-        .map(presentAppointment)
+        .map((appointment) => presentAppointment(appointment, recorded.has(String(appointment._id ?? appointment.id))))
         .sort((left, right) => compareAppointments(left, right, current));
     },
 
@@ -120,7 +133,7 @@ export function createAppointmentService({
       if (!appointment) {
         throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
       }
-      return presentAppointment(appointment);
+      return presentAppointment(appointment, await hasMedicalRecord(appointmentId));
     },
 
     async cancelForPatient(userProfileId, appointmentId) {
@@ -133,6 +146,12 @@ export function createAppointmentService({
       }
       if (!['pending', 'confirmed'].includes(existing.status)) {
         throw httpError(409, 'INVALID_STATUS_TRANSITION', 'This appointment cannot be cancelled.');
+      }
+      if (existing.check_in_at) {
+        throw httpError(409, 'APPOINTMENT_ALREADY_CHECKED_IN', 'A checked-in appointment cannot be cancelled by the patient.');
+      }
+      if (await hasMedicalRecord(appointmentId)) {
+        throw httpError(409, 'MEDICAL_RECORD_EXISTS', 'This consultation already has a medical record and cannot be cancelled.');
       }
       const updated = await repository.cancelOwnedEligible(appointmentId, patientId);
       if (!updated) {

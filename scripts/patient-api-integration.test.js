@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createPatientApiRepository } from '../src/repositories/patientApiRepository.js';
-import { createPatientApiService, patientBookingDates, patientVisitTypes } from '../src/services/patientApiService.js';
+import { canCancelPatientAppointment, createPatientApiService, patientBookingDates, patientVisitTypes } from '../src/services/patientApiService.js';
 
 const patient = { id: 'p1', full_name: 'Alex Patient', dob: '1990-01-15', sex: 'male', contact_number: '09171234567', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: ['Penicillin'], is_pwd: false };
 const doctor = { id: 'd1', display_name: 'Dr. Maria Santos', specialty: 'General Medicine' };
@@ -31,6 +31,14 @@ test('Patient booking stays within 14 days and uses the three canonical visit ty
   const dates = patientBookingDates(new Date('2026-09-25T12:00:00Z'));
   assert.equal(dates.length, 15); assert.equal(dates.at(-1), '2026-10-09');
   assert.deepEqual(patientVisitTypes.map(item => item.name), ['General Consultation', 'Follow-up', 'Check-up']);
+});
+
+test('Patient cancellation is hidden after check-in, record creation, or completion', () => {
+  const future = { ...appointment, status: 'confirmed', appointment_at: '2099-09-26T02:00:00.000Z' };
+  assert.equal(canCancelPatientAppointment(future), true);
+  assert.equal(canCancelPatientAppointment({ ...future, check_in_at: '2099-09-26T01:45:00.000Z' }), false);
+  assert.equal(canCancelPatientAppointment({ ...future, has_medical_record: true }), false);
+  assert.equal(canCancelPatientAppointment({ ...future, status: 'completed' }), false);
 });
 
 test('Patient pages no longer import feature mock services or advertise mock clinical data', async () => {

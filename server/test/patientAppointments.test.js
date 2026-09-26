@@ -22,6 +22,7 @@ const ids = {
 };
 
 function createContext() {
+  const recordedAppointments = new Set();
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
     [ids.otherPatientProfile, { user_profile_id: ids.otherPatientProfile, display_name: 'Other Patient', role: 'patient', status: 'active' }],
@@ -93,9 +94,11 @@ function createContext() {
       return item?.patient_id === patientId ? cloneAppointment(item) : null;
     },
     async findById(appointmentId) { return cloneAppointment(appointments.get(appointmentId)); },
+    async medicalRecordExists(appointmentId) { return recordedAppointments.has(String(appointmentId)); },
+    async listRecordedAppointmentIds(appointmentIds) { return appointmentIds.map(String).filter((id) => recordedAppointments.has(id)); },
     async cancelOwnedEligible(appointmentId, patientId) {
       const item = appointments.get(appointmentId);
-      if (!item || item.patient_id !== patientId || !['pending', 'confirmed'].includes(item.status)) return null;
+      if (!item || item.patient_id !== patientId || !['pending', 'confirmed'].includes(item.status) || item.check_in_at) return null;
       item.status = 'cancelled';
       return cloneAppointment(item);
     },
@@ -130,6 +133,7 @@ function createContext() {
     app,
     profiles,
     appointments,
+    recordedAppointments,
     appointmentRepository,
     cookie(profileId) { return `arion_auth=${tokens.sign(profileId)}`; },
   };
@@ -355,6 +359,32 @@ test('Patient can cancel an eligible own appointment and the document is preserv
     assert.equal(response.status, 200);
     assert.equal((await response.json()).appointment.status, 'cancelled');
     assert.equal(appointments.get(ids.pending).status, 'cancelled');
+  });
+});
+
+test('Patient cannot cancel a checked-in consultation', async () => {
+  const { app, cookie, appointments } = createContext();
+  appointments.get(ids.pending).status = 'confirmed';
+  appointments.get(ids.pending).check_in_at = new Date('2026-09-27T09:45:00.000Z');
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH', cookie: cookie(ids.patientProfile) });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'APPOINTMENT_ALREADY_CHECKED_IN');
+    assert.equal(appointments.get(ids.pending).status, 'confirmed');
+  });
+});
+
+test('Patient cannot cancel after the Doctor saves a MedicalRecord', async () => {
+  const { app, cookie, appointments, recordedAppointments } = createContext();
+  appointments.get(ids.pending).status = 'confirmed';
+  recordedAppointments.add(ids.pending);
+  await withServer(app, async (url) => {
+    const detail = await request(url, `/api/patient/appointments/${ids.pending}`, { cookie: cookie(ids.patientProfile) });
+    assert.equal((await detail.json()).appointment.has_medical_record, true);
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH', cookie: cookie(ids.patientProfile) });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'MEDICAL_RECORD_EXISTS');
+    assert.equal(appointments.get(ids.pending).status, 'confirmed');
   });
 });
 

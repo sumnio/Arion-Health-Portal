@@ -1,4 +1,4 @@
-import { Appointment, Doctor } from '../models/index.js';
+import { Appointment, Doctor, MedicalRecord } from '../models/index.js';
 
 const doctorDisplayPopulation = {
   path: 'doctor_id',
@@ -44,12 +44,25 @@ export const appointmentRepository = {
     return Appointment.findById(appointmentId).lean();
   },
 
+  async medicalRecordExists(appointmentId) {
+    return Boolean(await MedicalRecord.exists({ appointment_id: appointmentId }));
+  },
+
+  async listRecordedAppointmentIds(appointmentIds) {
+    if (!appointmentIds.length) return [];
+    const records = await MedicalRecord.find({ appointment_id: { $in: appointmentIds } })
+      .select('appointment_id')
+      .lean();
+    return records.map((record) => String(record.appointment_id));
+  },
+
   async cancelOwnedEligible(appointmentId, patientId) {
     return Appointment.findOneAndUpdate(
       {
         _id: appointmentId,
         patient_id: patientId,
         status: { $in: ['pending', 'confirmed'] },
+        check_in_at: null,
       },
       { $set: { status: 'cancelled' } },
       { new: true, runValidators: true },

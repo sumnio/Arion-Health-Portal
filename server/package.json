@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "create-admin": "node scripts/createAdmin.js",
     "test": "node --test",
     "validate:auth": "node scripts/validateAuthLive.js",
     "validate:authorization": "node scripts/validateAuthorizationLive.js",

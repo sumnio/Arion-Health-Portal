@@ -297,6 +297,7 @@ Mongoose declares a partial unique index on `(doctor_id, appointment_at)` for `p
 
 - Only the Doctor referenced by `Appointment.doctor_id` may change an eligible consultation to `completed`.
 - In the normal scheduled and walk-in flow, a linked saved MedicalRecord is required before Doctor completion.
+- Patient cancellation is allowed only for a future `pending` or `confirmed` Appointment that has not been checked in and has no linked MedicalRecord.
 - `cancelled`, `no_show`, and already `completed` Appointments cannot transition to `completed`.
 - Staff may confirm or cancel eligible Appointments and mark eligible unattended Appointments `no_show`, but Staff may not set `completed`.
 - `Appointment.status` is the single shared status read by Doctor, Staff, and Patient views. Do not add role-specific completion fields.
@@ -421,7 +422,8 @@ Certificate lifecycle rules:
 - Draft certificates may exist only during the approved Doctor creation flow at `/doctor/records/:id/certificate/new`.
 - Once status becomes `issued`, the certificate is read-only. The MVP provides no Edit, Update, Delete, Reissue, or Modify action for an issued certificate.
 - Patients and Staff cannot edit certificates. Admin cannot edit certificate clinical content. Doctors issue certificates only through the approved creation flow.
-- QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and real PDF generation remain future scope.
+- Issued certificates may be downloaded as PDFs from authenticated Doctor and Patient views. The current frontend generates the file from the authorized certificate API response; it does not expose a public certificate route or use an external PDF service.
+- QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and server-side PDF generation remain future scope.
 
 The current backend endpoint directly creates the certificate as `issued`, matching the approved Doctor UI submission behavior. `medical_certificate_number` is generated server-side and protected by the unique database index. Patient reads filter to the authenticated Patient's issued certificates; Doctor reads filter to certificates issued by the authenticated Doctor. The protected `signature_path` is not returned directly; API responses expose signature availability with the Doctor's display name, specialty, license number, and PTR number.
 

@@ -1,6 +1,6 @@
 # Arion Health Portal
 
-Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Authentication plus Patient, Doctor, and Staff portal features use the backend API. Admin frontend features still use mock repositories until their migration milestone.
+Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Authentication and all four role portals use the backend API.
 
 ## Run locally
 
@@ -18,7 +18,7 @@ npm run dev
 
 Start the configured backend first, then open the local URL printed by Vite. Login uses real account credentials and the trusted backend role; it no longer asks for a preview role. Patient registration creates a real Patient account and then directs the user to login. Authentication uses an HttpOnly cookie, so the frontend sends credentials and stores no JWT in localStorage or sessionStorage. Startup restores the session through `/api/auth/me`, and protected routes require the correct active role.
 
-Patient profile, booking, appointment, record, and certificate screens, all Doctor screens, and all Staff operational screens use live APIs. Admin management screens remain mock-backed. Public pages retain their approved design and omit social login, password recovery, and other unapproved features. All live calls use the centralized `src/services/apiClient.js` through feature repository/service adapters.
+Patient profile, booking, appointment, record, and certificate screens, all Doctor screens, all Staff operational screens, and Admin account-management screens use live APIs. Public pages retain their approved design and omit social login, password recovery, and other unapproved features. All live calls use the centralized `src/services/apiClient.js` through feature repository/service adapters.
 
 ```sh
 npm test
@@ -138,7 +138,7 @@ npm run validate:admin-api
 - `src/layouts`: public layout and shared shell with four role-specific entry points.
 - `src/pages`: role-specific placeholder page renderers; split into feature pages in future milestones.
 - `src/services`: provider-independent boundary used by the UI.
-- `src/mocks`: remaining Admin preview data and shared legacy fixtures retained for legacy unit coverage; live Staff pages do not import them.
+- `src/mocks`: legacy fixtures retained for existing unit coverage; live role pages do not import them.
 - `src/styles`: Tailwind entry and responsive layout styling.
 - `scripts`: route coverage and navigation checks against the approved sitemap.
 - `server/src/config`: environment and MongoDB connection setup.
@@ -148,7 +148,7 @@ npm run validate:admin-api
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, and authentication tests.
 
-Feature integrations remain behind frontend services. Frontend authentication and all Patient, Doctor, and Staff portal features are connected to the backend through the centralized credentialed API client. Admin feature pages still use mock repositories until their planned migration. Staff integration adds safe Staff-only appointment/calendar, active Doctor directory, basic Patient detail, and cancellation endpoints; detailed clinical data remains unavailable, while the dedicated record-summary endpoint returns only encounter, Doctor, and diagnosis summary. The Doctor integration adds `GET /api/doctor/appointments` for an ownership-scoped schedule/current-consultation projection; it accepts optional `date` and `patient_id` filters and never accepts a client-selected Doctor identity.
+Feature integrations remain behind frontend services. Frontend authentication and all Patient, Doctor, Staff, and Admin portal features are connected to the backend through the centralized credentialed API client. Admin integration uses the existing account-management APIs for dashboard totals, paginated search, provisioning, approved profile updates, and active/inactive lifecycle changes. Staff integration adds safe Staff-only appointment/calendar, active Doctor directory, basic Patient detail, and cancellation endpoints; detailed clinical data remains unavailable, while the dedicated record-summary endpoint returns only encounter, Doctor, and diagnosis summary. The Doctor integration adds `GET /api/doctor/appointments` for an ownership-scoped schedule/current-consultation projection; it accepts optional date and Patient filters and never accepts a client-selected Doctor identity.
 
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 

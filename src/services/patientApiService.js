@@ -37,7 +37,7 @@ export function validatePatientProfile(values) {
 }
 
 export function canCancelPatientAppointment(item, now = new Date()) {
-  return Boolean(item && ['pending', 'confirmed'].includes(item.status) && !item.check_in_at && new Date(item.appointment_at) > now);
+  return Boolean(item && ['pending', 'confirmed'].includes(item.status) && !item.check_in_at && !item.has_medical_record && new Date(item.appointment_at) > now);
 }
 
 const visitTypeLabel = (value) => patientVisitTypes.find((item) => item.id === value)?.name ?? value ?? 'Consultation';
