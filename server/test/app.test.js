@@ -4,7 +4,7 @@ import express from 'express';
 import { createApp } from '../src/app.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 import { requireMongoUri } from '../src/config/database.js';
-import { loadConfig, parseCorsOrigins, validateRuntimeConfig } from '../src/config/env.js';
+import { loadConfig, parseCorsOrigins, requireMfaEncryptionKey, validateRuntimeConfig } from '../src/config/env.js';
 import { requireAuthSecret } from '../src/services/tokenService.js';
 
 async function withServer(app, check) {
@@ -73,11 +73,19 @@ test('authentication configuration requires a signing secret', () => {
   );
 });
 
+test('Admin MFA configuration requires a base64-encoded 32-byte encryption key', () => {
+  const valid = Buffer.alloc(32, 3).toString('base64');
+  assert.equal(requireMfaEncryptionKey(valid), valid);
+  assert.throws(() => requireMfaEncryptionKey(''), /MFA_ENCRYPTION_KEY is required/);
+  assert.throws(() => requireMfaEncryptionKey('not-base64'), /base64-encoded 32-byte/);
+});
+
 test('runtime configuration validates required values without exposing them', () => {
   const valid = loadConfig({
     NODE_ENV: 'production',
     MONGODB_URI: 'mongodb://private-host/arion',
     AUTH_SECRET: 'strong-production-secret-1234567890',
+    MFA_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
     CORS_ORIGIN: 'https://portal.example.test',
   });
   assert.equal(validateRuntimeConfig(valid), valid);
@@ -114,6 +122,8 @@ test('rate-limit configuration has safe defaults and validates positive integers
   assert.equal(defaults.registerRateLimitMax, 5);
   assert.equal(defaults.adminProvisionRateLimitWindowMs, 900_000);
   assert.equal(defaults.adminProvisionRateLimitMax, 20);
+  assert.equal(defaults.mfaVerifyRateLimitWindowMs, 600_000);
+  assert.equal(defaults.mfaVerifyRateLimitMax, 5);
 
   const configured = loadConfig({
     AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: '1000',
@@ -122,9 +132,12 @@ test('rate-limit configuration has safe defaults and validates positive integers
     AUTH_REGISTER_RATE_LIMIT_MAX: '3',
     ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS: '3000',
     ADMIN_PROVISION_RATE_LIMIT_MAX: '4',
+    MFA_VERIFY_RATE_LIMIT_WINDOW_MS: '4000',
+    MFA_VERIFY_RATE_LIMIT_MAX: '6',
   });
   assert.equal(configured.loginRateLimitMax, 2);
   assert.equal(configured.registerRateLimitMax, 3);
   assert.equal(configured.adminProvisionRateLimitMax, 4);
+  assert.equal(configured.mfaVerifyRateLimitMax, 6);
   assert.throws(() => loadConfig({ AUTH_LOGIN_RATE_LIMIT_MAX: '0' }), /positive integer/);
 });

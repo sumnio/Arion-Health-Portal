@@ -1,4 +1,4 @@
-import { validateLogin, validateRegistration } from '../validation/authValidation.js';
+import { validateLogin, validateMfaCode, validateRegistration } from '../validation/authValidation.js';
 
 function validator(validate) {
   return function validateRequest(request, _response, next) {
@@ -13,3 +13,4 @@ function validator(validate) {
 
 export const validateRegistrationRequest = validator(validateRegistration);
 export const validateLoginRequest = validator(validateLogin);
+export const validateMfaCodeRequest = validator(validateMfaCode);

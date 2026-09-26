@@ -61,6 +61,14 @@
 .auth-switch { text-align: center; font-size: 13px; margin: 24px 0 0; line-height: 1.7; }
 .auth-switch a { color: #215c83; text-decoration: underline; text-underline-offset: 3px; margin-left: 4px; }
 .form-error { padding: 10px 12px; margin: 0 0 18px; background: #fff1f0; border-radius: 5px; color: #a03131; font-size: 14px; }
+.mfa-enrollment { margin-bottom: 20px; color: #405767; font-size: 13px; line-height: 1.55; }
+.mfa-enrollment ol { padding-left: 20px; }
+.mfa-qr { display: block; width: 220px; max-width: 100%; height: auto; margin: 14px auto; border: 1px solid #dfe7ed; border-radius: 8px; }
+.mfa-manual-label { margin: 14px 0 6px; font-weight: 600; }
+.mfa-manual-key { display: block; overflow-wrap: anywhere; padding: 10px; border-radius: 5px; background: #f0f5f8; color: #19364a; text-align: center; letter-spacing: .08em; }
+.auth-secondary-button { display: block; width: 100%; margin-top: 12px; border: 0; background: transparent; color: #315b78; font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
+.auth-secondary-button:disabled { opacity: .6; cursor: default; }
+.mfa-recovery-note { margin: 18px 0 0; color: #687b88; font-size: 12px; line-height: 1.5; }
 .registration-success { text-align: center; }
 .success-symbol { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #e3f2ea; color: #277652; font-size: 25px; }
 .registration-success p { color: #526575; font-size: 14px; line-height: 1.7; margin: 12px 0 24px; }

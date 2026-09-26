@@ -143,7 +143,7 @@ test('Admin provisioning limiter is shared across Doctor and Staff creation and 
     { authSecret: SECRET, adminProvisionRateLimitMax: 2, adminProvisionRateLimitWindowMs: 60_000 },
     { authModule: auth, adminAccountModule: adminAccountModule() },
   );
-  const adminCookie = `arion_auth=${auth.tokens.sign(profiles.admin.user_profile_id)}`;
+  const adminCookie = `arion_auth=${auth.tokens.sign(profiles.admin.user_profile_id, { mfaVerified: true })}`;
   const patientCookie = `arion_auth=${auth.tokens.sign(profiles.patient.user_profile_id)}`;
 
   await withServer(app, async baseUrl => {

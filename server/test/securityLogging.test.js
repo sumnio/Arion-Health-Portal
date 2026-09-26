@@ -77,7 +77,7 @@ function context(config = {}) {
     { nodeEnv: 'test', authSecret: SECRET, enableAuthorizationProbes: true, ...config },
     { authModule: auth, adminAccountModule: adminAccountModule(), securityLogger: capture.logger },
   );
-  return { ...capture, app, auth, cookie: role => `arion_auth=${auth.tokens.sign(profiles[role].user_profile_id)}` };
+  return { ...capture, app, auth, cookie: role => `arion_auth=${auth.tokens.sign(profiles[role].user_profile_id, { mfaVerified: role === 'admin' })}` };
 }
 
 test('successful and failed login emit safe structured authentication events', async () => {

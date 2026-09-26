@@ -19,6 +19,35 @@ const authAccountSchema = new mongoose.Schema(
       required: true,
       select: false,
     },
+    mfa_enabled: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+    mfa_secret_encrypted: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    mfa_pending_secret_encrypted: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    mfa_enrolled_at: {
+      type: Date,
+      default: null,
+    },
+    mfa_challenge_hash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    mfa_challenge_expires_at: {
+      type: Date,
+      default: null,
+      select: false,
+    },
   },
   modelOptions,
 );

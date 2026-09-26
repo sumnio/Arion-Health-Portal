@@ -4,6 +4,7 @@ import { boundedText, INPUT_LIMITS, rejectUnknownFields, requireObject } from '.
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const registrationFields = new Set(['email', 'password', 'display_name', 'full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'is_pwd']);
 const loginFields = new Set(['email', 'password']);
+const mfaCodeFields = new Set(['code']);
 
 function requiredText(value, field) {
   if (typeof value !== 'string' || !value.trim()) {
@@ -103,4 +104,13 @@ export function validateLogin(body = {}) {
     email: validEmail(body.email),
     password: presentPassword(body.password),
   };
+}
+
+export function validateMfaCode(body = {}) {
+  requireObject(body);
+  rejectUnknownFields(body, mfaCodeFields, 'RESTRICTED_FIELD');
+  if (typeof body.code !== 'string' || !/^\d{6}$/.test(body.code)) {
+    throw httpError(400, 'INVALID_INPUT', 'code must contain exactly 6 digits.');
+  }
+  return { code: body.code };
 }

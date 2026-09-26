@@ -6,7 +6,7 @@ function duplicateKey(error) {
   return error?.code === 11000;
 }
 
-export function createAuthService({ repository, passwords, tokens }) {
+export function createAuthService({ repository, passwords, tokens, mfa }) {
   return {
     async registerPatient(input) {
       if (await repository.findAccountByEmail(input.email)) {
@@ -47,6 +47,11 @@ export function createAuthService({ repository, passwords, tokens }) {
       const profile = await repository.findSafeProfileById(account.user_profile_id);
       if (!profile || profile.status !== 'active') {
         throw httpError(401, 'INVALID_CREDENTIALS', INVALID_CREDENTIALS);
+      }
+
+      if (profile.role === 'admin') {
+        if (!mfa) throw new Error('Admin MFA service is not configured.');
+        return mfa.begin(profile, account);
       }
 
       return { user: profile, token: tokens.sign(profile.user_profile_id) };

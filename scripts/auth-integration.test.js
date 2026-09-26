@@ -59,10 +59,29 @@ test('login uses the real endpoint and returns the safe backend user', async () 
       return { user: { role: 'patient', status: 'active' } };
     },
   });
-  const user = await service.login({ email: 'patient@example.com', password: 'secret' });
+  const result = await service.login({ email: 'patient@example.com', password: 'secret' });
   assert.equal(request.path, '/api/auth/login');
   assert.deepEqual(request.options.body, { email: 'patient@example.com', password: 'secret' });
-  assert.equal(user.role, 'patient');
+  assert.equal(result.user.role, 'patient');
+});
+
+test('Admin MFA client uses credentialed challenge endpoints without browser token storage', async () => {
+  const calls = [];
+  const service = createAuthService({
+    async request(path, options) {
+      calls.push({ path, options });
+      if (path.endsWith('/setup')) return { otpauth_uri: 'otpauth://totp/example', manual_key: 'SETUPKEY' };
+      return { user: { role: 'admin', status: 'active' } };
+    },
+  });
+  assert.equal((await service.startMfaSetup()).manual_key, 'SETUPKEY');
+  assert.equal((await service.verifyMfaSetup('123456')).user.role, 'admin');
+  assert.equal((await service.verifyMfa('654321')).user.role, 'admin');
+  assert.deepEqual(calls.map(item => item.path), [
+    '/api/auth/mfa/setup', '/api/auth/mfa/verify-setup', '/api/auth/mfa/verify',
+  ]);
+  assert.equal(calls[1].options.body.code, '123456');
+  assert.equal(calls[2].options.body.code, '654321');
 });
 
 test('login replaces backend credential details with the approved generic error', async () => {
@@ -125,6 +144,8 @@ test('frontend auth code does not store tokens or retain the mock role selector'
   assert.doesNotMatch(authFiles, /localStorage|sessionStorage/);
   assert.doesNotMatch(readFileSync(new URL('../src/pages/public/LoginPage.jsx', import.meta.url), 'utf8'), /Preview role|name="role"/);
   assert.match(authFiles, /credentials: 'include'/);
+  assert.match(authFiles, /MFA_SETUP_REQUIRED/);
+  assert.match(authFiles, /MFA_REQUIRED/);
 });
 
 test('router wraps every protected role group in the real role guard', () => {

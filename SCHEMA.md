@@ -24,7 +24,7 @@ Main revisions:
 
 # 1. Authentication and User Profiles
 
-Authentication credentials are owned by the backend AuthAccount model. Email and `password_hash` are authentication data and are not fields in the approved UserProfile structure. Password recovery/reset, email verification, and MFA remain future work.
+Authentication credentials and Admin MFA state are owned by the backend AuthAccount model. Email, `password_hash`, and MFA secrets are authentication data and are not fields in the approved UserProfile structure. Password recovery/reset and email verification remain future work.
 
 Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, role, common contact information, and account status, not authentication credentials. Doctor and Staff must not contain username-based authentication fields.
 
@@ -48,10 +48,20 @@ Admin is represented by `UserProfile.role = admin`; there is no separate Admin e
 | user_profile_id | identifier, FK, unique | Required reference to `UserProfile.id`; one credential account per profile |
 | email | text, unique | Required; normalized to lowercase |
 | password_hash | text | Required bcrypt hash; excluded from normal query/API output |
+| mfa_enabled | boolean | Defaults false; mandatory before an Admin receives full portal access |
+| mfa_secret_encrypted | text, nullable | Authenticated-encryption ciphertext for the enrolled TOTP secret; excluded from normal queries and all APIs |
+| mfa_pending_secret_encrypted | text, nullable | Temporary encrypted TOTP secret used only during Admin enrollment |
+| mfa_enrolled_at | timestamp, nullable | Set when initial Admin TOTP verification succeeds |
+| mfa_challenge_hash | text, nullable | Server-only hash of the current short-lived pre-authentication challenge |
+| mfa_challenge_expires_at | timestamp, nullable | Expiration for the current pre-authentication challenge |
 | created_at | timestamp | Managed by Mongoose timestamps |
 | updated_at | timestamp | Managed by Mongoose timestamps |
 
-Plaintext passwords are never persisted. The current implementation hashes with bcryptjs using work factor 12. Successful login produces a server-signed JWT in the HttpOnly `arion_auth` cookie with `SameSite=Lax`, an eight-hour expiration, and `Secure` in production. The signing secret comes from `AUTH_SECRET` and is never returned or logged.
+Plaintext passwords are never persisted. The current implementation hashes with bcryptjs using work factor 12. A successful non-Admin login produces a server-signed JWT in the HttpOnly `arion_auth` cookie with `SameSite=Lax`, an eight-hour expiration, and `Secure` in production. The signing secret comes from `AUTH_SECRET` and is never returned or logged.
+
+Admin accounts require TOTP MFA. Valid Admin credentials create only a separate HttpOnly `arion_mfa_challenge` cookie with a ten-minute lifetime; that challenge cannot authorize protected routes. A first-time Admin must enroll through `/api/auth/mfa/setup` and `/api/auth/mfa/verify-setup`; an enrolled Admin verifies through `/api/auth/mfa/verify`. Only successful TOTP verification consumes the challenge and issues `arion_auth`. Challenges are server-verifiable, stored only as hashes, expire, and cannot be replayed after success.
+
+TOTP secrets are generated and verified by the maintained `otplib` library. Enrolled and pending secrets use AES-256-GCM authenticated encryption with a separately configured `MFA_ENCRYPTION_KEY`; plaintext secrets are returned only during the enrollment response and are never stored or logged. Verification accepts a six-digit code with one 30-second clock-skew step and is limited to five failed attempts per ten minutes. Recovery codes and self-service MFA reset are deferred; loss of the authenticator requires a controlled offline operator recovery process.
 
 Public Patient registration creates AuthAccount, UserProfile with role `patient`, and linked Patient records in one MongoDB transaction. A request body cannot assign Doctor, Staff, or Admin. If an unlinked walk-in candidate already has the same contact number and date of birth, registration stops for later verified account-linking review instead of automatically matching by name or creating a silent duplicate.
 

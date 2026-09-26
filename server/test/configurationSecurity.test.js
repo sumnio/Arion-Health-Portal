@@ -25,6 +25,7 @@ test('backend example contains placeholders and gitignore protects real environm
   const example = readFileSync(`${root}server/.env.example`, 'utf8');
   assert.match(example, /^MONGODB_URI=\s*$/m);
   assert.match(example, /^AUTH_SECRET=\s*$/m);
+  assert.match(example, /^MFA_ENCRYPTION_KEY=\s*$/m);
   assert.match(example, /^ADMIN_PASSWORD=\s*$/m);
   assert.doesNotMatch(example, /mongodb(?:\+srv)?:\/\/[^\s:@]+:[^\s@]+@/i);
 

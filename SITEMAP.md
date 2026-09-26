@@ -11,6 +11,7 @@ Authentication notes:
 - An authenticated user with the wrong role is sent to `/unauthorized` or denied access.
 - Inactive accounts do not receive normal portal access.
 - The former mock role selector and “Exit mock preview” controls have been removed. Session restoration uses `/api/auth/me`.
+- Admin password verification enters the MFA setup or verification step on the same `/login` page. No full Admin session or `/admin/*` access exists until TOTP verification succeeds.
 
 PATIENT
 /patient/dashboard

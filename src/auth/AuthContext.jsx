@@ -4,14 +4,27 @@ import { authService } from '../services/authService.js';
 
 const AuthContext = createContext(null);
 
-export const initialAuthState = { user: null, status: 'initializing', accessMessage: '' };
+export const initialAuthState = {
+  user: null,
+  status: 'initializing',
+  accessMessage: '',
+  mfaState: null,
+  mfaSetup: null,
+};
 
 export function authStateReducer(state, action) {
   switch (action.type) {
     case 'authenticated':
-      return { user: action.user, status: 'authenticated', accessMessage: '' };
+      return { ...initialAuthState, user: action.user, status: 'authenticated' };
     case 'guest':
-      return { user: null, status: 'guest', accessMessage: action.message || '' };
+      return { ...initialAuthState, status: 'guest', accessMessage: action.message || '' };
+    case 'mfa':
+      return {
+        ...initialAuthState,
+        status: 'mfa_pending',
+        mfaState: action.mfaState,
+        mfaSetup: action.mfaSetup ?? null,
+      };
     default:
       return state;
   }
@@ -46,9 +59,32 @@ export function AuthProvider({ children }) {
   }, [refreshCurrentUser]);
 
   const login = useCallback(async (credentials) => {
-    const user = await authService.login(credentials);
-    dispatch({ type: 'authenticated', user });
-    return user;
+    const result = await authService.login(credentials);
+    if (result.user) {
+      dispatch({ type: 'authenticated', user: result.user });
+      return result;
+    }
+    if (result.status === 'MFA_SETUP_REQUIRED') {
+      const setup = await authService.startMfaSetup();
+      dispatch({ type: 'mfa', mfaState: 'setup', mfaSetup: setup });
+      return { status: result.status };
+    }
+    if (result.status === 'MFA_REQUIRED') {
+      dispatch({ type: 'mfa', mfaState: 'verify' });
+      return { status: result.status };
+    }
+    throw new Error('The login response was not recognized.');
+  }, []);
+  const verifyMfa = useCallback(async (code) => {
+    const result = state.mfaState === 'setup'
+      ? await authService.verifyMfaSetup(code)
+      : await authService.verifyMfa(code);
+    dispatch({ type: 'authenticated', user: result.user });
+    return result.user;
+  }, [state.mfaState]);
+  const cancelMfa = useCallback(async () => {
+    try { await authService.logout(); }
+    finally { dispatch({ type: 'guest' }); }
   }, []);
   const register = useCallback((payload) => authService.registerPatient(payload), []);
   const logout = useCallback(async () => {
@@ -60,10 +96,12 @@ export function AuthProvider({ children }) {
     ...state,
     authenticated: state.status === 'authenticated',
     login,
+    verifyMfa,
+    cancelMfa,
     register,
     logout,
     refreshCurrentUser,
-  }), [state, login, register, logout, refreshCurrentUser]);
+  }), [state, login, verifyMfa, cancelMfa, register, logout, refreshCurrentUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

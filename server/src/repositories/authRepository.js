@@ -59,6 +59,78 @@ export const authRepository = {
     return AuthAccount.findOne({ email }).select('+password_hash').lean();
   },
 
+  async findAccountForMfa(userProfileId) {
+    return AuthAccount.findOne({ user_profile_id: userProfileId })
+      .select('+mfa_secret_encrypted +mfa_pending_secret_encrypted +mfa_challenge_hash +mfa_challenge_expires_at')
+      .lean();
+  },
+
+  async setMfaChallenge(userProfileId, { challengeHash, expiresAt }) {
+    const result = await AuthAccount.updateOne(
+      { user_profile_id: userProfileId },
+      { $set: { mfa_challenge_hash: challengeHash, mfa_challenge_expires_at: expiresAt } },
+    );
+    return result.matchedCount === 1;
+  },
+
+  async setPendingMfaSecret(userProfileId, challengeHash, encryptedSecret, now) {
+    const result = await AuthAccount.updateOne(
+      {
+        user_profile_id: userProfileId,
+        mfa_enabled: { $ne: true },
+        mfa_challenge_hash: challengeHash,
+        mfa_challenge_expires_at: { $gt: now },
+      },
+      { $set: { mfa_pending_secret_encrypted: encryptedSecret } },
+    );
+    return result.modifiedCount === 1;
+  },
+
+  async completeMfaEnrollment(userProfileId, challengeHash, pendingSecret, enrolledAt) {
+    const result = await AuthAccount.updateOne(
+      {
+        user_profile_id: userProfileId,
+        mfa_enabled: { $ne: true },
+        mfa_pending_secret_encrypted: pendingSecret,
+        mfa_challenge_hash: challengeHash,
+        mfa_challenge_expires_at: { $gt: enrolledAt },
+      },
+      {
+        $set: {
+          mfa_enabled: true,
+          mfa_secret_encrypted: pendingSecret,
+          mfa_enrolled_at: enrolledAt,
+        },
+        $unset: {
+          mfa_pending_secret_encrypted: 1,
+          mfa_challenge_hash: 1,
+          mfa_challenge_expires_at: 1,
+        },
+      },
+    );
+    return result.modifiedCount === 1;
+  },
+
+  async consumeMfaChallenge(userProfileId, challengeHash, now) {
+    const result = await AuthAccount.updateOne(
+      {
+        user_profile_id: userProfileId,
+        mfa_enabled: true,
+        mfa_challenge_hash: challengeHash,
+        mfa_challenge_expires_at: { $gt: now },
+      },
+      { $unset: { mfa_challenge_hash: 1, mfa_challenge_expires_at: 1 } },
+    );
+    return result.modifiedCount === 1;
+  },
+
+  async clearMfaChallenge(userProfileId) {
+    await AuthAccount.updateOne(
+      { user_profile_id: userProfileId },
+      { $unset: { mfa_challenge_hash: 1, mfa_challenge_expires_at: 1 } },
+    );
+  },
+
   async findSafeProfileById(id) {
     const profile = await UserProfile.findById(id).lean();
     return safeProfile(profile);

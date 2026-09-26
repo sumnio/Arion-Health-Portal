@@ -171,6 +171,10 @@ test('UserProfile contains no password or password hash path', () => {
 
 test('AuthAccount owns credentials and declares unique email and profile indexes', () => {
   assert.equal(AuthAccount.schema.path('password_hash').options.select, false);
+  assert.equal(AuthAccount.schema.path('mfa_secret_encrypted').options.select, false);
+  assert.equal(AuthAccount.schema.path('mfa_pending_secret_encrypted').options.select, false);
+  assert.equal(AuthAccount.schema.path('mfa_challenge_hash').options.select, false);
+  assert.equal(AuthAccount.schema.path('mfa_enabled').options.default, false);
   assert.equal(indexByName(AuthAccount, 'unique_auth_account_email')[1].unique, true);
   assert.equal(indexByName(AuthAccount, 'unique_auth_account_profile')[1].unique, true);
 });

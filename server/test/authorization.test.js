@@ -65,7 +65,7 @@ function createContext() {
     profiles,
     cookie(roleOrId) {
       const id = roleOrId.endsWith('-profile') ? roleOrId : `${roleOrId}-profile`;
-      return `arion_auth=${tokens.sign(id)}`;
+      return `arion_auth=${tokens.sign(id, { mfaVerified: profiles.get(id)?.role === 'admin' })}`;
     },
   };
 }

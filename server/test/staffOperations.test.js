@@ -67,7 +67,7 @@ function createContext() {
   const staffOperationsModule = createStaffOperationsModule({ repository, clinic: { timeZone: 'Asia/Manila' }, now: () => new Date(NOW) });
   const patientAppointmentModule = { patientService: {}, appointmentService: { async confirmForStaff(id) { const item = appointments.get(String(id)); if (!item) throw Object.assign(new Error('Not found'), { status: 404, code: 'APPOINTMENT_NOT_FOUND' }); if (item.status !== 'pending') throw Object.assign(new Error('Only pending'), { status: 409, code: 'INVALID_STATUS_TRANSITION' }); item.status = 'confirmed'; return { id: item._id, status: item.status }; } } };
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, staffOperationsModule, patientAppointmentModule });
-  return { app, patients, appointments, records, cookie: (profile) => `arion_auth=${tokens.sign(profile)}` };
+  return { app, patients, appointments, records, cookie: (profile) => `arion_auth=${tokens.sign(profile, { mfaVerified: profiles.get(String(profile))?.role === 'admin' })}` };
 }
 async function withServer(app, callback) { const server = app.listen(0, '127.0.0.1'); await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); }); try { await callback(`http://127.0.0.1:${server.address().port}`); } finally { await new Promise((resolve) => server.close(resolve)); } }
 function request(base, path, { method = 'GET', cookie, body } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }); }

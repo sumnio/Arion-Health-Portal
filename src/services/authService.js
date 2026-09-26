@@ -24,7 +24,7 @@ export function createAuthService(client = apiClient) {
         const result = await client.request('/api/auth/login', {
           method: 'POST', body: { email, password }, skipUnauthorizedHandling: true,
         });
-        return result.user;
+        return result;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           throw new ApiError('Invalid email or password.', { status: error.status, code: error.code });
@@ -44,6 +44,21 @@ export function createAuthService(client = apiClient) {
     async getCurrentUser() {
       const result = await client.request('/api/auth/me', { skipUnauthorizedHandling: true });
       return result.user;
+    },
+    async startMfaSetup() {
+      return client.request('/api/auth/mfa/setup', {
+        method: 'POST', skipUnauthorizedHandling: true,
+      });
+    },
+    async verifyMfaSetup(code) {
+      return client.request('/api/auth/mfa/verify-setup', {
+        method: 'POST', body: { code }, skipUnauthorizedHandling: true,
+      });
+    },
+    async verifyMfa(code) {
+      return client.request('/api/auth/mfa/verify', {
+        method: 'POST', body: { code }, skipUnauthorizedHandling: true,
+      });
     },
   };
 }

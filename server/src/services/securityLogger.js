@@ -13,7 +13,7 @@ const SAFE_EVENT_FIELDS = new Set([
   'ip',
   'metadata',
 ]);
-const REDACTED_KEY = /password|password_hash|token|jwt|cookie|authorization|mongodb_uri|auth_secret|secret|private_key|signature_path|email|contact|address|full_name|date_of_birth|\bdob\b|request_body|payload|headers|medical|diagnosis|notes|allergies|prescription|certificate/i;
+const REDACTED_KEY = /password|password_hash|token|jwt|cookie|authorization|mongodb_uri|auth_secret|secret|private_key|signature_path|email|contact|address|full_name|date_of_birth|\bdob\b|request_body|payload|headers|medical|diagnosis|notes|allergies|prescription|certificate|totp|otp|recovery|challenge|otpauth|manual_key/i;
 
 function safeString(value, max = 500) {
   if (value == null) return undefined;

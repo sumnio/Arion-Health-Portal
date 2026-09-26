@@ -51,6 +51,7 @@ export function createApp(
     corsOrigins,
     nodeEnv = 'development',
     authSecret = '',
+    mfaEncryptionKey = '',
     enableAuthorizationProbes = false,
     clinicTimeZone = 'Asia/Manila',
     clinicOpenTime = '',
@@ -63,6 +64,8 @@ export function createApp(
     registerRateLimitMax = RATE_LIMIT_DEFAULTS.registerMax,
     adminProvisionRateLimitWindowMs = RATE_LIMIT_DEFAULTS.adminProvisionWindowMs,
     adminProvisionRateLimitMax = RATE_LIMIT_DEFAULTS.adminProvisionMax,
+    mfaVerifyRateLimitWindowMs = RATE_LIMIT_DEFAULTS.mfaVerifyWindowMs,
+    mfaVerifyRateLimitMax = RATE_LIMIT_DEFAULTS.mfaVerifyMax,
   } = {},
   dependencies = {},
 ) {
@@ -83,9 +86,11 @@ export function createApp(
     registerMax: registerRateLimitMax,
     adminProvisionWindowMs: adminProvisionRateLimitWindowMs,
     adminProvisionMax: adminProvisionRateLimitMax,
+    mfaVerifyWindowMs: mfaVerifyRateLimitWindowMs,
+    mfaVerifyMax: mfaVerifyRateLimitMax,
     securityLogger,
   });
-  const authModule = dependencies.authModule ?? createAuthModule({ authSecret, nodeEnv });
+  const authModule = dependencies.authModule ?? createAuthModule({ authSecret, mfaEncryptionKey, nodeEnv });
   const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({
     clinic: {
       timeZone: clinicTimeZone,

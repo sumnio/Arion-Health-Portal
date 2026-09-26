@@ -23,7 +23,7 @@ The Arion Health Portal contains the following main entities and external identi
 
 # Authentication Structure
 
-AuthAccount handles credentials for portal accounts. Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. Guest/walk-in Patient records do not require an AuthAccount or UserProfile.
+AuthAccount handles credentials and Admin MFA state for portal accounts. Passwords, password hashes, and MFA secrets must not be stored in UserProfile, Patient, Doctor, or Staff. Guest/walk-in Patient records do not require an AuthAccount or UserProfile.
 
 AuthAccount owns normalized email and the bcrypt password hash. UserProfile owns application identity, role, common contact information, and active/inactive status. Real login is shared across all four roles and never asks the user to select a role.
 
@@ -53,9 +53,11 @@ UserProfile 1 ─── 0..1 Staff
                 via Staff.user_profile_id
 ```
 
-AuthAccount fields are `id`, unique `user_profile_id`, unique normalized `email`, `password_hash`, `created_at`, and `updated_at`. The hash is excluded from normal queries and all API responses.
+AuthAccount fields are `id`, unique `user_profile_id`, unique normalized `email`, `password_hash`, `mfa_enabled`, encrypted enrolled and pending MFA secrets, `mfa_enrolled_at`, short-lived MFA challenge hash/expiration, `created_at`, and `updated_at`. Password hashes, encrypted MFA secrets, and challenge state are excluded from normal queries and all API responses.
 
-Authentication uses a server-signed JWT stored in an HttpOnly cookie. Password hashes stay in AuthAccount; cookie/token validation establishes identity, while UserProfile status and later role authorization determine access.
+Authentication uses a server-signed JWT stored in an HttpOnly cookie. Password hashes stay in AuthAccount; cookie/token validation establishes identity, while UserProfile status and role authorization determine access. Admin password verification creates only a separate ten-minute pre-authentication challenge. The full session is issued only after TOTP enrollment or verification succeeds, and consumed challenges cannot be replayed.
+
+Admin TOTP secrets use authenticated encryption with `MFA_ENCRYPTION_KEY`; they are never hashed, returned after enrollment, or logged. The first setup response may show the secret as a QR-compatible `otpauth://` URI and manual key. Patient, Doctor, and Staff authentication remains password-only. Recovery codes and self-service MFA reset are deferred, so authenticator loss requires controlled offline recovery.
 
 Relationship:
 

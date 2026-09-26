@@ -53,7 +53,7 @@ function createContext() {
   const authModule = { tokens, service: { async getAuthenticatedUser(id) { const item = profiles.get(String(id)); if (!item) throw Object.assign(new Error('Authentication required'), { status: 401, code: 'UNAUTHENTICATED' }); return { user_profile_id: String(item._id), display_name: item.display_name, role: item.role, status: item.status }; } } };
   const adminAccountModule = createAdminAccountModule({ repository });
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET, enableAuthorizationProbes: true }, { authModule, adminAccountModule });
-  return { app, profiles, accounts, doctors, staff, patients, tokens, cookie: (profileId) => `arion_auth=${tokens.sign(profileId)}` };
+  return { app, profiles, accounts, doctors, staff, patients, tokens, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
 }
 async function withServer(app, callback) { const server = app.listen(0, '127.0.0.1'); await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); }); try { await callback(`http://127.0.0.1:${server.address().port}`); } finally { await new Promise((resolve) => server.close(resolve)); } }
 function request(base, path, { method = 'GET', cookie, body } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }); }

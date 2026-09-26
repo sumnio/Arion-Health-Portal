@@ -8,6 +8,8 @@ export const RATE_LIMIT_DEFAULTS = Object.freeze({
   registerMax: 5,
   adminProvisionWindowMs: 15 * 60 * 1000,
   adminProvisionMax: 20,
+  mfaVerifyWindowMs: 10 * 60 * 1000,
+  mfaVerifyMax: 5,
 });
 
 const rateLimitedResponse = Object.freeze({
@@ -17,7 +19,7 @@ const rateLimitedResponse = Object.freeze({
   }),
 });
 
-function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false }) {
+function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false, event = 'RATE_LIMIT_TRIGGERED' }) {
   return rateLimit({
     windowMs,
     max,
@@ -26,7 +28,7 @@ function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false })
     legacyHeaders: false,
     handler(request, response) {
       requestSecurityEvent(request, {
-        event: 'RATE_LIMIT_TRIGGERED', severity: 'warning', outcome: 'denied',
+        event, severity: 'warning', outcome: 'denied',
         metadata: { limiter_type: limiterType },
       });
       response.status(429).json(rateLimitedResponse);
@@ -41,6 +43,8 @@ export function createRateLimiters({
   registerMax = RATE_LIMIT_DEFAULTS.registerMax,
   adminProvisionWindowMs = RATE_LIMIT_DEFAULTS.adminProvisionWindowMs,
   adminProvisionMax = RATE_LIMIT_DEFAULTS.adminProvisionMax,
+  mfaVerifyWindowMs = RATE_LIMIT_DEFAULTS.mfaVerifyWindowMs,
+  mfaVerifyMax = RATE_LIMIT_DEFAULTS.mfaVerifyMax,
   securityLogger,
 } = {}) {
   return {
@@ -55,6 +59,13 @@ export function createRateLimiters({
       windowMs: adminProvisionWindowMs,
       max: adminProvisionMax,
       limiterType: 'admin_provision',
+    }),
+    mfaVerifyRateLimiter: limiter({
+      windowMs: mfaVerifyWindowMs,
+      max: mfaVerifyMax,
+      limiterType: 'mfa_verification',
+      skipSuccessfulRequests: true,
+      event: 'MFA_RATE_LIMITED',
     }),
   };
 }
