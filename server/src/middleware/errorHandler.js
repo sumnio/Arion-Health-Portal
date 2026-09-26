@@ -1,4 +1,21 @@
-export function errorHandler(error, _request, response, _next) {
+import { requestSecurityEvent } from '../services/securityLogger.js';
+
+export function errorHandler(error, request, response, _next) {
+  if (error?.securityRelevant && !error.securityLogged) {
+    requestSecurityEvent(request, {
+      event: 'SECURITY_INPUT_REJECTED', severity: 'warning', outcome: 'denied',
+      metadata: error.securityMetadata,
+    });
+    error.securityLogged = true;
+  } else if (error?.status === 403 && !error.securityLogged) {
+    requestSecurityEvent(request, {
+      event: error.code === 'ACCOUNT_INACTIVE' ? 'AUTH_INACTIVE_DENIED' : 'AUTHZ_FORBIDDEN',
+      severity: 'warning', outcome: 'denied',
+      target_type: 'protected_resource',
+      target_id: Object.values(request.params ?? {})[0],
+    });
+    error.securityLogged = true;
+  }
   if (error?.type === 'entity.too.large') {
     return response.status(413).json({
       error: {

@@ -74,6 +74,12 @@ async function main() {
   });
   assert.equal(login.status, 200);
   const cookie = login.headers.get('set-cookie').split(';')[0];
+
+  const failedLogin = await api(baseUrl, '/api/auth/login', {
+    method: 'POST',
+    body: { email, password: `${password}-incorrect` },
+  });
+  assert.equal(failedLogin.status, 401);
   assert.match(cookie, /^arion_auth=/);
 
   const me = await api(baseUrl, '/api/auth/me', { cookie });
@@ -93,6 +99,7 @@ async function main() {
       passwordHashed: true,
       authIndexes: true,
       login: 200,
+      failedLogin: 401,
       me: 200,
       logout: 200,
       afterLogout: 401,

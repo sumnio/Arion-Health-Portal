@@ -22,6 +22,7 @@ import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createRateLimiters, RATE_LIMIT_DEFAULTS } from './middleware/rateLimiters.js';
 import { parseCorsOrigins } from './config/env.js';
+import { attachSecurityLogger, createSecurityLogger, securityLogger as defaultSecurityLogger } from './services/securityLogger.js';
 
 export function corsOptions(origins) {
   const allowed = new Set(origins);
@@ -66,12 +67,15 @@ export function createApp(
   dependencies = {},
 ) {
   const trustedOrigins = corsOrigins ?? parseCorsOrigins(corsOrigin, nodeEnv);
+  const securityLogger = dependencies.securityLogger ??
+    (nodeEnv === 'test' ? createSecurityLogger({ write() {} }) : defaultSecurityLogger);
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet(securityHeadersOptions(nodeEnv)));
   app.use(cors(corsOptions(trustedOrigins)));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(cookieParser());
+  app.use(attachSecurityLogger(securityLogger));
   const rateLimiters = dependencies.rateLimiters ?? createRateLimiters({
     loginWindowMs: loginRateLimitWindowMs,
     loginMax: loginRateLimitMax,
@@ -79,6 +83,7 @@ export function createApp(
     registerMax: registerRateLimitMax,
     adminProvisionWindowMs: adminProvisionRateLimitWindowMs,
     adminProvisionMax: adminProvisionRateLimitMax,
+    securityLogger,
   });
   const authModule = dependencies.authModule ?? createAuthModule({ authSecret, nodeEnv });
   const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({

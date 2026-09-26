@@ -1,4 +1,5 @@
 import { rateLimit } from 'express-rate-limit';
+import { requestSecurityEvent } from '../services/securityLogger.js';
 
 export const RATE_LIMIT_DEFAULTS = Object.freeze({
   loginWindowMs: 15 * 60 * 1000,
@@ -16,14 +17,18 @@ const rateLimitedResponse = Object.freeze({
   }),
 });
 
-function limiter({ windowMs, max, skipSuccessfulRequests = false }) {
+function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false }) {
   return rateLimit({
     windowMs,
     max,
     skipSuccessfulRequests,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    handler(_request, response) {
+    handler(request, response) {
+      requestSecurityEvent(request, {
+        event: 'RATE_LIMIT_TRIGGERED', severity: 'warning', outcome: 'denied',
+        metadata: { limiter_type: limiterType },
+      });
       response.status(429).json(rateLimitedResponse);
     },
   });
@@ -36,17 +41,20 @@ export function createRateLimiters({
   registerMax = RATE_LIMIT_DEFAULTS.registerMax,
   adminProvisionWindowMs = RATE_LIMIT_DEFAULTS.adminProvisionWindowMs,
   adminProvisionMax = RATE_LIMIT_DEFAULTS.adminProvisionMax,
+  securityLogger,
 } = {}) {
   return {
     loginRateLimiter: limiter({
       windowMs: loginWindowMs,
       max: loginMax,
+      limiterType: 'login',
       skipSuccessfulRequests: true,
     }),
-    registerRateLimiter: limiter({ windowMs: registerWindowMs, max: registerMax }),
+    registerRateLimiter: limiter({ windowMs: registerWindowMs, max: registerMax, limiterType: 'registration' }),
     adminProvisionRateLimiter: limiter({
       windowMs: adminProvisionWindowMs,
       max: adminProvisionMax,
+      limiterType: 'admin_provision',
     }),
   };
 }

@@ -121,6 +121,12 @@ The API starts only after required configuration passes validation and MongoDB c
 
 Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. The `arion_auth` cookie is host-only with `HttpOnly`, `SameSite=Lax`, `Path=/`, and an eight-hour lifetime. It is not readable by frontend JavaScript. Local/test HTTP uses `Secure=false`; production always uses `Secure=true` and therefore requires HTTPS. Logout clears the cookie with matching path, SameSite, and Secure behavior. A cookie Domain is intentionally unset. Final reverse-proxy configuration, HTTPS termination, cookie domain needs, and Express `trust proxy` must be decided from the actual hosting architecture during deployment; `trust proxy` remains disabled for now.
 
+Security-relevant activity is written as structured server-side JSON through `server/src/services/securityLogger.js`. Logged events cover authentication outcomes, logout, inactive-account denial, rate limits, authorization and ownership denials, Admin Doctor/Staff provisioning, account activation/deactivation, and protected-field or operator-style input rejection. Normal reads and ordinary business validation are intentionally excluded.
+
+The logger uses an allowlisted event shape and recursively redacts dangerous metadata keys. Never add passwords, password hashes, JWTs, cookies, authorization headers, secrets, MongoDB URIs, private keys, full request bodies, signature paths, diagnoses, notes, prescriptions, or certificate contents to security events. Failed-login logs use a generic reason and do not record the submitted email. Logging failures are swallowed so telemetry cannot break API requests.
+
+The logged IP is Express's current direct request IP. `trust proxy` remains disabled until the real proxy topology is verified, so production client-IP accuracy must be finalized during deployment. Durable retention, restricted log access, alerting, hosting-log transport, and SIEM integration are also deployment/operations work; the MVP does not create a MongoDB security-log collection.
+
 Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
 ```sh

@@ -4,12 +4,16 @@ import {
   roleHasPermission,
 } from '../services/authorizationPolicy.js';
 import { httpError } from '../utils/httpError.js';
+import { requestSecurityEvent } from '../services/securityLogger.js';
 
 const FORBIDDEN_MESSAGE = 'You do not have permission to perform this action.';
 
 export function requireActiveUser(request, _response, next) {
   if (!request.authUser || request.authUser.status !== 'active') {
-    return next(httpError(403, 'ACCOUNT_INACTIVE', FORBIDDEN_MESSAGE));
+    const error = httpError(403, 'ACCOUNT_INACTIVE', FORBIDDEN_MESSAGE);
+    requestSecurityEvent(request, { event: 'AUTH_INACTIVE_DENIED', severity: 'warning', outcome: 'denied' });
+    error.securityLogged = true;
+    return next(error);
   }
   return next();
 }
@@ -21,7 +25,10 @@ export function requireRole(...allowedRoles) {
 
   return function authorizeRole(request, _response, next) {
     if (!request.authUser || !allowedRoles.includes(request.authUser.role)) {
-      return next(httpError(403, 'FORBIDDEN', FORBIDDEN_MESSAGE));
+      const error = httpError(403, 'FORBIDDEN', FORBIDDEN_MESSAGE);
+      requestSecurityEvent(request, { event: 'AUTHZ_FORBIDDEN', severity: 'warning', outcome: 'denied' });
+      error.securityLogged = true;
+      return next(error);
     }
     return next();
   };
@@ -34,7 +41,13 @@ export function requirePermission(permission) {
 
   return function authorizePermission(request, _response, next) {
     if (!request.authUser || !roleHasPermission(request.authUser.role, permission)) {
-      return next(httpError(403, 'FORBIDDEN', FORBIDDEN_MESSAGE));
+      const error = httpError(403, 'FORBIDDEN', FORBIDDEN_MESSAGE);
+      requestSecurityEvent(request, {
+        event: 'AUTHZ_FORBIDDEN', severity: 'warning', outcome: 'denied',
+        metadata: { permission },
+      });
+      error.securityLogged = true;
+      return next(error);
     }
     return next();
   };
@@ -53,7 +66,14 @@ export function requireOwnership(resolveOwnerId) {
         request.authUser == null ||
         String(ownerId) !== String(request.authUser.user_profile_id)
       ) {
-        throw httpError(403, 'FORBIDDEN', FORBIDDEN_MESSAGE);
+        const error = httpError(403, 'FORBIDDEN', FORBIDDEN_MESSAGE);
+        requestSecurityEvent(request, {
+          event: 'AUTHZ_OWNERSHIP_DENIED', severity: 'warning', outcome: 'denied',
+          target_type: 'protected_resource',
+          target_id: Object.values(request.params ?? {})[0],
+        });
+        error.securityLogged = true;
+        throw error;
       }
       next();
     } catch (error) {

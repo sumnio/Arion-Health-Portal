@@ -53,6 +53,8 @@ Always read:
 - Non-test startup requires `MONGODB_URI`, a unique non-placeholder `AUTH_SECRET` of at least 32 characters, a supported `NODE_ENV`, and explicit production CORS origins. Never log secret values or silently generate an authentication secret.
 - Credentialed CORS uses only the explicit comma-separated `CORS_ORIGIN` allowlist. Browser origins outside it are denied; requests without an Origin header remain allowed for health checks, API tools, and server-to-server clients. Never combine credentials with wildcard CORS.
 - Keep the `arion_auth` cookie HttpOnly, SameSite=Lax, host-only, scoped to `/`, valid for eight hours, Secure in production, and non-Secure only for local/test HTTP. Logout must clear it with the same path, SameSite, and Secure attributes. Production requires HTTPS. Cookie domain and `trust proxy` remain deployment decisions and must not be guessed.
+- Emit structured server-side security events only for authentication outcomes, rate-limit triggers, meaningful authorization/ownership denials, Admin provisioning and account lifecycle actions, and security-relevant input rejection. Never log credentials, tokens, cookies, connection strings, request bodies, protected signature paths, or clinical content. Security logging failures must never fail a user request.
+- Request IP logging uses Express's current direct connection value. Do not enable `trust proxy` until the deployment proxy chain is known. Persistent log storage, retention, alerting, SIEM, and hosting-log integration remain deployment/operations decisions.
 
 ## Authentication rules
 

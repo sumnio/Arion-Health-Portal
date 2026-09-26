@@ -24,7 +24,14 @@ export function requireObject(value, label = 'Request body') {
 
 export function rejectUnknownFields(value, allowed, code = 'UNSUPPORTED_FIELD') {
   const field = Object.keys(value).find(key => !allowed.has(key));
-  if (field) throw httpError(400, code, `${field} is not accepted.`);
+  if (field) {
+    const error = httpError(400, code, `${field} is not accepted.`);
+    if (code === 'RESTRICTED_FIELD') {
+      error.securityRelevant = true;
+      error.securityMetadata = { rejection_type: 'protected_field' };
+    }
+    throw error;
+  }
 }
 
 export function boundedText(value, field, max, { optional = false, code = 'VALIDATION_ERROR' } = {}) {
@@ -46,7 +53,10 @@ export function validateEmptyBody(body) {
   if (body == null) return;
   requireObject(body);
   if (Object.keys(body).length) {
-    throw httpError(400, 'UNSUPPORTED_FIELD', 'This action does not accept request fields.');
+    const error = httpError(400, 'UNSUPPORTED_FIELD', 'This action does not accept request fields.');
+    error.securityRelevant = true;
+    error.securityMetadata = { rejection_type: 'body_not_allowed' };
+    throw error;
   }
 }
 
@@ -54,7 +64,14 @@ export function validateQueryKeys(query, allowed) {
   const value = query ?? {};
   requireObject(value, 'Query parameters');
   const field = Object.keys(value).find(key => !allowed.has(key));
-  if (field) throw httpError(400, 'INVALID_QUERY', `${field} is not a supported query parameter.`);
+  if (field) {
+    const error = httpError(400, 'INVALID_QUERY', `${field} is not a supported query parameter.`);
+    if (field.includes('[') || field.startsWith('$')) {
+      error.securityRelevant = true;
+      error.securityMetadata = { rejection_type: 'operator_query' };
+    }
+    throw error;
+  }
   return value;
 }
 
@@ -66,7 +83,12 @@ export function queryText(value, field, { optional = true, max = INPUT_LIMITS.se
 export function queryInteger(value, field, { defaultValue, min = 1, max = 50 } = {}) {
   if (value == null || value === '') return defaultValue;
   if (Array.isArray(value) || typeof value === 'object' || !/^\d+$/.test(String(value))) {
-    throw httpError(400, 'INVALID_QUERY', `${field} must be an integer.`);
+    const error = httpError(400, 'INVALID_QUERY', `${field} must be an integer.`);
+    if (Array.isArray(value) || typeof value === 'object') {
+      error.securityRelevant = true;
+      error.securityMetadata = { rejection_type: 'non_scalar_query' };
+    }
+    throw error;
   }
   const result = Number(value);
   if (!Number.isSafeInteger(result) || result < min || result > max) {
