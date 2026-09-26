@@ -432,3 +432,11 @@ Milestone 23.3 completed an audit of every mounted backend route, mutation allow
 - Failed login events use one generic reason category and do not distinguish unknown email, wrong password, or inactive account. This preserves the existing generic client behavior and avoids account-enumeration details.
 - Logging is best-effort and must never crash or block the observed request. MVP logs go to structured server output; no MongoDB log collection or clinical audit trail is introduced.
 - IP values use current Express behavior. Accurate client IP attribution behind a production proxy depends on a verified `trust proxy` configuration. External log transport, retention, access policy, alerting, SIEM integration, and proxy-aware IP handling are deferred to deployment and operations.
+
+## Dependency-security baseline
+
+- The 2026-09-26 dependency audit checked the frontend and backend manifests and lockfiles independently with `npm audit`. Both reported zero known vulnerabilities: 0 critical, 0 high, 0 moderate, and 0 low.
+- Every direct frontend and backend package has confirmed code, build, test, or development usage. No unused, overlapping, deprecated, or redundant direct dependency was identified, so no package was removed.
+- Both installed dependency trees pass `npm ls --depth=0`. Direct package metadata reports recognized permissive licenses and no deprecation markers. This is a point-in-time result and must be repeated as advisories and package metadata change.
+- No dependency or lockfile was changed because the audit was clean. A compatible Vite patch and major releases of dotenv and Mongoose were observed as ordinary maintenance candidates; they are not vulnerability remediations and are deferred to a separately tested maintenance update.
+- Keep `package-lock.json` and `server/package-lock.json` committed and synchronized. Prefer necessary compatible patch/minor security fixes, assess runtime reachability and dev-only exposure, and document anything unsafe to upgrade immediately. Never use `npm audit fix --force` or accept breaking major upgrades without explicit review and regression validation.

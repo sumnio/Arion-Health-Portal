@@ -55,6 +55,7 @@ Always read:
 - Keep the `arion_auth` cookie HttpOnly, SameSite=Lax, host-only, scoped to `/`, valid for eight hours, Secure in production, and non-Secure only for local/test HTTP. Logout must clear it with the same path, SameSite, and Secure attributes. Production requires HTTPS. Cookie domain and `trust proxy` remain deployment decisions and must not be guessed.
 - Emit structured server-side security events only for authentication outcomes, rate-limit triggers, meaningful authorization/ownership denials, Admin provisioning and account lifecycle actions, and security-relevant input rejection. Never log credentials, tokens, cookies, connection strings, request bodies, protected signature paths, or clinical content. Security logging failures must never fail a user request.
 - Request IP logging uses Express's current direct connection value. Do not enable `trust proxy` until the deployment proxy chain is known. Persistent log storage, retention, alerting, SIEM, and hosting-log integration remain deployment/operations decisions.
+- Keep frontend and backend dependency audits separate and retain both lockfiles. Review direct/transitive and runtime/dev-only impact before changing packages. Never run `npm audit fix --force` or take major upgrades automatically; when audits are clean, avoid version and lockfile churn solely for freshness.
 
 ## Authentication rules
 

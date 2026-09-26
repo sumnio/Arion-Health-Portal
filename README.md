@@ -127,6 +127,23 @@ The logger uses an allowlisted event shape and recursively redacts dangerous met
 
 The logged IP is Express's current direct request IP. `trust proxy` remains disabled until the real proxy topology is verified, so production client-IP accuracy must be finalized during deployment. Durable retention, restricted log access, alerting, hosting-log transport, and SIEM integration are also deployment/operations work; the MVP does not create a MongoDB security-log collection.
 
+### Dependency security
+
+The frontend and backend dependency trees were audited independently on 2026-09-26. Both `npm audit` runs reported zero known vulnerabilities at critical, high, moderate, and low severity. All direct packages have confirmed runtime, build, test, or development usage; both top-level installation trees are valid; no direct package is marked deprecated; and no unused or redundant package was found.
+
+No package or lockfile was changed because the audits were clean. Vite has a routine compatible patch available, while dotenv and Mongoose have newer major releases; none addresses a current audit finding, so these remain candidates for a separate maintenance change with compatibility testing. Keep both lockfiles committed, audit the two workspaces separately, and never use `npm audit fix --force` or accept breaking major upgrades without review.
+
+Run the audits from their respective directories:
+
+```sh
+# Frontend
+npm audit
+
+# Backend
+cd server
+npm audit
+```
+
 Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
 ```sh
