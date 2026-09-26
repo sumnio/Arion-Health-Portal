@@ -13,6 +13,20 @@ function flexiblePhoneRegex(value, anchored = false) {
 }
 
 export const staffOperationsRepository = {
+  async listAppointmentsBetween(start, end) {
+    return Appointment.find({ appointment_at: { $gte: start, $lt: end } })
+      .sort({ appointment_at: 1 })
+      .populate(queuePopulation)
+      .lean();
+  },
+  async listActiveDoctors() {
+    const doctors = await Doctor.find()
+      .select('specialty user_profile_id')
+      .populate({ path: 'user_profile_id', match: { role: 'doctor', status: 'active' }, select: 'display_name' })
+      .sort({ created_at: 1 })
+      .lean();
+    return doctors.filter((doctor) => doctor.user_profile_id);
+  },
   async searchPatients(search) {
     const query = search.trim();
     if (!query) return Patient.find({}).sort({ full_name: 1 }).limit(50).lean();
@@ -39,6 +53,13 @@ export const staffOperationsRepository = {
   },
   async markNoShowEligible(id, now) {
     return Appointment.findOneAndUpdate({ _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null, appointment_at: { $lte: now } }, { $set: { status: 'no_show' } }, { new: true, runValidators: true }).populate(queuePopulation).lean();
+  },
+  async cancelEligible(id) {
+    return Appointment.findOneAndUpdate(
+      { _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null },
+      { $set: { status: 'cancelled' } },
+      { new: true, runValidators: true },
+    ).populate(queuePopulation).lean();
   },
   async listWaitingBetween(start, end) {
     return Appointment.find({ status: 'confirmed', check_in_at: { $ne: null }, appointment_at: { $gte: start, $lt: end } }).populate(queuePopulation).lean();

@@ -13,13 +13,17 @@ export function createStaffOperationsRouter({ authModule, staffOperationsModule 
     requireRole('staff'),
     requirePermission(PERMISSIONS.STAFF_OPERATIONS),
   );
+  router.get('/appointments', controller.appointments);
+  router.get('/doctors', controller.doctors);
   router.get('/patients', controller.patients);
+  router.get('/patients/:patientId', controller.patient);
   router.post('/patients/walk-in', controller.registerWalkIn);
   router.post('/patients/:patientId/walk-in-appointments', controller.createWalkInAppointment);
   router.get('/patients/:patientId/record-summary', controller.recordSummary);
   router.patch('/appointments/:appointmentId/check-in', controller.checkIn);
   router.patch('/appointments/:appointmentId/priority', controller.priority);
   router.patch('/appointments/:appointmentId/no-show', controller.noShow);
+  router.patch('/appointments/:appointmentId/cancel', controller.cancel);
   router.get('/queue', controller.queue);
   return router;
 }

@@ -22,9 +22,27 @@ function queueView(item, date) {
   const priorityTier = tier(item, item.patient_id, date);
   return { appointment_id: id(item), patient: patientView(item.patient_id, date), doctor: doctorView(item.doctor_id), appointment_at: iso(item.appointment_at), check_in_at: iso(item.check_in_at), status: item.status, visit_type: item.visit_type, priority: item.priority, queue_tier: priorityTier, queue_priority: ['urgent', 'senior_pwd', 'normal'][priorityTier] };
 }
+function appointmentView(item, date) {
+  const patient = patientView(item.patient_id, date);
+  return { id: id(item), patient, doctor: doctorView(item.doctor_id), appointment_at: iso(item.appointment_at), check_in_at: iso(item.check_in_at), status: item.status, visit_type: item.visit_type, reason: item.reason, priority: item.priority };
+}
 
 export function createStaffOperationsService({ repository, clinic, now = () => new Date() }) {
   return {
+    async appointments(dateValue) {
+      const date = dateValue || clinicDate(now(), clinic.timeZone);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw httpError(400, 'INVALID_DATE', 'date must use YYYY-MM-DD.');
+      const start = zonedDateTimeToUtc(date, '00:00', clinic.timeZone);
+      const end = zonedDateTimeToUtc(addDays(date, 1), '00:00', clinic.timeZone);
+      return (await repository.listAppointmentsBetween(start, end)).map((item) => appointmentView(item, date));
+    },
+    async doctors() { return (await repository.listActiveDoctors()).map(doctorView); },
+    async patient(patientId) {
+      validateObjectId(patientId, 'patientId');
+      const patient = await repository.findPatientById(patientId);
+      if (!patient) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
+      return patientView(patient, clinicDate(now(), clinic.timeZone));
+    },
     async searchPatients(search = '') {
       const today = clinicDate(now(), clinic.timeZone);
       return (await repository.searchPatients(String(search))).map((item) => patientView(item, today));
@@ -75,6 +93,15 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
       const updated = await repository.markNoShowEligible(appointmentId, current);
       if (!updated) throw httpError(409, 'NO_SHOW_NOT_ALLOWED', 'This appointment can no longer be marked as no-show.');
       return { id: id(updated), status: updated.status };
+    },
+    async cancel(appointmentId) {
+      validateObjectId(appointmentId, 'appointmentId');
+      const existing = await repository.findAppointmentById(appointmentId);
+      if (!existing) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
+      if (!['pending', 'confirmed'].includes(existing.status) || existing.check_in_at) throw httpError(409, 'CANCEL_NOT_ALLOWED', 'Only an unchecked pending or confirmed appointment can be cancelled.');
+      const updated = await repository.cancelEligible(appointmentId);
+      if (!updated) throw httpError(409, 'CANCEL_NOT_ALLOWED', 'This appointment can no longer be cancelled.');
+      return appointmentView(updated, appointmentLocalParts(updated.appointment_at, clinic.timeZone).date);
     },
     async queue() {
       const current = now(); const date = clinicDate(current, clinic.timeZone);
