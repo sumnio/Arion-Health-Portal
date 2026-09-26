@@ -1,4 +1,5 @@
 import { httpError } from '../utils/httpError.js';
+import { INPUT_LIMITS } from './inputValidation.js';
 
 const editableFields = new Set([
   'full_name',
@@ -16,7 +17,10 @@ function requiredText(value, field) {
   if (typeof value !== 'string' || !value.trim()) {
     throw httpError(400, 'INVALID_INPUT', `${field} must be non-empty text.`);
   }
-  return value.trim();
+  const result = value.trim();
+  const max = field === 'full_name' ? INPUT_LIMITS.name : field === 'contact_number' ? INPUT_LIMITS.contact : 40;
+  if (result.length > max) throw httpError(400, 'INVALID_INPUT', `${field} must not exceed ${max} characters.`);
+  return result;
 }
 
 function optionalText(value, field) {
@@ -24,7 +28,10 @@ function optionalText(value, field) {
   if (typeof value !== 'string') {
     throw httpError(400, 'INVALID_INPUT', `${field} must be text or null.`);
   }
-  return value.trim() || null;
+  const result = value.trim() || null;
+  const max = field === 'address' ? INPUT_LIMITS.address : field === 'emergency_contact_number' ? INPUT_LIMITS.contact : INPUT_LIMITS.name;
+  if (result && result.length > max) throw httpError(400, 'INVALID_INPUT', `${field} must not exceed ${max} characters.`);
+  return result;
 }
 
 export function validatePatientProfilePatch(body) {
@@ -43,8 +50,11 @@ export function validatePatientProfilePatch(body) {
     if (field === 'full_name' || field === 'contact_number' || field === 'sex') {
       updates[field] = requiredText(body[field], field);
     } else if (field === 'dob') {
-      const dob = new Date(body.dob);
-      if (!body.dob || Number.isNaN(dob.getTime()) || dob > new Date()) {
+      if (typeof body.dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.dob)) {
+        throw httpError(400, 'INVALID_INPUT', 'dob must use YYYY-MM-DD.');
+      }
+      const dob = new Date(`${body.dob}T00:00:00.000Z`);
+      if (Number.isNaN(dob.getTime()) || dob.toISOString().slice(0, 10) !== body.dob || dob > new Date()) {
         throw httpError(400, 'INVALID_INPUT', 'dob must be a valid date that is not in the future.');
       }
       updates.dob = dob;

@@ -1,7 +1,9 @@
-import { AUTH_COOKIE_NAME, authCookieOptions } from '../services/tokenService.js';
+import { AUTH_COOKIE_NAME, authCookieClearOptions, authCookieOptions } from '../services/tokenService.js';
+import { validateEmptyBody } from '../validation/inputValidation.js';
 
 export function createAuthController({ service, nodeEnv }) {
   const cookieOptions = authCookieOptions(nodeEnv);
+  const cookieClearOptions = authCookieClearOptions(nodeEnv);
 
   return {
     async register(request, response) {
@@ -13,13 +15,9 @@ export function createAuthController({ service, nodeEnv }) {
       response.cookie(AUTH_COOKIE_NAME, result.token, cookieOptions);
       response.json({ user: result.user });
     },
-    logout(_request, response) {
-      response.clearCookie(AUTH_COOKIE_NAME, {
-        httpOnly: cookieOptions.httpOnly,
-        secure: cookieOptions.secure,
-        sameSite: cookieOptions.sameSite,
-        path: cookieOptions.path,
-      });
+    logout(request, response) {
+      validateEmptyBody(request.body);
+      response.clearCookie(AUTH_COOKIE_NAME, cookieClearOptions);
       response.json({ success: true });
     },
     me(request, response) {

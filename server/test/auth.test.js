@@ -74,12 +74,12 @@ function createMemoryRepository() {
   };
 }
 
-function createTestContext() {
+function createTestContext(nodeEnv = 'test') {
   const repository = createMemoryRepository();
-  const tokens = createTokenService(TEST_SECRET);
+  const tokens = createTokenService(TEST_SECRET, nodeEnv);
   const service = createAuthService({ repository, passwords: passwordService, tokens });
   const app = createApp(
-    { nodeEnv: 'test', authSecret: TEST_SECRET },
+    { nodeEnv, authSecret: TEST_SECRET },
     { authModule: { service, tokens } },
   );
   return { app, repository };
@@ -230,6 +230,9 @@ test('valid shared login returns a safe profile and establishes an HttpOnly cook
     assert.match(cookie, /^arion_auth=/);
     assert.match(cookie, /HttpOnly/i);
     assert.match(cookie, /SameSite=Lax/i);
+    assert.match(cookie, /Max-Age=28800/i);
+    assert.match(cookie, /Path=\//i);
+    assert.doesNotMatch(cookie, /;\s*Secure/i);
     const body = await response.json();
     assert.deepEqual(Object.keys(body.user).sort(), [
       'display_name',
@@ -327,10 +330,40 @@ test('logout clears authentication and the cleared cookie cannot access /me', as
     assert.deepEqual(await logout.json(), { success: true });
     const clearedCookie = logout.headers.get('set-cookie');
     assert.match(clearedCookie, /^arion_auth=;/);
+    assert.match(clearedCookie, /HttpOnly/i);
+    assert.match(clearedCookie, /SameSite=Lax/i);
+    assert.match(clearedCookie, /Path=\//i);
+    assert.match(clearedCookie, /Expires=Thu, 01 Jan 1970 00:00:00 GMT/i);
+    assert.doesNotMatch(clearedCookie, /;\s*Secure/i);
 
     const me = await request(baseUrl, '/api/auth/me', {
       cookie: clearedCookie.split(';')[0],
     });
     assert.equal(me.status, 401);
+  });
+});
+
+test('production authentication cookie and logout clearing both use Secure', async () => {
+  const { app } = createTestContext('production');
+  await withServer(app, async (baseUrl) => {
+    await request(baseUrl, '/api/auth/register', { method: 'POST', body: validRegistration });
+    const login = await request(baseUrl, '/api/auth/login', {
+      method: 'POST',
+      body: { email: validRegistration.email, password: validRegistration.password },
+    });
+    const cookie = login.headers.get('set-cookie');
+    assert.match(cookie, /;\s*Secure/i);
+    assert.match(cookie, /HttpOnly/i);
+    assert.match(cookie, /SameSite=Lax/i);
+    assert.match(cookie, /Max-Age=28800/i);
+    const logout = await request(baseUrl, '/api/auth/logout', {
+      method: 'POST',
+      cookie: cookie.split(';')[0],
+    });
+    const cleared = logout.headers.get('set-cookie');
+    assert.match(cleared, /;\s*Secure/i);
+    assert.match(cleared, /SameSite=Lax/i);
+    assert.match(cleared, /Path=\//i);
+    assert.match(cleared, /Expires=Thu, 01 Jan 1970 00:00:00 GMT/i);
   });
 });

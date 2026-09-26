@@ -1,5 +1,5 @@
 import { httpError } from '../utils/httpError.js';
-import { appointmentLocalParts, clinicDate, addDays, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
+import { appointmentLocalParts, clinicDate, addDays, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
 import { validateObjectId } from '../validation/appointmentValidation.js';
 import { validatePriority, validateWalkInAppointment, validateWalkInPatient } from '../validation/staffOperationsValidation.js';
 
@@ -31,7 +31,7 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
   return {
     async appointments(dateValue) {
       const date = dateValue || clinicDate(now(), clinic.timeZone);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw httpError(400, 'INVALID_DATE', 'date must use YYYY-MM-DD.');
+      if (!isValidDateOnly(date)) throw httpError(400, 'INVALID_DATE', 'date must use a valid YYYY-MM-DD value.');
       const start = zonedDateTimeToUtc(date, '00:00', clinic.timeZone);
       const end = zonedDateTimeToUtc(addDays(date, 1), '00:00', clinic.timeZone);
       return (await repository.listAppointmentsBetween(start, end)).map((item) => appointmentView(item, date));
@@ -45,7 +45,7 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
     },
     async searchPatients(search = '') {
       const today = clinicDate(now(), clinic.timeZone);
-      return (await repository.searchPatients(String(search))).map((item) => patientView(item, today));
+      return (await repository.searchPatients(search)).map((item) => patientView(item, today));
     },
     async registerWalkIn(body) {
       const input = validateWalkInPatient(body, now());
@@ -82,6 +82,7 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
       if (!existing) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
       if (!['pending', 'confirmed'].includes(existing.status)) throw httpError(409, 'PRIORITY_NOT_ALLOWED', 'Priority cannot be changed for this appointment.');
       const updated = await repository.updatePriorityEligible(appointmentId, priority);
+      if (!updated) throw httpError(409, 'PRIORITY_NOT_ALLOWED', 'Priority can no longer be changed for this appointment.');
       return { id: id(updated), priority: updated.priority };
     },
     async markNoShow(appointmentId) {

@@ -21,11 +21,15 @@ import { createAdminAccountRouter } from './routes/adminAccountRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createRateLimiters, RATE_LIMIT_DEFAULTS } from './middleware/rateLimiters.js';
+import { parseCorsOrigins } from './config/env.js';
 
-function corsOptions(origin) {
+export function corsOptions(origins) {
+  const allowed = new Set(origins);
   return {
     origin(requestOrigin, callback) {
-      if (!requestOrigin || requestOrigin === origin) return callback(null, true);
+      // Requests without Origin are intentionally allowed for health checks,
+      // API tools, and server-to-server calls. Browser origins must be listed.
+      if (!requestOrigin || allowed.has(requestOrigin)) return callback(null, true);
       return callback(Object.assign(new Error('Origin is not allowed by CORS.'), { status: 403, code: 'CORS_DENIED' }));
     },
     credentials: true,
@@ -43,6 +47,7 @@ function securityHeadersOptions(nodeEnv) {
 export function createApp(
   {
     corsOrigin = 'http://127.0.0.1:5173',
+    corsOrigins,
     nodeEnv = 'development',
     authSecret = '',
     enableAuthorizationProbes = false,
@@ -60,10 +65,11 @@ export function createApp(
   } = {},
   dependencies = {},
 ) {
+  const trustedOrigins = corsOrigins ?? parseCorsOrigins(corsOrigin, nodeEnv);
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet(securityHeadersOptions(nodeEnv)));
-  app.use(cors(corsOptions(corsOrigin)));
+  app.use(cors(corsOptions(trustedOrigins)));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(cookieParser());
   const rateLimiters = dependencies.rateLimiters ?? createRateLimiters({
@@ -74,7 +80,7 @@ export function createApp(
     adminProvisionWindowMs: adminProvisionRateLimitWindowMs,
     adminProvisionMax: adminProvisionRateLimitMax,
   });
-  const authModule = dependencies.authModule ?? createAuthModule({ authSecret });
+  const authModule = dependencies.authModule ?? createAuthModule({ authSecret, nodeEnv });
   const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({
     clinic: {
       timeZone: clinicTimeZone,

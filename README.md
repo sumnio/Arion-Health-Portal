@@ -48,7 +48,11 @@ npm install
 copy .env.example .env
 ```
 
-Set `MONGODB_URI` in `server/.env` to a development MongoDB connection string. Generate a long random `AUTH_SECRET` for signing authentication JWTs. Keep that file local; `.env` files are ignored by Git. Do not place credentials or a real secret in `.env.example`.
+Set `MONGODB_URI` in `server/.env` to a development MongoDB connection string. Generate a unique random `AUTH_SECRET` of at least 32 characters for signing authentication JWTs. Placeholder and weak secrets are rejected outside tests, and the server never generates a replacement automatically. Keep that file local; `.env` files are ignored by Git. Do not place credentials or a real secret in `.env.example`.
+
+`CORS_ORIGIN` is a comma-separated allowlist of exact trusted browser origins, for example `http://127.0.0.1:5173,http://localhost:5173`. Entries must be origin-only HTTP(S) URLs. Wildcards, credentials in URLs, paths, malformed values, and empty entries are rejected. Credentialed browser requests receive CORS access only when their Origin is listed. Requests without an Origin header remain available for health checks, API tools, and server-to-server requests.
+
+The root frontend environment may expose only public `VITE_` values. `VITE_API_BASE_URL` is public and expected. Never add MongoDB URIs, authentication secrets, passwords, private keys, Admin bootstrap credentials, or backend tokens to root frontend environment files or a `VITE_` variable.
 
 Set `CLINIC_LOCATION` to the real clinic address before issuing certificates. If it is omitted, certificate views show a clear “Clinic location not configured” value instead of fake clinic information.
 
@@ -58,7 +62,7 @@ Then run:
 npm run dev
 ```
 
-The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Available endpoints include:
+The API starts only after required configuration passes validation and MongoDB connects. `NODE_ENV` must be `development`, `test`, or `production`; production additionally requires an explicit `CORS_ORIGIN`. Available endpoints include:
 
 - `GET /api/health`
 - `POST /api/auth/register`
@@ -115,13 +119,21 @@ The API starts only after `AUTH_SECRET` is configured and MongoDB connects. Avai
 - `PATCH /api/admin/patients/:patientId/deactivate`
 - `PATCH /api/admin/patients/:patientId/reactivate`
 
-Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
+Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. The `arion_auth` cookie is host-only with `HttpOnly`, `SameSite=Lax`, `Path=/`, and an eight-hour lifetime. It is not readable by frontend JavaScript. Local/test HTTP uses `Secure=false`; production always uses `Secure=true` and therefore requires HTTPS. Logout clears the cookie with matching path, SameSite, and Secure behavior. A cookie Domain is intentionally unset. Final reverse-proxy configuration, HTTPS termination, cookie domain needs, and Express `trust proxy` must be decided from the actual hosting architecture during deployment; `trust proxy` remains disabled for now.
+
+Backend tests use an ephemeral HTTP port and isolated repositories, so they do not require a live database:
 
 ```sh
 npm test
 ```
 
 Backend authorization uses reusable authentication, active-account, role, permission, and ownership middleware. Unauthenticated requests return 401; authenticated requests denied by account status, role, permission, or ownership return 403. Admin permissions are limited to account management, Staff permissions remain operational, and Doctor clinical actions still require feature-specific assignment checks. Internal authorization probe routes are disabled during normal API operation.
+
+Backend request validation uses explicit allowlists for mutation bodies and list queries. Server-owned identifiers, roles, account/appointment/certificate statuses, certificate numbers, creator links, password hashes, and ownership links cannot be supplied through unrelated actions. ObjectIds are validated before repository access; search text is limited to 100 characters; list limits are capped at 50; passwords are capped at 128 characters; prescriptions and allergies are capped at 20 entries; and narrative fields use endpoint-appropriate length bounds. Object/operator-style query values and unknown query keys are rejected. State-transition endpoints such as cancel, confirm, check-in, no-show, consultation completion, account lifecycle, logout, and availability deletion accept no request fields.
+
+Validation and authorization are separate controls. Every protected route still requires authentication, active-account enforcement, its approved role or permission, and ownership/assignment checks where applicable. Repositories receive normalized fields instead of raw HTTP bodies or queries. Client errors use structured, non-sensitive responses; unexpected failures do not disclose stack traces, database details, credentials, hashes, or protected signature paths.
+
+Milestone 23.3 completed a route-by-route authorization and input audit across Patient, Doctor, Staff, and Admin APIs. The audit retained the approved role boundaries and immutable clinical-resource rules while adding focused regression coverage for cross-user access, all inactive roles, protected fields, malformed identifiers, unsafe queries, and state-transition abuse.
 
 Patient routes resolve ownership from the authenticated UserProfile and never accept a Patient ID for self-service operations. Appointment creation produces `pending` appointments, uses canonical visit types, and requires an explicitly published, unblocked, unoccupied 30-minute slot within 14 days. Patients may cancel only their own future pending or confirmed appointments before check-in and before a MedicalRecord exists; cancellation preserves the record. Checked-in, recorded, completed, cancelled, and no-show appointments reject Patient cancellation. The Staff confirmation endpoint only permits pending-to-confirmed.
 
@@ -160,7 +172,7 @@ npm run validate:admin-api
 - `server/src/config`: environment and MongoDB connection setup.
 - `server/src/models`, `server/src/repositories`: Mongoose domain models and persistence adapters.
 - `server/src/controllers`, `server/src/routes`: health, authentication, Patient, Doctor scheduling/clinical, Staff operations, and Admin account endpoints.
-- `server/src/services`, `server/src/validation`: password/token logic, authorization policy, Patient/appointment business rules, and request validation.
+- `server/src/services`, `server/src/validation`: password/token logic, authorization policy, Patient/appointment business rules, shared input limits, field allowlists, query validation, and request normalization.
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, authentication, authorization, feature API, and HTTP security tests.
 

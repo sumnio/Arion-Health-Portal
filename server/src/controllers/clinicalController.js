@@ -1,3 +1,5 @@
+import { validateEmptyBody } from '../validation/inputValidation.js';
+
 export function createDoctorClinicalController({ clinicalService }) {
   return {
     async appointments(request, response) {
@@ -23,6 +25,7 @@ export function createDoctorClinicalController({ clinicalService }) {
       response.json({ medical_certificate: await clinicalService.getDoctorCertificate(request.authUser.user_profile_id, request.params.certificateId) });
     },
     async complete(request, response) {
+      validateEmptyBody(request.body);
       response.json({ appointment: await clinicalService.completeConsultation(request.authUser.user_profile_id, request.params.appointmentId) });
     },
   };

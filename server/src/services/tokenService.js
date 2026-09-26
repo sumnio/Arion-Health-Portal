@@ -1,19 +1,15 @@
 import jwt from 'jsonwebtoken';
+import { requireAuthSecret } from '../config/env.js';
+
+export { requireAuthSecret } from '../config/env.js';
 
 export const AUTH_COOKIE_NAME = 'arion_auth';
 export const AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60;
 
-export function requireAuthSecret(secret) {
-  if (!secret?.trim()) {
-    throw new Error('AUTH_SECRET is required. Add it to server/.env before starting the API.');
-  }
-  return secret.trim();
-}
-
-export function createTokenService(secret) {
+export function createTokenService(secret, nodeEnv = 'development') {
   return {
     sign(userProfileId) {
-      return jwt.sign({}, requireAuthSecret(secret), {
+      return jwt.sign({}, requireAuthSecret(secret, nodeEnv), {
         subject: String(userProfileId),
         expiresIn: AUTH_TOKEN_TTL_SECONDS,
         issuer: 'arion-health-api',
@@ -21,7 +17,7 @@ export function createTokenService(secret) {
       });
     },
     verify(token) {
-      return jwt.verify(token, requireAuthSecret(secret), {
+      return jwt.verify(token, requireAuthSecret(secret, nodeEnv), {
         issuer: 'arion-health-api',
         audience: 'arion-health-portal',
       });
@@ -37,4 +33,9 @@ export function authCookieOptions(nodeEnv = 'development') {
     maxAge: AUTH_TOKEN_TTL_SECONDS * 1000,
     path: '/',
   };
+}
+
+export function authCookieClearOptions(nodeEnv = 'development') {
+  const { maxAge: _maxAge, ...options } = authCookieOptions(nodeEnv);
+  return options;
 }

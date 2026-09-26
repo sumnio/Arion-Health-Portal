@@ -85,9 +85,10 @@ async function main() {
 
   const cookies = new Map();
   for (const role of roles) {
+    const { email, password: loginPassword } = credentials.get(role);
     const login = await api(baseUrl, '/api/auth/login', {
       method: 'POST',
-      body: credentials.get(role),
+      body: { email, password: loginPassword },
     });
     assert.equal(login.status, 200);
     cookies.set(role, login.headers.get('set-cookie').split(';')[0]);
@@ -120,6 +121,52 @@ async function main() {
     );
   }
 
+  const protectedFieldAttempt = await api(baseUrl, '/api/patient/profile', {
+    method: 'PATCH',
+    cookie: cookies.get('patient'),
+    body: { role: 'admin', user_profile_id: credentials.get('admin').profileId },
+  });
+  assert.equal(protectedFieldAttempt.status, 400);
+  assert.equal((await protectedFieldAttempt.json()).error.code, 'RESTRICTED_FIELD');
+
+  const invalidObjectId = await api(baseUrl, '/api/patient/appointments/not-an-object-id', {
+    cookie: cookies.get('patient'),
+  });
+  assert.equal(invalidObjectId.status, 400);
+
+  const operatorSearch = await api(baseUrl, '/api/staff/patients?search[$ne]=x', {
+    cookie: cookies.get('staff'),
+  });
+  assert.equal(operatorSearch.status, 400);
+  assert.equal((await operatorSearch.json()).error.code, 'INVALID_QUERY');
+
+  const oversizedPage = await api(baseUrl, '/api/admin/doctors?limit=999', {
+    cookie: cookies.get('admin'),
+  });
+  assert.equal(oversizedPage.status, 400);
+  assert.equal((await oversizedPage.json()).error.code, 'INVALID_QUERY');
+
+  const validButUnrelatedId = '000000000000000000000001';
+  assert.equal(
+    (
+      await api(baseUrl, `/api/doctor/appointments/${validButUnrelatedId}/medical-record`, {
+        method: 'POST',
+        cookie: cookies.get('staff'),
+        body: { diagnosis: 'Unauthorized' },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await api(baseUrl, `/api/doctor/appointments/${validButUnrelatedId}/complete`, {
+        method: 'PATCH',
+        cookie: cookies.get('admin'),
+      })
+    ).status,
+    403,
+  );
+
   const patientProfileId = credentials.get('patient').profileId;
   await UserProfile.updateOne({ _id: patientProfileId }, { status: 'inactive' });
   assert.equal(
@@ -149,8 +196,13 @@ async function main() {
       doctorCompletionPolicy: true,
       staffCompletionDenied: true,
       adminClinicalEditDenied: true,
+      protectedFieldInjectionRejected: true,
+      invalidObjectIdRejected: true,
+      operatorSearchRejected: true,
+      unsafePaginationRejected: true,
       inactiveCookieDenied: true,
       reactivationRestoredAccess: true,
+      finalHealth: (await api(baseUrl, '/api/health')).status,
       cleanup: 'pending',
     }),
   );

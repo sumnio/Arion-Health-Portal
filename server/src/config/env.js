@@ -4,6 +4,21 @@ import { fileURLToPath } from 'node:url';
 const envPath = fileURLToPath(new URL('../../.env', import.meta.url));
 dotenv.config({ path: envPath, quiet: true });
 
+export const AUTH_SECRET_MIN_LENGTH = 32;
+export const DEFAULT_DEVELOPMENT_ORIGIN = 'http://127.0.0.1:5173';
+const allowedNodeEnvironments = new Set(['development', 'test', 'production']);
+const placeholderSecrets = new Set([
+  'secret',
+  'changeme',
+  'change-me',
+  'replace-me',
+  'your-secret',
+  'your-auth-secret',
+  'default-secret',
+  'development-secret',
+  'example-secret',
+]);
+
 function parsePort(value) {
   const port = Number(value ?? 5000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -20,12 +35,74 @@ function parsePositiveInteger(value, fallback, name) {
   return result;
 }
 
+function parseNodeEnvironment(value) {
+  const nodeEnv = value?.trim() || 'development';
+  if (!allowedNodeEnvironments.has(nodeEnv)) {
+    throw new Error('NODE_ENV must be development, test, or production.');
+  }
+  return nodeEnv;
+}
+
+function normalizeTrustedOrigin(value) {
+  if (!value || value === '*') throw new Error('CORS_ORIGIN must contain explicit trusted origins.');
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error('CORS_ORIGIN contains an invalid origin.');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.origin !== value) {
+    throw new Error('CORS_ORIGIN entries must use origin-only HTTP or HTTPS URLs.');
+  }
+  return parsed.origin;
+}
+
+export function parseCorsOrigins(value, nodeEnv = 'development') {
+  const raw = value?.trim();
+  if (!raw) {
+    if (nodeEnv === 'production') throw new Error('CORS_ORIGIN is required in production.');
+    return [DEFAULT_DEVELOPMENT_ORIGIN];
+  }
+  const entries = raw.split(',').map(item => item.trim());
+  if (entries.some(item => !item)) throw new Error('CORS_ORIGIN must not contain empty entries.');
+  return [...new Set(entries.map(normalizeTrustedOrigin))];
+}
+
+export function requireAuthSecret(secret, nodeEnv = 'development') {
+  const value = secret?.trim();
+  if (!value) throw new Error('AUTH_SECRET is required. Add it to server/.env before starting the API.');
+  if (nodeEnv !== 'test') {
+    const normalized = value.toLowerCase();
+    if (
+      value.length < AUTH_SECRET_MIN_LENGTH ||
+      placeholderSecrets.has(normalized) ||
+      normalized.includes('replace-with') ||
+      /[<>]/.test(value)
+    ) {
+      throw new Error(`AUTH_SECRET must be a non-placeholder value of at least ${AUTH_SECRET_MIN_LENGTH} characters.`);
+    }
+  }
+  return value;
+}
+
+export function validateRuntimeConfig(config) {
+  if (!config?.mongoUri) throw new Error('MONGODB_URI is required. Add it to server/.env before starting the API.');
+  requireAuthSecret(config.authSecret, config.nodeEnv);
+  if (!Array.isArray(config.corsOrigins) || !config.corsOrigins.length) {
+    throw new Error('CORS_ORIGIN must contain at least one trusted origin.');
+  }
+  return config;
+}
+
 export function loadConfig(environment = process.env) {
+  const nodeEnv = parseNodeEnvironment(environment.NODE_ENV);
+  const corsOrigins = parseCorsOrigins(environment.CORS_ORIGIN, nodeEnv);
   return {
     port: parsePort(environment.PORT),
-    nodeEnv: environment.NODE_ENV || 'development',
+    nodeEnv,
     mongoUri: environment.MONGODB_URI?.trim() || '',
-    corsOrigin: environment.CORS_ORIGIN?.trim() || 'http://127.0.0.1:5173',
+    corsOrigin: corsOrigins[0],
+    corsOrigins,
     authSecret: environment.AUTH_SECRET?.trim() || '',
     clinicTimeZone: environment.CLINIC_TIME_ZONE?.trim() || 'Asia/Manila',
     clinicOpenTime: environment.CLINIC_OPEN_TIME?.trim() || '',

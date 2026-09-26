@@ -2,6 +2,7 @@ import { generateCertificateNumber } from '../utils/certificateNumber.js';
 import { httpError } from '../utils/httpError.js';
 import {
   validateCertificateCreate,
+  validateDoctorAppointmentQuery,
   validateClinicalObjectId,
   validateMedicalRecordCreate,
 } from '../validation/clinicalValidation.js';
@@ -81,6 +82,7 @@ export function createClinicalService({ repository, clinic, now = () => new Date
 
   return {
     async listDoctorAppointments(profileId, filters = {}) {
+      filters = validateDoctorAppointmentQuery(filters);
       const doctor = await doctorFor(profileId);
       let start;
       let end;

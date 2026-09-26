@@ -20,12 +20,14 @@ function createContext() {
       },
     ]),
   );
-  profiles.set('inactive-profile', {
-    user_profile_id: 'inactive-profile',
-    display_name: 'Inactive Patient',
-    role: 'patient',
-    status: 'inactive',
-  });
+  for (const role of ['patient', 'doctor', 'staff', 'admin']) {
+    profiles.set(`inactive-${role}-profile`, {
+      user_profile_id: `inactive-${role}-profile`,
+      display_name: `Inactive ${role}`,
+      role,
+      status: 'inactive',
+    });
+  }
   profiles.set('unknown-role-profile', {
     user_profile_id: 'unknown-role-profile',
     display_name: 'Unknown Role',
@@ -157,12 +159,18 @@ test('only Doctor policy permits clinical creation and consultation completion',
   });
 });
 
-test('inactive account is rejected with 403 even when its JWT remains valid', async () => {
+test('every inactive role is rejected even when its JWT remains valid', async () => {
   const { app, cookie } = createContext();
   await withServer(app, async (baseUrl) => {
-    const response = await get(baseUrl, '/api/authz-test/role/patient', cookie('inactive-profile'));
-    assert.equal(response.status, 403);
-    assert.equal((await response.json()).error.code, 'ACCOUNT_INACTIVE');
+    for (const role of ['patient', 'doctor', 'staff', 'admin']) {
+      const response = await get(
+        baseUrl,
+        `/api/authz-test/role/${role}`,
+        cookie(`inactive-${role}-profile`),
+      );
+      assert.equal(response.status, 403);
+      assert.equal((await response.json()).error.code, 'ACCOUNT_INACTIVE');
+    }
   });
 });
 

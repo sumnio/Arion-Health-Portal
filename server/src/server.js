@@ -1,13 +1,11 @@
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
-import { loadConfig } from './config/env.js';
+import { loadConfig, validateRuntimeConfig } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
-import { requireAuthSecret } from './services/tokenService.js';
 import './models/index.js';
 
 async function start() {
-  const config = loadConfig();
-  requireAuthSecret(config.authSecret);
+  const config = validateRuntimeConfig(loadConfig());
   await connectDatabase(config.mongoUri);
 
   const server = createServer(createApp(config));
@@ -28,7 +26,7 @@ async function start() {
   process.once('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-start().catch(error => {
-  console.error('API startup failed:', error.message);
+start().catch(() => {
+  console.error('API startup failed. Check backend configuration and database availability.');
   process.exitCode = 1;
 });

@@ -425,3 +425,17 @@ test('/api/health still returns 200 with Patient routes mounted', async () => {
   const { app } = createContext();
   await withServer(app, async (url) => assert.equal((await request(url, '/api/health')).status, 200));
 });
+
+test('Patient cancellation rejects direct status and ownership fields', async () => {
+  const { app, cookie, appointments } = createContext();
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, {
+      method: 'PATCH',
+      cookie: cookie(ids.patientProfile),
+      body: { status: 'completed', patient_id: ids.otherPatient },
+    });
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error.code, 'UNSUPPORTED_FIELD');
+    assert.equal(appointments.get(ids.pending).status, 'pending');
+  });
+});

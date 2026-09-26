@@ -4,6 +4,7 @@ import {
   SLOT_TIME_PATTERN,
 } from '../utils/schedulingTime.js';
 import { validateObjectId } from './appointmentValidation.js';
+import { INPUT_LIMITS, validateQueryKeys } from './inputValidation.js';
 
 function objectBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -73,9 +74,12 @@ export function validatePublishedCreate(body) {
 export function validateBlockedCreate(body) {
   objectBody(body);
   rejectUnsupported(body, ['start_at', 'end_at', 'reason']);
+  if (typeof body.start_at !== 'string' || typeof body.end_at !== 'string' || body.start_at.length > 64 || body.end_at.length > 64) {
+    throw httpError(400, 'INVALID_DATE_TIME', 'start_at and end_at must be valid date/time strings.');
+  }
   const startAt = new Date(body.start_at);
   const endAt = new Date(body.end_at);
-  if (!body.start_at || Number.isNaN(startAt.getTime()) || !body.end_at || Number.isNaN(endAt.getTime())) {
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
     throw httpError(400, 'INVALID_DATE_TIME', 'start_at and end_at must be valid date/time values.');
   }
   if (startAt >= endAt) {
@@ -83,6 +87,9 @@ export function validateBlockedCreate(body) {
   }
   if (typeof body.reason !== 'string' || !body.reason.trim()) {
     throw httpError(400, 'INVALID_INPUT', 'reason is required.');
+  }
+  if (body.reason.trim().length > INPUT_LIMITS.reason) {
+    throw httpError(400, 'INVALID_INPUT', `reason must not exceed ${INPUT_LIMITS.reason} characters.`);
   }
   return { start_at: startAt, end_at: endAt, reason: body.reason.trim() };
 }
@@ -97,4 +104,12 @@ export function validateSlotQuery(date, doctorId) {
     throw httpError(400, 'INVALID_DATE', 'date query parameter must use YYYY-MM-DD.');
   }
   return { date, doctor_id: doctorId };
+}
+
+export function validateSlotQueryParameters(query) {
+  validateQueryKeys(query, new Set(['date']));
+  if (Array.isArray(query.date) || (query.date != null && typeof query.date !== 'string')) {
+    throw httpError(400, 'INVALID_QUERY', 'date must be a single YYYY-MM-DD value.');
+  }
+  return query.date;
 }

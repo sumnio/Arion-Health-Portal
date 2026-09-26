@@ -47,6 +47,40 @@ test('credentialed CORS remains enabled for the configured frontend origin', asy
   });
 });
 
+test('credentialed CORS accepts each explicit trusted origin', async () => {
+  const origins = ['http://127.0.0.1:5173', 'http://localhost:5173'];
+  await withServer({ corsOrigins: origins }, async baseUrl => {
+    for (const origin of origins) {
+      const response = await fetch(`${baseUrl}/api/health`, { headers: { Origin: origin } });
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('access-control-allow-origin'), origin);
+      assert.equal(response.headers.get('access-control-allow-credentials'), 'true');
+    }
+  });
+});
+
+test('untrusted browser origin is safely denied without exposing the allowlist', async () => {
+  await withServer({ corsOrigins: ['http://127.0.0.1:5173'] }, async baseUrl => {
+    const response = await fetch(`${baseUrl}/api/health`, {
+      headers: { Origin: 'https://untrusted.example.test' },
+    });
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get('access-control-allow-origin'), null);
+    const body = await response.json();
+    assert.equal(body.error.code, 'CORS_DENIED');
+    assert.doesNotMatch(JSON.stringify(body), /127\.0\.0\.1|localhost/);
+    assert.equal((await fetch(`${baseUrl}/api/health`)).status, 200);
+  });
+});
+
+test('requests without Origin remain available to API tools and health checks', async () => {
+  await withServer({ corsOrigins: ['http://127.0.0.1:5173'] }, async baseUrl => {
+    const response = await fetch(`${baseUrl}/api/health`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('access-control-allow-origin'), null);
+  });
+});
+
 test('malformed JSON returns a safe 400 and the server remains available', async () => {
   await withServer({}, async baseUrl => {
     const response = await fetch(`${baseUrl}/api/auth/login`, {

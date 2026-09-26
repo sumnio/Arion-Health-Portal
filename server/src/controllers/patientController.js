@@ -1,3 +1,6 @@
+import { validateEmptyBody } from '../validation/inputValidation.js';
+import { validateSlotQueryParameters } from '../validation/schedulingValidation.js';
+
 export function createPatientController({ patientService, appointmentService }) {
   return {
     async profile(request, response) {
@@ -24,7 +27,7 @@ export function createPatientController({ patientService, appointmentService }) 
     async availableSlots(request, response) {
       const result = await appointmentService.getAvailableSlots(
         request.params.doctorId,
-        request.query.date,
+        validateSlotQueryParameters(request.query),
       );
       response.json(result);
     },
@@ -49,6 +52,7 @@ export function createPatientController({ patientService, appointmentService }) 
     },
 
     async cancelAppointment(request, response) {
+      validateEmptyBody(request.body);
       const appointment = await appointmentService.cancelForPatient(
         request.authUser.user_profile_id,
         request.params.appointmentId,

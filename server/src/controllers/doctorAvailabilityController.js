@@ -1,3 +1,5 @@
+import { validateEmptyBody } from '../validation/inputValidation.js';
+
 export function createDoctorAvailabilityController({ doctorAvailabilityService }) {
   return {
     async listRecurring(request, response) {
@@ -10,6 +12,7 @@ export function createDoctorAvailabilityController({ doctorAvailabilityService }
       response.json({ availability: await doctorAvailabilityService.updateRecurring(request.authUser.user_profile_id, request.params.id, request.body) });
     },
     async deleteRecurring(request, response) {
+      validateEmptyBody(request.body);
       response.json(await doctorAvailabilityService.deleteRecurring(request.authUser.user_profile_id, request.params.id));
     },
     async listPublished(request, response) {
@@ -19,6 +22,7 @@ export function createDoctorAvailabilityController({ doctorAvailabilityService }
       response.status(201).json({ published_availability: await doctorAvailabilityService.createPublished(request.authUser.user_profile_id, request.body) });
     },
     async deletePublished(request, response) {
+      validateEmptyBody(request.body);
       response.json(await doctorAvailabilityService.deletePublished(request.authUser.user_profile_id, request.params.id));
     },
     async listBlocked(request, response) {
@@ -28,6 +32,7 @@ export function createDoctorAvailabilityController({ doctorAvailabilityService }
       response.status(201).json({ blocked_time: await doctorAvailabilityService.createBlocked(request.authUser.user_profile_id, request.body) });
     },
     async deleteBlocked(request, response) {
+      validateEmptyBody(request.body);
       response.json(await doctorAvailabilityService.deleteBlocked(request.authUser.user_profile_id, request.params.id));
     },
   };

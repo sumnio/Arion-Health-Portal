@@ -4,7 +4,7 @@ import express from 'express';
 import { createApp } from '../src/app.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 import { requireMongoUri } from '../src/config/database.js';
-import { loadConfig } from '../src/config/env.js';
+import { loadConfig, parseCorsOrigins, validateRuntimeConfig } from '../src/config/env.js';
 import { requireAuthSecret } from '../src/services/tokenService.js';
 
 async function withServer(app, check) {
@@ -64,7 +64,40 @@ test('MongoDB configuration fails clearly when the URI is missing', () => {
 
 test('authentication configuration requires a signing secret', () => {
   assert.throws(() => requireAuthSecret(''), /AUTH_SECRET is required/);
-  assert.equal(requireAuthSecret(' test-secret '), 'test-secret');
+  assert.throws(() => requireAuthSecret('change-me'), /non-placeholder/);
+  assert.throws(() => requireAuthSecret('short-development-secret'), /at least 32/);
+  assert.equal(requireAuthSecret(' test-secret ', 'test'), 'test-secret');
+  assert.equal(
+    requireAuthSecret('strong-random-development-secret-123456789'),
+    'strong-random-development-secret-123456789',
+  );
+});
+
+test('runtime configuration validates required values without exposing them', () => {
+  const valid = loadConfig({
+    NODE_ENV: 'production',
+    MONGODB_URI: 'mongodb://private-host/arion',
+    AUTH_SECRET: 'strong-production-secret-1234567890',
+    CORS_ORIGIN: 'https://portal.example.test',
+  });
+  assert.equal(validateRuntimeConfig(valid), valid);
+  assert.throws(
+    () => validateRuntimeConfig(loadConfig({ AUTH_SECRET: 'strong-development-secret-123456789', CORS_ORIGIN: 'http://127.0.0.1:5173' })),
+    error => !error.message.includes('strong-development-secret') && !error.message.includes('mongodb://'),
+  );
+  assert.throws(() => loadConfig({ NODE_ENV: 'staging' }), /NODE_ENV/);
+  assert.throws(() => loadConfig({ NODE_ENV: 'production', CORS_ORIGIN: '' }), /CORS_ORIGIN/);
+});
+
+test('CORS configuration accepts normalized allowlists and rejects unsafe entries', () => {
+  assert.deepEqual(
+    parseCorsOrigins(' http://127.0.0.1:5173, http://localhost:5173 '),
+    ['http://127.0.0.1:5173', 'http://localhost:5173'],
+  );
+  assert.deepEqual(parseCorsOrigins(undefined, 'development'), ['http://127.0.0.1:5173']);
+  for (const value of ['*', 'http://localhost:5173,', 'not-a-url', 'http://user:pass@localhost:5173', 'http://localhost:5173/path']) {
+    assert.throws(() => parseCorsOrigins(value), /CORS_ORIGIN/);
+  }
 });
 
 test('unconfigured clinic location never falls back to fake clinic data', () => {

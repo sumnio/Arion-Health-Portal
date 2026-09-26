@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { APPOINTMENT_VISIT_TYPES } from '../models/index.js';
 import { httpError } from '../utils/httpError.js';
+import { INPUT_LIMITS } from './inputValidation.js';
 import {
   addDays,
   appointmentLocalParts,
@@ -33,9 +34,15 @@ export function validateAppointmentCreate(body, now = new Date(), timeZone = 'As
   if (typeof body.reason !== 'string' || !body.reason.trim()) {
     throw httpError(400, 'INVALID_INPUT', 'reason is required.');
   }
+  if (body.reason.trim().length > INPUT_LIMITS.reason) {
+    throw httpError(400, 'INVALID_INPUT', `reason must not exceed ${INPUT_LIMITS.reason} characters.`);
+  }
 
+  if (typeof body.appointment_at !== 'string' || body.appointment_at.length > 64) {
+    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time string.');
+  }
   const appointmentAt = new Date(body.appointment_at);
-  if (!body.appointment_at || Number.isNaN(appointmentAt.getTime())) {
+  if (Number.isNaN(appointmentAt.getTime())) {
     throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time.');
   }
   if (appointmentAt <= now) {
