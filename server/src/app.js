@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { healthRouter } from './routes/healthRoutes.js';
 import { createAuthRouter } from './routes/authRoutes.js';
 import { createAuthorizationProbeRouter } from './routes/authorizationProbeRoutes.js';
@@ -30,6 +31,14 @@ function corsOptions(origin) {
   };
 }
 
+export const JSON_BODY_LIMIT = '100kb';
+
+function securityHeadersOptions(nodeEnv) {
+  // Local development uses plain HTTP. Production keeps Helmet's HSTS default
+  // and must be served through an HTTPS-aware deployment/proxy.
+  return nodeEnv === 'production' ? {} : { strictTransportSecurity: false };
+}
+
 export function createApp(
   {
     corsOrigin = 'http://127.0.0.1:5173',
@@ -46,8 +55,9 @@ export function createApp(
 ) {
   const app = express();
   app.disable('x-powered-by');
+  app.use(helmet(securityHeadersOptions(nodeEnv)));
   app.use(cors(corsOptions(corsOrigin)));
-  app.use(express.json());
+  app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(cookieParser());
   const authModule = dependencies.authModule ?? createAuthModule({ authSecret });
   const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({

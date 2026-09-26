@@ -45,6 +45,7 @@ Always read:
 - Issued certificate PDFs are available in authenticated Doctor and Patient flows. PDF content must use authorized certificate responses and must never expose `Doctor.signature_path` or introduce a public certificate route.
 - Staff operational APIs may search/register Patients, create same-day walk-in Appointments, confirm, check in, set canonical priority, mark eligible no-shows, and read the waiting queue. Staff must not complete consultations or receive detailed clinical content.
 - Admin account APIs provision Doctor and Staff credentials with server-forced roles and manage active/inactive lifecycle for Doctor, Staff, and linked Patient portal accounts. They never hard-delete identities or expose clinical content.
+- Keep the Express HTTP security baseline intact: disable `X-Powered-By`; apply Helmet before CORS, parsers, and routes; limit JSON bodies to `100kb`; and return safe structured 400/413 parser errors. Do not add URL-encoded parsing unless an approved endpoint needs it. Local HTTP must remain usable, while production HSTS and HTTPS termination must be verified at deployment.
 
 ## Authentication rules
 

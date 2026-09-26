@@ -28,6 +28,8 @@ The normal local development origins are:
 
 Use matching origins when testing cookie authentication. Configure production origins through environment variables; do not hardcode development origins in feature pages.
 
+The Express API applies Helmet's standard security headers before CORS and routes, keeps `X-Powered-By` disabled, and limits JSON request bodies to `100kb`. Malformed JSON returns a structured `400 INVALID_JSON`; oversized JSON returns `413 PAYLOAD_TOO_LARGE`. Both responses use the centralized error format and leave the server available. The API does not accept URL-encoded form bodies, so no URL-encoded parser is installed. Helmet's default CSP is retained because the server exposes JSON APIs rather than frontend HTML. HSTS is disabled for local/non-production HTTP and enabled through Helmet in production; the final HTTPS proxy and HSTS behavior must be verified during deployment.
+
 ```sh
 npm test
 npm run build
@@ -158,7 +160,7 @@ npm run validate:admin-api
 - `server/src/controllers`, `server/src/routes`: health, authentication, Patient, Doctor scheduling/clinical, Staff operations, and Admin account endpoints.
 - `server/src/services`, `server/src/validation`: password/token logic, authorization policy, Patient/appointment business rules, and request validation.
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
-- `server/test`: backend foundation, model, and authentication tests.
+- `server/test`: backend foundation, model, authentication, authorization, feature API, and HTTP security tests.
 
 Feature integrations remain behind frontend services. Frontend authentication and all Patient, Doctor, Staff, and Admin portal features are connected to the backend through the centralized credentialed API client. Admin integration uses the existing account-management APIs for dashboard totals, paginated search, provisioning, approved profile updates, and active/inactive lifecycle changes. Staff integration adds safe Staff-only appointment/calendar, active Doctor directory, basic Patient detail, and cancellation endpoints; detailed clinical data remains unavailable, while the dedicated record-summary endpoint returns only encounter, Doctor, and diagnosis summary. The Doctor integration adds `GET /api/doctor/appointments` for an ownership-scoped schedule/current-consultation projection; it accepts optional date and Patient filters and never accepts a client-selected Doctor identity.
 

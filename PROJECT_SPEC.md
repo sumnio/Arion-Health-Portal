@@ -8,6 +8,16 @@ Frontend authentication now uses the backend API through a centralized credentia
 
 Milestone 22 integration is complete. Production React modules use role-specific API repositories and services over the centralized `apiClient`; they do not import or fall back to legacy mock data. The remaining `src/mocks` and legacy in-memory repositories/services are retained only as deterministic fixtures for pre-integration unit coverage and are excluded from the production module graph.
 
+## HTTP security baseline
+
+The Express API applies Helmet globally before CORS, body parsing, and routes. Helmet's standard protections, including content-type sniffing, frame, referrer, and default Content Security Policy headers, are retained. The API serves JSON rather than frontend HTML, so it does not define a separate complex frontend CSP. `X-Powered-By` remains disabled.
+
+JSON request bodies are limited to `100kb`, which supports the approved authentication, profile, scheduling, appointment, clinical, and account-management payloads without permitting unnecessarily large requests. The API does not consume URL-encoded form bodies, so it does not install an unused URL-encoded parser. Frontend-generated certificate PDFs are downloads derived from authorized JSON responses and are unaffected by the JSON request limit.
+
+Malformed JSON returns `400 INVALID_JSON`, and JSON exceeding the limit returns `413 PAYLOAD_TOO_LARGE`. Both use the centralized safe error envelope, expose no stack trace or internals, and do not terminate the server. Credentialed CORS continues to use the configured frontend origin.
+
+Local and test environments keep HSTS disabled so `localhost` and `127.0.0.1` HTTP development remain usable. Production keeps Helmet's HSTS default. Final HTTPS termination, proxy trust, and HSTS behavior require deployment-level verification before release.
+
 ## Clinical API status
 
 The assigned active Doctor may create one MedicalRecord for a confirmed Appointment through `POST /api/doctor/appointments/:appointmentId/medical-record`. Patient and Doctor IDs are resolved from the Appointment and authenticated Doctor; clients cannot choose them. Zero or more validated Prescriptions are created with the MedicalRecord. MongoDB transactions are used when supported, with explicit cleanup fallback for development deployments that do not support transactions.
