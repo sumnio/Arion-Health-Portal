@@ -7,13 +7,13 @@ import {
   validateRegistrationRequest,
 } from '../middleware/validateAuthRequest.js';
 
-export function createAuthRouter({ service, tokens, nodeEnv }) {
+export function createAuthRouter({ service, tokens, nodeEnv, rateLimiters }) {
   const router = Router();
   const controller = createAuthController({ service, nodeEnv });
   const requireAuth = createRequireAuth({ tokens, service });
 
-  router.post('/register', validateRegistrationRequest, controller.register);
-  router.post('/login', validateLoginRequest, controller.login);
+  router.post('/register', rateLimiters.registerRateLimiter, validateRegistrationRequest, controller.register);
+  router.post('/login', rateLimiters.loginRateLimiter, validateLoginRequest, controller.login);
   router.post('/logout', controller.logout);
   router.get('/me', requireAuth, requireActiveUser, controller.me);
 

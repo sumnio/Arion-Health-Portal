@@ -18,6 +18,20 @@ Malformed JSON returns `400 INVALID_JSON`, and JSON exceeding the limit returns 
 
 Local and test environments keep HSTS disabled so `localhost` and `127.0.0.1` HTTP development remain usable. Production keeps Helmet's HSTS default. Final HTTPS termination, proxy trust, and HSTS behavior require deployment-level verification before release.
 
+### Targeted abuse protection
+
+The API applies independent in-memory IP rate limiters to sensitive write endpoints rather than a global limiter that could disrupt dashboards, schedules, or queue refreshes:
+
+- `POST /api/auth/login`: 10 failed attempts per 15 minutes. Successful logins do not consume this failure budget.
+- `POST /api/auth/register`: 5 requests per 60 minutes.
+- `POST /api/admin/doctors` and `POST /api/admin/staff`: one shared budget of 20 authenticated Admin provisioning requests per 15 minutes.
+
+Thresholds and windows are configurable through the documented `AUTH_LOGIN_RATE_LIMIT_*`, `AUTH_REGISTER_RATE_LIMIT_*`, and `ADMIN_PROVISION_RATE_LIMIT_*` environment variables. Exceeding a limit returns `429 RATE_LIMITED` with the generic message “Too many requests. Please try again later.” and standard rate-limit/`Retry-After` headers. The response does not identify an account, client IP, or internal limiter key. The frontend replaces all 429 details with the friendly message “Too many attempts. Please try again later.”
+
+Admin authentication, active-account, role, and permission checks run before the provisioning limiter. Rate limiting supplements authorization and never replaces it. Unknown-email, wrong-password, and inactive-account login attempts retain the same `401 INVALID_CREDENTIALS` response until the shared client limit is reached.
+
+This MVP protection is process-local and temporary: it adds no database failure counters, permanent account lockout, password-policy change, password reset, or MFA. IP rate limiting depends on correct production proxy configuration. Express `trust proxy` remains unchanged for direct local clients; the hosting proxy chain, shared production rate-limit store, and proxy-aware client-IP behavior must be selected and validated during deployment hardening.
+
 ## Clinical API status
 
 The assigned active Doctor may create one MedicalRecord for a confirmed Appointment through `POST /api/doctor/appointments/:appointmentId/medical-record`. Patient and Doctor IDs are resolved from the Appointment and authenticated Doctor; clients cannot choose them. Zero or more validated Prescriptions are created with the MedicalRecord. MongoDB transactions are used when supported, with explicit cleanup fallback for development deployments that do not support transactions.

@@ -20,6 +20,7 @@ import { createAdminAccountModule } from './services/adminAccountModule.js';
 import { createAdminAccountRouter } from './routes/adminAccountRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { createRateLimiters, RATE_LIMIT_DEFAULTS } from './middleware/rateLimiters.js';
 
 function corsOptions(origin) {
   return {
@@ -50,6 +51,12 @@ export function createApp(
     clinicCloseTime = '',
     clinicName = 'Arion Health Clinic',
     clinicLocation = 'Clinic location not configured',
+    loginRateLimitWindowMs = RATE_LIMIT_DEFAULTS.loginWindowMs,
+    loginRateLimitMax = RATE_LIMIT_DEFAULTS.loginMax,
+    registerRateLimitWindowMs = RATE_LIMIT_DEFAULTS.registerWindowMs,
+    registerRateLimitMax = RATE_LIMIT_DEFAULTS.registerMax,
+    adminProvisionRateLimitWindowMs = RATE_LIMIT_DEFAULTS.adminProvisionWindowMs,
+    adminProvisionRateLimitMax = RATE_LIMIT_DEFAULTS.adminProvisionMax,
   } = {},
   dependencies = {},
 ) {
@@ -59,6 +66,14 @@ export function createApp(
   app.use(cors(corsOptions(corsOrigin)));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(cookieParser());
+  const rateLimiters = dependencies.rateLimiters ?? createRateLimiters({
+    loginWindowMs: loginRateLimitWindowMs,
+    loginMax: loginRateLimitMax,
+    registerWindowMs: registerRateLimitWindowMs,
+    registerMax: registerRateLimitMax,
+    adminProvisionWindowMs: adminProvisionRateLimitWindowMs,
+    adminProvisionMax: adminProvisionRateLimitMax,
+  });
   const authModule = dependencies.authModule ?? createAuthModule({ authSecret });
   const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({
     clinic: {
@@ -77,7 +92,7 @@ export function createApp(
   const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic });
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   app.use('/api/health', healthRouter);
-  app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv }));
+  app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv, rateLimiters }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
   app.use('/api/doctor', createDoctorClinicalRouter({ authModule, clinicalModule }));
   app.use(
@@ -90,7 +105,7 @@ export function createApp(
     createStaffAppointmentRouter({ authModule, patientAppointmentModule }),
   );
   app.use('/api/staff', createStaffOperationsRouter({ authModule, staffOperationsModule }));
-  app.use('/api/admin', createAdminAccountRouter({ authModule, adminAccountModule }));
+  app.use('/api/admin', createAdminAccountRouter({ authModule, adminAccountModule, rateLimiters }));
   if (enableAuthorizationProbes) {
     app.use('/api/authz-test', createAuthorizationProbeRouter(authModule));
   }

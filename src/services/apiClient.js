@@ -10,6 +10,8 @@ export class ApiError extends Error {
   }
 }
 
+export const RATE_LIMIT_MESSAGE = 'Too many attempts. Please try again later.';
+
 export function apiErrorMessage(error, {
   fallback = 'The request could not be completed. Please try again.',
   forbidden = 'You do not have access to this operation.',
@@ -21,6 +23,7 @@ export function apiErrorMessage(error, {
   if (error.status === 401) return 'Your session has expired. Please log in again.';
   if (error.status === 403) return forbidden;
   if (error.status === 404) return notFound;
+  if (error.status === 429) return RATE_LIMIT_MESSAGE;
   if ([400, 409].includes(error.status)) return error.message || fallback;
   return fallback;
 }
@@ -57,7 +60,7 @@ export function createApiClient({ baseUrl = API_BASE_URL, fetchImpl = globalThis
     const payload = contentType.includes('application/json') ? await response.json() : null;
     if (!response.ok) {
       const error = new ApiError(
-        payload?.error?.message || 'The request could not be completed. Please try again.',
+        response.status === 429 ? RATE_LIMIT_MESSAGE : payload?.error?.message || 'The request could not be completed. Please try again.',
         { status: response.status, code: payload?.error?.code || 'REQUEST_FAILED', details: payload?.error?.details ?? null },
       );
       if (response.status === 401 && !skipUnauthorizedHandling) unauthorizedHandler?.(error);

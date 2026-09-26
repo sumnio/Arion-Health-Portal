@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { ApiError } from '../src/services/apiClient.js';
+import { ApiError, RATE_LIMIT_MESSAGE } from '../src/services/apiClient.js';
 import { createAdminApiRepository } from '../src/repositories/adminApiRepository.js';
 import { adminApiErrorMessage, createAdminApiService } from '../src/services/adminApiService.js';
 
@@ -55,4 +55,5 @@ test('Admin pages use the live service without mock service imports or destructi
 test('Admin duplicate and lifecycle errors are presented safely', () => {
   assert.equal(adminApiErrorMessage(new ApiError('internal duplicate detail', { status: 409, code: 'EMAIL_ALREADY_REGISTERED' })), 'That email is already registered.');
   assert.equal(adminApiErrorMessage(new ApiError('forbidden', { status: 403 })), 'You do not have access to this Admin operation.');
+  assert.equal(adminApiErrorMessage(new ApiError('internal limiter detail', { status: 429, code: 'RATE_LIMITED' })), RATE_LIMIT_MESSAGE);
 });

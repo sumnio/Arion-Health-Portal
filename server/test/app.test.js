@@ -72,3 +72,26 @@ test('unconfigured clinic location never falls back to fake clinic data', () => 
   assert.equal(config.clinicLocation, 'Clinic location not configured');
   assert.doesNotMatch(config.clinicLocation, /mock|wellness avenue/i);
 });
+
+test('rate-limit configuration has safe defaults and validates positive integers', () => {
+  const defaults = loadConfig({});
+  assert.equal(defaults.loginRateLimitWindowMs, 900_000);
+  assert.equal(defaults.loginRateLimitMax, 10);
+  assert.equal(defaults.registerRateLimitWindowMs, 3_600_000);
+  assert.equal(defaults.registerRateLimitMax, 5);
+  assert.equal(defaults.adminProvisionRateLimitWindowMs, 900_000);
+  assert.equal(defaults.adminProvisionRateLimitMax, 20);
+
+  const configured = loadConfig({
+    AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: '1000',
+    AUTH_LOGIN_RATE_LIMIT_MAX: '2',
+    AUTH_REGISTER_RATE_LIMIT_WINDOW_MS: '2000',
+    AUTH_REGISTER_RATE_LIMIT_MAX: '3',
+    ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS: '3000',
+    ADMIN_PROVISION_RATE_LIMIT_MAX: '4',
+  });
+  assert.equal(configured.loginRateLimitMax, 2);
+  assert.equal(configured.registerRateLimitMax, 3);
+  assert.equal(configured.adminProvisionRateLimitMax, 4);
+  assert.throws(() => loadConfig({ AUTH_LOGIN_RATE_LIMIT_MAX: '0' }), /positive integer/);
+});

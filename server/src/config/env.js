@@ -12,6 +12,14 @@ function parsePort(value) {
   return port;
 }
 
+function parsePositiveInteger(value, fallback, name) {
+  const result = value == null || value === '' ? fallback : Number(value);
+  if (!Number.isInteger(result) || result < 1) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return result;
+}
+
 export function loadConfig(environment = process.env) {
   return {
     port: parsePort(environment.PORT),
@@ -24,5 +32,11 @@ export function loadConfig(environment = process.env) {
     clinicCloseTime: environment.CLINIC_CLOSE_TIME?.trim() || '',
     clinicName: environment.CLINIC_NAME?.trim() || 'Arion Health Clinic',
     clinicLocation: environment.CLINIC_LOCATION?.trim() || 'Clinic location not configured',
+    loginRateLimitWindowMs: parsePositiveInteger(environment.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000, 'AUTH_LOGIN_RATE_LIMIT_WINDOW_MS'),
+    loginRateLimitMax: parsePositiveInteger(environment.AUTH_LOGIN_RATE_LIMIT_MAX, 10, 'AUTH_LOGIN_RATE_LIMIT_MAX'),
+    registerRateLimitWindowMs: parsePositiveInteger(environment.AUTH_REGISTER_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000, 'AUTH_REGISTER_RATE_LIMIT_WINDOW_MS'),
+    registerRateLimitMax: parsePositiveInteger(environment.AUTH_REGISTER_RATE_LIMIT_MAX, 5, 'AUTH_REGISTER_RATE_LIMIT_MAX'),
+    adminProvisionRateLimitWindowMs: parsePositiveInteger(environment.ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000, 'ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS'),
+    adminProvisionRateLimitMax: parsePositiveInteger(environment.ADMIN_PROVISION_RATE_LIMIT_MAX, 20, 'ADMIN_PROVISION_RATE_LIMIT_MAX'),
   };
 }

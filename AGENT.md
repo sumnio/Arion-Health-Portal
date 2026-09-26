@@ -46,6 +46,7 @@ Always read:
 - Staff operational APIs may search/register Patients, create same-day walk-in Appointments, confirm, check in, set canonical priority, mark eligible no-shows, and read the waiting queue. Staff must not complete consultations or receive detailed clinical content.
 - Admin account APIs provision Doctor and Staff credentials with server-forced roles and manage active/inactive lifecycle for Doctor, Staff, and linked Patient portal accounts. They never hard-delete identities or expose clinical content.
 - Keep the Express HTTP security baseline intact: disable `X-Powered-By`; apply Helmet before CORS, parsers, and routes; limit JSON bodies to `100kb`; and return safe structured 400/413 parser errors. Do not add URL-encoded parsing unless an approved endpoint needs it. Local HTTP must remain usable, while production HSTS and HTTPS termination must be verified at deployment.
+- Preserve targeted abuse protection: login allows 10 failed attempts per 15 minutes, registration allows 5 requests per 60 minutes, and authenticated Admin Doctor/Staff provisioning shares 20 requests per 15 minutes. Return safe `429 RATE_LIMITED` responses, keep normal reads unthrottled, and never treat rate limiting as a substitute for authorization. Do not enable `trust proxy` until the deployment proxy chain is verified.
 
 ## Authentication rules
 

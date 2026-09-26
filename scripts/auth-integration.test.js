@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ApiError, createApiClient } from '../src/services/apiClient.js';
+import { ApiError, createApiClient, RATE_LIMIT_MESSAGE } from '../src/services/apiClient.js';
 import { createAuthService } from '../src/services/authService.js';
 import { getProtectedRouteDecision, getRoleDashboard } from '../src/auth/authRouting.js';
 
@@ -35,6 +35,20 @@ test('API client produces a safe network error', async () => {
     assert.equal(error.message, 'Unable to connect to the server. Please try again.');
     return true;
   });
+});
+
+test('API client replaces login and registration 429 details with a safe retry message', async () => {
+  const client = createApiClient({
+    fetchImpl: async () => jsonResponse({ error: { code: 'RATE_LIMITED', message: 'internal limiter detail' } }, 429),
+  });
+  for (const path of ['/api/auth/login', '/api/auth/register']) {
+    await assert.rejects(client.request(path, { method: 'POST', body: {} }), (error) => {
+      assert.equal(error.status, 429);
+      assert.equal(error.code, 'RATE_LIMITED');
+      assert.equal(error.message, RATE_LIMIT_MESSAGE);
+      return true;
+    });
+  }
 });
 
 test('login uses the real endpoint and returns the safe backend user', async () => {
