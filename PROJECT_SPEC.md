@@ -441,7 +441,7 @@ Milestone 23.3 completed an audit of every mounted backend route, mutation allow
 
 ## Dependency-security baseline
 
-- The 2026-09-26 dependency audit checked the frontend and backend manifests and lockfiles independently with `npm audit`. Both reported zero known vulnerabilities: 0 critical, 0 high, 0 moderate, and 0 low.
+- The 2026-09-27 dependency audit checked the frontend and backend manifests and lockfiles independently with `npm audit`. Both reported zero known vulnerabilities: 0 critical, 0 high, 0 moderate, and 0 low.
 - Every direct frontend and backend package has confirmed code, build, test, or development usage. Milestone 23.7 added maintained `otplib` for RFC-compatible TOTP generation/verification and `qrcode` for enrollment QR rendering; neither package reports a deprecation marker.
 - Both installed dependency trees pass `npm ls --depth=0`. Direct package metadata reports recognized permissive licenses and no deprecation markers. This is a point-in-time result and must be repeated as advisories and package metadata change.
 - Milestone 23 changed the root and server lockfiles only for reviewed MFA dependencies and their transitive packages. Milestone 24.1 subsequently added `@playwright/test` as a root development dependency for browser E2E infrastructure. The post-install frontend and backend audits report zero known vulnerabilities. Unrelated framework upgrades remain deferred to a separately tested maintenance update.
@@ -473,7 +473,7 @@ Each test creates independent disposable `e2e-` identities and complete linked d
 
 Cleanup is relationship-scoped to the exact E2E Patient, Doctor, UserProfile, appointment, record, Prescription, certificate, and availability IDs. UI-created appointments are found through their disposable Patient/Doctor links before removal. No broad collection deletion is permitted. The Patient certificate test verifies the browser-generated PDF download filename and `%PDF` file signature; lower-level PDF tests continue to validate detailed document content.
 
-Full Doctor, Staff, and Admin browser journey suites remain outside Milestone 24.2.
+Doctor, Staff, and Admin coverage was subsequently completed in Milestones 24.3–24.5.
 
 ## Doctor end-to-end journey baseline
 
@@ -481,7 +481,7 @@ Milestone 24.3 extends the Playwright Chromium suite with real Doctor journeys c
 
 The suite exercises Browser -> React -> Express -> MongoDB without route interception or frontend mocks. Doctor credentials are created through the existing production hashing boundary, test dates are derived from `Asia/Manila`, and database assertions confirm that successful and rejected UI/service actions preserve the expected state. Each test owns unique `e2e-` identities and removes only records linked to those identities.
 
-Staff and Admin full browser journey suites remain outside Milestone 24.3.
+Staff and Admin coverage was subsequently completed in Milestones 24.4 and 24.5.
 
 ## Staff end-to-end journey baseline
 
@@ -491,7 +491,7 @@ The suite exercises Browser -> React -> Express -> MongoDB without route interce
 
 Staff record access is verified against the approved limited projection: Patient name, encounter time, attending Doctor, and diagnosis summary remain visible while detailed notes, Prescriptions, certificate content, MedicalRecord creation, certificate issuance, and consultation completion remain unavailable. Completion is performed only through an authenticated assigned-Doctor boundary and removes the appointment from the active Staff queue.
 
-Every Staff test creates independent `e2e-` identities and removes only records linked to those exact Staff, Patient, Doctor, appointment, record, Prescription, certificate, and availability identities. Admin full browser journeys remain deferred to a later milestone.
+Every Staff test creates independent `e2e-` identities and removes only records linked to those exact Staff, Patient, Doctor, appointment, record, Prescription, certificate, and availability identities. Admin browser coverage was subsequently completed in Milestone 24.5.
 
 ## Admin and MFA end-to-end journey baseline
 
@@ -501,7 +501,7 @@ Disposable Admin UserProfiles and AuthAccounts use the production password hashi
 
 Doctor and Staff lifecycle journeys verify server-forced roles, hashed credentials, approved profile updates, inactive login denial, reactivation, stable role-profile IDs, and rejection of protected-field updates. Patient journeys verify real search, status filtering, pagination, stable Patient identity, inactive login denial, reactivation, preserved MedicalRecord history, and no lifecycle action for a walk-in whose `user_profile_id` is null. Admin remains unable to create MedicalRecords, issue certificates, complete consultations, or open Doctor clinical pages.
 
-Each test owns unique `e2e-` identities. Admin-provisioned accounts are added to the scenario by exact email and role-profile relationship before teardown, and cleanup never deletes broadly or touches permanent Admin accounts. The deeper cross-role security matrix remains reserved for Milestone 24.6.
+Each test owns unique `e2e-` identities. Admin-provisioned accounts are added to the scenario by exact email and role-profile relationship before teardown, and cleanup never deletes broadly or touches permanent Admin accounts. The cross-role security matrix was completed in Milestone 24.6.
 
 Structured security-event payloads remain covered by the backend security-logging regression suite because the Playwright-managed API process does not expose a safe in-process log collector. The E2E journeys exercise the corresponding login, MFA, provisioning, and lifecycle events without capturing console output that could contain operational metadata.
 
@@ -512,3 +512,15 @@ Milestone 24.6 completes the browser security matrix against the real React -> E
 Browser-context API attempts cover protected identity and lifecycle fields, role escalation, creator spoofing, certificate-number spoofing, malformed identifiers, wrong scalar types, operator-shaped queries, and non-empty bodies on server-owned state transitions. Rejected requests must return a safe 4xx response, preserve MongoDB state, expose no credentials or protected signature path, and cause no page error or unexpected 500 response. Patient and Admin sessions continue to use HttpOnly cookies with no token material in local or session storage.
 
 The intentional MFA rate-limit exhaustion remains the final E2E test so it cannot contaminate later Admin journeys. Exact scenario cleanup removes only generated E2E relationships. CORS allowlist behavior, structured security-event contents, detailed cookie attributes, and exhaustive limiter behavior remain deterministic backend-test responsibilities; the browser suite exercises their surrounding authenticated flows without weakening them.
+
+## Milestone 24 final regression and deployment readiness
+
+Milestones 24.1 through 24.7 are complete. The final Milestone 24.7 pass ran the 48-test Chromium suite three consecutive times with zero retries and no failures. A headed-browser smoke also covered Patient login and booking, Doctor schedule and clinical detail, Staff queue and Patient search, and Admin MFA plus account management. Every run used the real React -> Express -> MongoDB path.
+
+All 12 dedicated E2E database collections returned to zero records after each full run. No disposable AuthAccounts, UserProfiles, Patients, Doctors, Staff profiles, Appointments, scheduling records, MedicalRecords, Prescriptions, or MedicalCertificates remained. No orphan identities or clinical children, E2E listeners, browser processes, reports, screenshots, traces, videos, PDF downloads, or temporary MFA artifacts remained after validation. The Admin enrollment test continues to disable screenshots and traces because it displays a one-time setup secret.
+
+The final frontend suite passes 102 tests, the backend suite passes 231 tests, the production frontend build succeeds, and both dependency audits report zero vulnerabilities. Production source and bundle scans contain no backend credentials, connection strings, private keys, JWT literals, E2E credentials, or Playwright/E2E imports. Legacy mock modules remain deterministic unit fixtures and are excluded from the production module graph.
+
+Production configuration requires `MONGODB_URI`, a unique `AUTH_SECRET`, a base64 32-byte `MFA_ENCRYPTION_KEY`, explicit `CORS_ORIGIN` values, the public frontend `VITE_API_BASE_URL`, `CLINIC_TIME_ZONE`, and a real `CLINIC_LOCATION`. `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` remain optional until approved clinic hours are configured. Secrets belong in the deployment secret store and must never use a frontend `VITE_` variable.
+
+Milestone 25: Deployment is next. It must resolve environment-specific HTTPS termination, reverse-proxy and `trust proxy` behavior, host/domain cookie behavior, distributed rate-limit storage if horizontally scaled, durable security-log transport and retention, monitoring and alerts, firewall/WAF controls, MongoDB backups and recovery testing, production secrets management, real clinic location, and final production timezone confirmation. Deployment itself is outside Milestone 24.

@@ -164,7 +164,7 @@ The logged IP is Express's current direct request IP. `trust proxy` remains disa
 
 ### Dependency security
 
-The frontend and backend dependency trees were audited independently on 2026-09-26. Both `npm audit` runs reported zero known vulnerabilities at critical, high, moderate, and low severity. All direct packages have confirmed runtime, build, test, or development usage; both top-level installation trees are valid; no direct package is marked deprecated; and no unused or redundant package was found.
+The frontend and backend dependency trees were audited independently on 2026-09-27. Both `npm audit` runs reported zero known vulnerabilities at critical, high, moderate, and low severity. All direct packages have confirmed runtime, build, test, or development usage; both top-level installation trees are valid; no direct package is marked deprecated; and no unused or redundant package was found.
 
 The Milestone 23 audit required no remediation package change. Milestone 24.1 later added `@playwright/test` as a root development dependency and updated the root lockfile for browser E2E infrastructure; the post-install frontend and backend audits remain clean. Vite has a routine compatible patch available, while dotenv and Mongoose have newer major releases; none addresses a current audit finding, so these remain candidates for a separate maintenance change with compatibility testing. Keep both lockfiles committed, audit the two workspaces separately, and never use `npm audit fix --force` or accept breaking major upgrades without review.
 
@@ -283,3 +283,15 @@ Milestone 24.6 adds misuse-oriented Playwright coverage under `e2e/security/`. I
 The suite also covers protected-field and role-escalation attempts, client-supplied creator and certificate-number spoofing, malformed ObjectIds, scalar/object/operator-style query abuse, unexpected bodies on state transitions, browser token-storage absence, safe 4xx responses, and representative response secret filtering. The lightweight MFA abuse test runs last under `e2e/zz-security/` so its intentional in-memory limiter exhaustion cannot affect other journeys.
 
 Run this coverage with `npx playwright test e2e/security`. Credentialed CORS rejection, structured security-log payloads, detailed HTTP cookie attributes, and the complete rate-limiter matrix remain in backend tests where they can be asserted deterministically without fragile external-origin browser behavior.
+
+### Milestone 24 completion and deployment readiness
+
+Milestones 24.1, 24.2, 24.3, 24.4, 24.5, 24.6, and 24.7 are complete. The final readiness pass ran all 48 Playwright tests successfully three consecutive times with retries disabled locally, then passed headed Chromium smoke journeys for Patient booking, Doctor clinical detail, Staff queue and Patient search, and Admin MFA/account management.
+
+Each full run returned every collection in `arion_health_e2e` to zero records. Final cleanup also confirmed no E2E listeners on ports 5000 or 5173, no Playwright or E2E Node processes, and no retained report, screenshot, trace, video, PDF, or MFA enrollment artifact. The MFA enrollment spec keeps trace and screenshot capture disabled.
+
+The final verification result is 102/102 frontend tests, 231/231 backend tests, a successful production build, and zero vulnerabilities in both dependency audits. Production source and bundle scans found no embedded backend secrets, connection strings, private keys, JWT literals, E2E credentials, or Playwright/E2E imports. Retained legacy mocks remain unreachable from the production entry graph.
+
+Required production configuration is documented in the environment setup above: `MONGODB_URI`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, explicit `CORS_ORIGIN`, public `VITE_API_BASE_URL`, `CLINIC_TIME_ZONE`, and `CLINIC_LOCATION`; optional `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` enable clinic-hour enforcement when approved values are known.
+
+Milestone 25: Deployment is next. Deployment planning must finalize HTTPS termination, reverse-proxy and `trust proxy` configuration, host/domain cookie behavior, shared rate-limit storage if the API is scaled horizontally, durable security logs and retention, monitoring/alerts, firewall/WAF controls, MongoDB backup and recovery, production secret management, the real clinic location, and the final production timezone.
