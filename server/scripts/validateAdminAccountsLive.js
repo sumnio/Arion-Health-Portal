@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import { generate } from 'otplib';
 import { createApp } from '../src/app.js';
 import { connectDatabase, disconnectDatabase } from '../src/config/database.js';
 import { loadConfig } from '../src/config/env.js';
@@ -10,15 +11,30 @@ import { requireAuthSecret } from '../src/services/tokenService.js';
 const config = loadConfig(); const marker = randomUUID().replaceAll('-', '');
 const profileIds = [], patientIds = [], doctorIds = [], staffIds = []; let server;
 async function api(base, path, { method = 'GET', body, cookie } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}) }, body: body ? JSON.stringify(body) : undefined }); }
+function responseCookie(response, name) { const values = response.headers.getSetCookie?.() ?? [response.headers.get('set-cookie')]; return values.find(value => value?.startsWith(`${name}=`))?.split(';')[0] ?? ''; }
 async function seedAccount(role, label, email, password) { const profile = await UserProfile.create({ display_name: label, contact_number: `09${Date.now().toString().slice(-9)}`, role, status: 'active' }); profileIds.push(profile._id); await AuthAccount.create({ user_profile_id: profile._id, email, password_hash: await bcrypt.hash(password, 12) }); return profile; }
-async function login(base, email, password) { const response = await api(base, '/api/auth/login', { method: 'POST', body: { email, password } }); assert.equal(response.status, 200); return response.headers.get('set-cookie').split(';')[0]; }
+async function login(base, email, password, { admin = false } = {}) {
+  const response = await api(base, '/api/auth/login', { method: 'POST', body: { email, password } });
+  assert.equal(response.status, 200);
+  if (!admin) return responseCookie(response, 'arion_auth');
+  assert.equal((await response.json()).status, 'MFA_SETUP_REQUIRED');
+  const challenge = responseCookie(response, 'arion_mfa_challenge');
+  assert.ok(challenge);
+  const setup = await api(base, '/api/auth/mfa/setup', { method: 'POST', cookie: challenge });
+  assert.equal(setup.status, 200);
+  const enrollment = await setup.json();
+  const code = await generate({ secret: enrollment.manual_key });
+  const verification = await api(base, '/api/auth/mfa/verify-setup', { method: 'POST', cookie: challenge, body: { code } });
+  assert.equal(verification.status, 200);
+  return responseCookie(verification, 'arion_auth');
+}
 
 async function main() {
   requireAuthSecret(config.authSecret); await connectDatabase(config.mongoUri); await Promise.all([AuthAccount.init(), Doctor.init(), Staff.init(), Patient.init()]);
   const password = `AdminApi-${marker.slice(0, 16)}!`; const adminEmail = `admin-api-${marker}@example.invalid`;
   await seedAccount('admin', 'Disposable Admin API', adminEmail, password);
   const app = createApp(config); server = app.listen(0, '127.0.0.1'); await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
-  const base = `http://127.0.0.1:${server.address().port}`; assert.equal((await api(base, '/api/health')).status, 200); const adminCookie = await login(base, adminEmail, password);
+  const base = `http://127.0.0.1:${server.address().port}`; assert.equal((await api(base, '/api/health')).status, 200); const adminCookie = await login(base, adminEmail, password, { admin: true });
 
   const doctorEmail = `doctor-admin-api-${marker}@example.invalid`;
   const doctorCreate = await api(base, '/api/admin/doctors', { method: 'POST', cookie: adminCookie, body: { email: doctorEmail, password, display_name: 'Disposable Provisioned Doctor', contact_number: '09170001111', specialty: 'Validation', license_number: `LIC-${marker}`, ptr_number: `PTR-${marker}`, signature_path: `protected/${marker}.png` } });

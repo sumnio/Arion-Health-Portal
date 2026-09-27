@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import { generate } from 'otplib';
 import { createApp } from '../src/app.js';
 import { connectDatabase, disconnectDatabase } from '../src/config/database.js';
 import { loadConfig } from '../src/config/env.js';
@@ -28,6 +29,11 @@ async function api(baseUrl, path, { method = 'GET', body, cookie } = {}) {
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
+}
+
+function responseCookie(response, name) {
+  const values = response.headers.getSetCookie?.() ?? [response.headers.get('set-cookie')];
+  return values.find((value) => value?.startsWith(`${name}=`))?.split(';')[0] ?? '';
 }
 
 async function main() {
@@ -91,7 +97,26 @@ async function main() {
       body: { email, password: loginPassword },
     });
     assert.equal(login.status, 200);
-    cookies.set(role, login.headers.get('set-cookie').split(';')[0]);
+    if (role === 'admin') {
+      assert.equal((await login.json()).status, 'MFA_SETUP_REQUIRED');
+      const challenge = responseCookie(login, 'arion_mfa_challenge');
+      assert.ok(challenge);
+      assert.equal((await api(baseUrl, '/api/authz-test/role/admin', { cookie: challenge })).status, 401);
+      const setup = await api(baseUrl, '/api/auth/mfa/setup', { method: 'POST', cookie: challenge });
+      assert.equal(setup.status, 200);
+      const enrollment = await setup.json();
+      const code = await generate({ secret: enrollment.manual_key });
+      const verified = await api(baseUrl, '/api/auth/mfa/verify-setup', {
+        method: 'POST',
+        cookie: challenge,
+        body: { code },
+      });
+      assert.equal(verified.status, 200);
+      cookies.set(role, responseCookie(verified, 'arion_auth'));
+    } else {
+      cookies.set(role, responseCookie(login, 'arion_auth'));
+    }
+    assert.ok(cookies.get(role));
     const allowed = await api(baseUrl, `/api/authz-test/role/${role}`, {
       cookie: cookies.get(role),
     });

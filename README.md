@@ -184,7 +184,16 @@ npm run validate:scheduling
 npm run validate:clinical
 npm run validate:staff-api
 npm run validate:admin-api
+npm run validate:mfa
 ```
+
+### Final security regression status
+
+Milestone 23 is complete. The final 2026-09-26 regression pass verifies the HTTP header/body-limit baseline, targeted rate limiting, request validation, role and ownership authorization, inactive-account denial, appointment state rules, immutable clinical resources, authenticated certificate PDF flows, explicit CORS, hardened cookies, safe structured logging, clean dependency audits, and mandatory Admin TOTP MFA. `server/test/securityRegression.test.js` adds a concrete cross-role attack matrix against the real API route groups and verifies that missing, invalid, and pre-MFA Admin sessions cannot access Admin APIs.
+
+The complete backend and frontend suites, production build, live disposable API validators, and browser role walkthrough must remain green. Disposable validation data is identified by exact generated IDs and removed after each live check. Recovery codes remain deferred; losing an Admin authenticator requires controlled offline operator recovery.
+
+Deployment still requires environment-specific controls that cannot be proven by local tests: HTTPS termination, verified reverse-proxy and `trust proxy` configuration, shared/distributed rate-limit storage when horizontally scaled, persistent security-log transport, retention and access policy, optional alerting/SIEM integration, a cookie domain only if the hosting topology needs one, firewall/WAF and hosting protections, database backups, monitoring, and recovery exercises.
 
 ## Structure
 
