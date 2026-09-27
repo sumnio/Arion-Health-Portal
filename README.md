@@ -38,6 +38,31 @@ npm run build
 npm run preview
 ```
 
+## Browser end-to-end smoke tests
+
+Milestone 24.1 adds Playwright with one Chromium project under `e2e/`. The smoke suite starts the real React frontend and Express API, checks `/api/health`, loads the public login page, and verifies a disposable Patient can log in through the UI, retain the HttpOnly-cookie session after refresh, and log out. It does not use frontend mocks or browser token storage.
+
+Install Chromium once after installing root dependencies:
+
+```sh
+npx playwright install chromium
+```
+
+The default E2E origins are `http://127.0.0.1:5173` and `http://127.0.0.1:5000`. Playwright starts both servers automatically with deterministic ports. Existing servers are not reused by default, which prevents an E2E run from silently targeting a developer database. Stop processes already using those ports, override `E2E_BASE_URL` and `E2E_API_URL`, or set `E2E_REUSE_EXISTING_SERVERS=true` only when both existing servers are already configured for the same E2E database.
+
+Copy `server/.env.e2e.example` to the ignored `server/.env.e2e` when a separate connection is needed. Set `E2E_MONGODB_URI` to a dedicated database whose name contains `e2e`, such as `arion_health_e2e`. If it is omitted, the E2E launcher derives `arion_health_e2e` from the existing ignored `server/.env` `MONGODB_URI`; it never prints the connection string. E2E-only auth and MFA values may be supplied as `E2E_AUTH_SECRET` and `E2E_MFA_ENCRYPTION_KEY`. Test secrets stay server-side and must not use a `VITE_` variable.
+
+Run the smoke suite with:
+
+```sh
+npm run test:e2e
+npm run test:e2e:headed
+```
+
+`npm run test:e2e:ui` is available for local debugging. Local retries are disabled; CI may retry once. Screenshots and traces are retained only for failures in ignored `test-results/` and `playwright-report/` directories.
+
+Patient setup uses the real registration API, so bcrypt hashing, UserProfile/Patient linking, validation, rate limiting, security logging, and cookie behavior stay active. Fixture teardown finds the exact `e2e-patient-…@example.invalid` AuthAccount and removes only its linked Patient and UserProfile. It refuses unmarked accounts. Future role journeys should use the helpers in `e2e/helpers`; Admin tests must keep MFA enabled and provide a server-side TOTP code callback to `loginAsAdmin` rather than exposing an MFA secret to the frontend.
+
 ## Backend foundation
 
 Install and configure the backend independently:
@@ -135,7 +160,7 @@ The logged IP is Express's current direct request IP. `trust proxy` remains disa
 
 The frontend and backend dependency trees were audited independently on 2026-09-26. Both `npm audit` runs reported zero known vulnerabilities at critical, high, moderate, and low severity. All direct packages have confirmed runtime, build, test, or development usage; both top-level installation trees are valid; no direct package is marked deprecated; and no unused or redundant package was found.
 
-No package or lockfile was changed because the audits were clean. Vite has a routine compatible patch available, while dotenv and Mongoose have newer major releases; none addresses a current audit finding, so these remain candidates for a separate maintenance change with compatibility testing. Keep both lockfiles committed, audit the two workspaces separately, and never use `npm audit fix --force` or accept breaking major upgrades without review.
+The Milestone 23 audit required no remediation package change. Milestone 24.1 later added `@playwright/test` as a root development dependency and updated the root lockfile for browser E2E infrastructure; the post-install frontend and backend audits remain clean. Vite has a routine compatible patch available, while dotenv and Mongoose have newer major releases; none addresses a current audit finding, so these remain candidates for a separate maintenance change with compatibility testing. Keep both lockfiles committed, audit the two workspaces separately, and never use `npm audit fix --force` or accept breaking major upgrades without review.
 
 Run the audits from their respective directories:
 
@@ -211,6 +236,7 @@ Deployment still requires environment-specific controls that cannot be proven by
 - `server/src/services`, `server/src/validation`: password/token logic, authorization policy, Patient/appointment business rules, shared input limits, field allowlists, query validation, and request normalization.
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, authentication, authorization, feature API, and HTTP security tests.
+- `e2e`: Playwright smoke specs, browser login helpers, isolated Patient setup, and exact-ID cleanup fixtures.
 
 Feature integrations remain behind frontend services. Frontend authentication and all Patient, Doctor, Staff, and Admin portal features are connected to the backend through the centralized credentialed API client. Admin integration uses the existing account-management APIs for dashboard totals, paginated search, provisioning, approved profile updates, and active/inactive lifecycle changes. Staff integration adds safe Staff-only appointment/calendar, active Doctor directory, basic Patient detail, and cancellation endpoints; detailed clinical data remains unavailable, while the dedicated record-summary endpoint returns only encounter, Doctor, and diagnosis summary. The Doctor integration adds `GET /api/doctor/appointments` for an ownership-scoped schedule/current-consultation projection; it accepts optional date and Patient filters and never accepts a client-selected Doctor identity.
 
