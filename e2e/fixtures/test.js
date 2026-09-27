@@ -3,6 +3,7 @@ import { cleanupTestPatient, createTestPatient } from '../helpers/testData.js';
 import { connectDatabase, disconnectDatabase } from '../../server/src/config/database.js';
 import { getE2eRuntimeConfig } from '../../server/scripts/e2eEnvironment.js';
 import { PatientScenario } from '../helpers/patientScenario.js';
+import { StaffScenario } from '../helpers/staffScenario.js';
 
 export const test = base.extend({
   patientAccount: async ({ request }, use) => {
@@ -28,6 +29,19 @@ export const test = base.extend({
   },
   seededDoctor: async ({ patientScenario }, use) => {
     await use(await patientScenario.createDoctor());
+  },
+  staffScenario: async ({}, use) => {
+    const scenario = new StaffScenario();
+    await connectDatabase(getE2eRuntimeConfig().mongoUri);
+    try {
+      await use(scenario);
+    } finally {
+      await scenario.cleanup();
+      await disconnectDatabase();
+    }
+  },
+  seededStaff: async ({ staffScenario }, use) => {
+    await use(await staffScenario.createStaff());
   },
 });
 

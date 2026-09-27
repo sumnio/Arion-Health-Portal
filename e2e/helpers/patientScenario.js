@@ -86,6 +86,8 @@ export class PatientScenario {
       profileId,
       patientId,
       full_name: data.full_name,
+      contact_number: data.contact_number,
+      dob: data.dob,
     };
   }
 
@@ -153,6 +155,7 @@ export class PatientScenario {
     status = 'pending',
     visit_type = 'general_consultation',
     reason = 'E2E consultation',
+    priority = 'normal',
     check_in_at = null,
   }) {
     const appointment = await Appointment.create({
@@ -162,7 +165,7 @@ export class PatientScenario {
       status,
       visit_type,
       reason,
-      priority: 'normal',
+      priority,
       check_in_at,
       created_by: patient.profileId,
     });

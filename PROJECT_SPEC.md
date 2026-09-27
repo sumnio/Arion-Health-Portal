@@ -482,3 +482,13 @@ Milestone 24.3 extends the Playwright Chromium suite with real Doctor journeys c
 The suite exercises Browser -> React -> Express -> MongoDB without route interception or frontend mocks. Doctor credentials are created through the existing production hashing boundary, test dates are derived from `Asia/Manila`, and database assertions confirm that successful and rejected UI/service actions preserve the expected state. Each test owns unique `e2e-` identities and removes only records linked to those identities.
 
 Staff and Admin full browser journey suites remain outside Milestone 24.3.
+
+## Staff end-to-end journey baseline
+
+Milestone 24.4 extends the Playwright Chromium suite with real Staff journeys for authentication/session restoration, live dashboard and calendar projections, appointment confirmation, Patient search, no-account walk-in registration, duplicate detection, same-day walk-in appointment creation, check-in, queue persistence and ordering, urgent priority updates, the single Senior/PWD tier, no-show transitions, Doctor-owned consultation completion removal, limited record summaries, clinical-action denial, empty states, and logout/protected-route behavior.
+
+The suite exercises Browser -> React -> Express -> MongoDB without route interception or frontend mocks. Staff credentials use complete linked UserProfile, AuthAccount, and Staff records with the production password hashing service. Walk-in Patients retain a null `user_profile_id`, same-day appointments record the authenticated Staff identity in `created_by`, and non-current clinic dates are rejected by the backend. Queue tests use the current `Asia/Manila` clinic date, verify server-derived priority tiers and check-in ordering, and confirm that Senior plus PWD does not receive an extra tier.
+
+Staff record access is verified against the approved limited projection: Patient name, encounter time, attending Doctor, and diagnosis summary remain visible while detailed notes, Prescriptions, certificate content, MedicalRecord creation, certificate issuance, and consultation completion remain unavailable. Completion is performed only through an authenticated assigned-Doctor boundary and removes the appointment from the active Staff queue.
+
+Every Staff test creates independent `e2e-` identities and removes only records linked to those exact Staff, Patient, Doctor, appointment, record, Prescription, certificate, and availability identities. Admin full browser journeys remain deferred to a later milestone.

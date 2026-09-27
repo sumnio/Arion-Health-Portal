@@ -13,7 +13,7 @@ export function normalizeStaffPatient(patient) {
 }
 export function normalizeStaffAppointment(item) {
   const local = clinicDateTimeParts(item.appointment_at); const patient = normalizeStaffPatient(item.patient ?? {});
-  return { ...item, patient, patient_id: patient.id, patientName: patient.full_name ?? 'Patient unavailable', doctor_id: item.doctor?.id, doctorName: item.doctor?.display_name ?? 'Doctor unavailable', date: local.date, time: local.time, timeLabel: formatSlot(local.time), visitLabel: visitLabels[item.visit_type] ?? item.visit_type, tier: item.queue_tier, priorityLabel: item.queue_priority === 'urgent' ? 'Urgent' : item.queue_priority === 'senior_pwd' ? 'Senior / PWD' : 'Normal' };
+  return { ...item, id: item.id ?? item.appointment_id, patient, patient_id: patient.id, patientName: patient.full_name ?? 'Patient unavailable', doctor_id: item.doctor?.id, doctorName: item.doctor?.display_name ?? 'Doctor unavailable', date: local.date, time: local.time, timeLabel: formatSlot(local.time), visitLabel: visitLabels[item.visit_type] ?? item.visit_type, tier: item.queue_tier, priorityLabel: item.queue_priority === 'urgent' ? 'Urgent' : item.queue_priority === 'senior_pwd' ? 'Senior / PWD' : 'Normal' };
 }
 export function staffApiErrorMessage(error, fallback = 'Unable to load Staff data.') {
   return apiErrorMessage(error, { fallback, forbidden: 'You do not have access to this Staff operation.', notFound: fallback });
