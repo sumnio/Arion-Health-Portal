@@ -11,4 +11,7 @@ test('Patient can log in, restore the cookie session, and log out', async ({ pag
 
   await logoutThroughUi(page);
   await expect(page.getByRole('heading', { name: 'Login to Your Account' })).toBeVisible();
+
+  await page.goto('/patient/profile');
+  await expect(page).toHaveURL(/\/login$/);
 });

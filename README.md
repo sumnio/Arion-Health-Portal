@@ -63,6 +63,12 @@ npm run test:e2e:headed
 
 Patient setup uses the real registration API, so bcrypt hashing, UserProfile/Patient linking, validation, rate limiting, security logging, and cookie behavior stay active. Fixture teardown finds the exact `e2e-patient-…@example.invalid` AuthAccount and removes only its linked Patient and UserProfile. It refuses unmarked accounts. Future role journeys should use the helpers in `e2e/helpers`; Admin tests must keep MFA enabled and provide a server-side TOTP code callback to `loginAsAdmin` rather than exposing an MFA secret to the frontend.
 
+Milestone 24.2 adds the Patient journey suite under `e2e/patient/`. It covers login and cookie restoration, profile persistence, published-slot booking and conflict recovery, appointment detail and cancellation, checked-in/recorded/completed cancellation denial, records and Prescriptions, issued certificates and PDF download, empty states, cross-Patient record denial, and logout with protected-route redirect. These tests use the real UI and API; no Patient mock repository is installed in the browser.
+
+Each Patient test owns a `PatientScenario` fixture. Additional accounts are created through the backend authentication repository with the production bcrypt service so repeated setup does not bypass schema/linking rules or exhaust the public registration limiter. Doctors, recurring and published availability, appointments, records, Prescriptions, and certificates are complete Mongoose documents linked to those disposable identities. Dates are generated relative to the current `Asia/Manila` clinic date, and bookable appointments use published 30-minute slots inside the 14-day Patient window.
+
+Scenario teardown follows only the exact generated Patient, Doctor, UserProfile, Appointment, MedicalRecord, Prescription, and MedicalCertificate IDs. It also removes the generated availability ranges and accounts, including appointments created through the browser. The certificate E2E test captures the browser download, verifies its certificate-number filename, and checks the downloaded bytes begin with the PDF signature.
+
 ## Backend foundation
 
 Install and configure the backend independently:

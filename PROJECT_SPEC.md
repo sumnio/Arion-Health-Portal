@@ -464,3 +464,13 @@ E2E execution uses a dedicated MongoDB database whose name contains `e2e`. When 
 The E2E runtime preserves the Milestone 23 security baseline: Helmet, request limits, targeted rate limiting, allowlist validation, role and ownership authorization, explicit CORS, HttpOnly cookies, security logging, and mandatory Admin MFA remain enabled. Admin browser helpers require a TOTP provider backed by test-only server-side enrollment data; the frontend never receives a stored MFA secret. Test-only secrets belong in ignored environment files, and only the public API origin may be passed through `VITE_API_BASE_URL`.
 
 Local Playwright retries remain zero, CI may retry once, and failure-only screenshots/traces are ignored generated artifacts. Chromium is the only configured browser for this infrastructure milestone.
+
+## Patient end-to-end journey baseline
+
+Milestone 24.2 extends the Playwright Chromium suite with real Patient journeys for authentication/session restoration, approved profile updates, published-slot booking, booking conflict handling, appointment persistence/detail/cancellation, cancellation restrictions, record and Prescription viewing, certificate viewing and PDF download, empty states, cross-Patient ownership denial, and logout/protected-route redirect. The tests exercise Browser -> React -> Express -> MongoDB and retain the Milestone 23 validation, authorization, cookie, CORS, logging, request-limit, and rate-limit controls.
+
+Each test creates independent disposable `e2e-` identities and complete linked data. Patient credentials use the production bcrypt password service and authentication repository; the original smoke test continues to exercise the public registration API. Doctor scheduling data includes active recurring and date-specific published availability. Test dates are derived from the current `Asia/Manila` clinic date, and bookable slots retain the approved 30-minute and 14-day rules.
+
+Cleanup is relationship-scoped to the exact E2E Patient, Doctor, UserProfile, appointment, record, Prescription, certificate, and availability IDs. UI-created appointments are found through their disposable Patient/Doctor links before removal. No broad collection deletion is permitted. The Patient certificate test verifies the browser-generated PDF download filename and `%PDF` file signature; lower-level PDF tests continue to validate detailed document content.
+
+Full Doctor, Staff, and Admin browser journey suites remain outside Milestone 24.2.
