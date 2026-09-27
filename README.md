@@ -242,7 +242,7 @@ Deployment still requires environment-specific controls that cannot be proven by
 - `server/src/services`, `server/src/validation`: password/token logic, authorization policy, Patient/appointment business rules, shared input limits, field allowlists, query validation, and request normalization.
 - `server/src/middleware`: authentication, active-account, role, permission, ownership, validation, JSON 404, and centralized error handling.
 - `server/test`: backend foundation, model, authentication, authorization, feature API, and HTTP security tests.
-- `e2e`: Playwright smoke, Patient, Doctor, and Staff journeys with shared browser helpers, complete role-specific scenarios, and exact relationship-scoped cleanup fixtures.
+- `e2e`: Playwright smoke plus Patient, Doctor, Staff, and Admin/MFA journeys with shared browser helpers, complete role-specific scenarios, and exact relationship-scoped cleanup fixtures.
 
 Feature integrations remain behind frontend services. Frontend authentication and all Patient, Doctor, Staff, and Admin portal features are connected to the backend through the centralized credentialed API client. Admin integration uses the existing account-management APIs for dashboard totals, paginated search, provisioning, approved profile updates, and active/inactive lifecycle changes. Staff integration adds safe Staff-only appointment/calendar, active Doctor directory, basic Patient detail, and cancellation endpoints; detailed clinical data remains unavailable, while the dedicated record-summary endpoint returns only encounter, Doctor, and diagnosis summary. The Doctor integration adds `GET /api/doctor/appointments` for an ownership-scoped schedule/current-consultation projection; it accepts optional date and Patient filters and never accepts a client-selected Doctor identity.
 
@@ -267,3 +267,11 @@ Milestone 24.4 adds order-independent Playwright coverage under `e2e/staff/` for
 `StaffScenario` creates complete active Staff credentials through the production bcrypt boundary and reuses the Patient/Doctor scenario helpers. Dates use the current `Asia/Manila` clinic date and queue ordering is asserted from server-provided tiers and check-in times. Each test tracks exact Staff, Patient, Doctor, appointment, record, Prescription, certificate, and availability relationships and removes only its own generated data.
 
 Run only the Staff journeys with `npx playwright test e2e/staff`.
+
+### Admin and MFA end-to-end journeys
+
+Milestone 24.5 adds nine order-independent Playwright tests under `e2e/admin/` for the real Browser -> React -> Express -> MongoDB Admin workflow. Coverage includes first-time TOTP enrollment, password-only denial, enrolled Admin login, invalid and expired codes, consumed-challenge replay rejection, MFA rate limiting, session restoration, logout, dashboard data, Doctor and Staff provisioning/profile/lifecycle management, Patient search/pagination/portal lifecycle, no-account walk-ins, protected clinical data, and Admin clinical-action denial.
+
+`AdminScenario` creates disposable Admin accounts with production bcrypt hashing and uses the E2E-only encryption configuration for enrolled TOTP state. Codes are generated in test memory from disposable secrets. The enrollment tests disable screenshots and traces because the real setup screen displays a one-time key; secrets and codes are never logged or placed in browser storage. Expiry is exercised by expiring only the disposable account challenge in the E2E database, while replay reuses the consumed challenge and must receive `MFA_CHALLENGE_INVALID`.
+
+Admin-created Doctor and Staff accounts are discovered by their unique E2E email and added to the exact cleanup scope. Cleanup removes only the scenario's linked AuthAccounts, UserProfiles, role profiles, Patients, appointments, records, Prescriptions, certificates, and availability documents. Run only these journeys with `npx playwright test e2e/admin`.

@@ -492,3 +492,15 @@ The suite exercises Browser -> React -> Express -> MongoDB without route interce
 Staff record access is verified against the approved limited projection: Patient name, encounter time, attending Doctor, and diagnosis summary remain visible while detailed notes, Prescriptions, certificate content, MedicalRecord creation, certificate issuance, and consultation completion remain unavailable. Completion is performed only through an authenticated assigned-Doctor boundary and removes the appointment from the active Staff queue.
 
 Every Staff test creates independent `e2e-` identities and removes only records linked to those exact Staff, Patient, Doctor, appointment, record, Prescription, certificate, and availability identities. Admin full browser journeys remain deferred to a later milestone.
+
+## Admin and MFA end-to-end journey baseline
+
+Milestone 24.5 extends the Playwright Chromium suite with real Admin journeys for first-time TOTP enrollment, enrolled login, password-only denial, invalid and expired verification, consumed-challenge replay rejection, MFA rate limiting, authenticated dashboard/session/logout behavior, Doctor and Staff provisioning and lifecycle management, Patient portal lifecycle management, no-account walk-ins, and Admin clinical restrictions.
+
+Disposable Admin UserProfiles and AuthAccounts use the production password hashing, MFA encryption, challenge-cookie, TOTP verification, and full-session boundaries. Test-only TOTP secrets exist only in helper memory or encrypted E2E records. Enrollment tests disable trace and screenshot capture because the approved UI displays the one-time setup key. The suite asserts that browser local and session storage remain empty, pre-MFA challenges cannot access Admin APIs or pages, successful challenges are consumed, expired challenges fail, and repeated invalid verification is safely rate limited.
+
+Doctor and Staff lifecycle journeys verify server-forced roles, hashed credentials, approved profile updates, inactive login denial, reactivation, stable role-profile IDs, and rejection of protected-field updates. Patient journeys verify real search, status filtering, pagination, stable Patient identity, inactive login denial, reactivation, preserved MedicalRecord history, and no lifecycle action for a walk-in whose `user_profile_id` is null. Admin remains unable to create MedicalRecords, issue certificates, complete consultations, or open Doctor clinical pages.
+
+Each test owns unique `e2e-` identities. Admin-provisioned accounts are added to the scenario by exact email and role-profile relationship before teardown, and cleanup never deletes broadly or touches permanent Admin accounts. The deeper cross-role security matrix remains reserved for Milestone 24.6.
+
+Structured security-event payloads remain covered by the backend security-logging regression suite because the Playwright-managed API process does not expose a safe in-process log collector. The E2E journeys exercise the corresponding login, MFA, provisioning, and lifecycle events without capturing console output that could contain operational metadata.

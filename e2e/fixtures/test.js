@@ -4,6 +4,7 @@ import { connectDatabase, disconnectDatabase } from '../../server/src/config/dat
 import { getE2eRuntimeConfig } from '../../server/scripts/e2eEnvironment.js';
 import { PatientScenario } from '../helpers/patientScenario.js';
 import { StaffScenario } from '../helpers/staffScenario.js';
+import { AdminScenario } from '../helpers/adminScenario.js';
 
 export const test = base.extend({
   patientAccount: async ({ request }, use) => {
@@ -42,6 +43,19 @@ export const test = base.extend({
   },
   seededStaff: async ({ staffScenario }, use) => {
     await use(await staffScenario.createStaff());
+  },
+  adminScenario: async ({}, use) => {
+    const scenario = new AdminScenario();
+    await connectDatabase(getE2eRuntimeConfig().mongoUri);
+    try {
+      await use(scenario);
+    } finally {
+      await scenario.cleanup();
+      await disconnectDatabase();
+    }
+  },
+  seededAdmin: async ({ adminScenario }, use) => {
+    await use(await adminScenario.createAdmin({ enrolled: true }));
   },
 });
 
