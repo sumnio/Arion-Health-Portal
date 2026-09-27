@@ -275,3 +275,11 @@ Milestone 24.5 adds nine order-independent Playwright tests under `e2e/admin/` f
 `AdminScenario` creates disposable Admin accounts with production bcrypt hashing and uses the E2E-only encryption configuration for enrolled TOTP state. Codes are generated in test memory from disposable secrets. The enrollment tests disable screenshots and traces because the real setup screen displays a one-time key; secrets and codes are never logged or placed in browser storage. Expiry is exercised by expiring only the disposable account challenge in the E2E database, while replay reuses the consumed challenge and must receive `MFA_CHALLENGE_INVALID`.
 
 Admin-created Doctor and Staff accounts are discovered by their unique E2E email and added to the exact cleanup scope. Cleanup removes only the scenario's linked AuthAccounts, UserProfiles, role profiles, Patients, appointments, records, Prescriptions, certificates, and availability documents. Run only these journeys with `npx playwright test e2e/admin`.
+
+### Cross-role and security end-to-end journeys
+
+Milestone 24.6 adds misuse-oriented Playwright coverage under `e2e/security/`. It verifies unauthenticated and inactive-session denial, every frontend role guard, Patient and Doctor ownership isolation, Staff's limited diagnosis-summary projection, pre-MFA Admin denial, and Admin's account-only authorization boundary. Direct authenticated browser requests exercise the real Express endpoints when the UI correctly hides a forbidden action.
+
+The suite also covers protected-field and role-escalation attempts, client-supplied creator and certificate-number spoofing, malformed ObjectIds, scalar/object/operator-style query abuse, unexpected bodies on state transitions, browser token-storage absence, safe 4xx responses, and representative response secret filtering. The lightweight MFA abuse test runs last under `e2e/zz-security/` so its intentional in-memory limiter exhaustion cannot affect other journeys.
+
+Run this coverage with `npx playwright test e2e/security`. Credentialed CORS rejection, structured security-log payloads, detailed HTTP cookie attributes, and the complete rate-limiter matrix remain in backend tests where they can be asserted deterministically without fragile external-origin browser behavior.

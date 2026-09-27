@@ -504,3 +504,11 @@ Doctor and Staff lifecycle journeys verify server-forced roles, hashed credentia
 Each test owns unique `e2e-` identities. Admin-provisioned accounts are added to the scenario by exact email and role-profile relationship before teardown, and cleanup never deletes broadly or touches permanent Admin accounts. The deeper cross-role security matrix remains reserved for Milestone 24.6.
 
 Structured security-event payloads remain covered by the backend security-logging regression suite because the Playwright-managed API process does not expose a safe in-process log collector. The E2E journeys exercise the corresponding login, MFA, provisioning, and lifecycle events without capturing console output that could contain operational metadata.
+
+## Cross-role security end-to-end baseline
+
+Milestone 24.6 completes the browser security matrix against the real React -> Express -> MongoDB path. Disposable Patient, Doctor, Staff, and MFA-authenticated Admin sessions prove unauthenticated and inactive-session denial, frontend wrong-role navigation, Patient and Doctor resource ownership, Staff clinical-data minimization, pre-MFA Admin isolation, and Admin's account-management-only scope.
+
+Browser-context API attempts cover protected identity and lifecycle fields, role escalation, creator spoofing, certificate-number spoofing, malformed identifiers, wrong scalar types, operator-shaped queries, and non-empty bodies on server-owned state transitions. Rejected requests must return a safe 4xx response, preserve MongoDB state, expose no credentials or protected signature path, and cause no page error or unexpected 500 response. Patient and Admin sessions continue to use HttpOnly cookies with no token material in local or session storage.
+
+The intentional MFA rate-limit exhaustion remains the final E2E test so it cannot contaminate later Admin journeys. Exact scenario cleanup removes only generated E2E relationships. CORS allowlist behavior, structured security-event contents, detailed cookie attributes, and exhaustive limiter behavior remain deterministic backend-test responsibilities; the browser suite exercises their surrounding authenticated flows without weakening them.
