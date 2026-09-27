@@ -92,6 +92,7 @@ export class PatientScenario {
   async createDoctor(overrides = {}) {
     const suffix = `${this.marker}-${this.doctorIds.length + 1}`;
     const password = `E2e!Doctor-${suffix}`;
+    const email = `${marked('doctor', suffix)}@example.invalid`;
     const profile = await UserProfile.create({
       display_name: `E2E Doctor ${suffix.slice(0, 8)}`,
       role: 'doctor',
@@ -102,7 +103,7 @@ export class PatientScenario {
     this.profileIds.push(String(profile._id));
     await AuthAccount.create({
       user_profile_id: profile._id,
-      email: `${marked('doctor', suffix)}@example.invalid`,
+      email,
       password_hash: await passwordService.hash(password),
     });
     const doctor = await Doctor.create({
@@ -115,6 +116,8 @@ export class PatientScenario {
     });
     this.doctorIds.push(String(doctor._id));
     return {
+      email,
+      password,
       doctorId: String(doctor._id),
       profileId: String(profile._id),
       display_name: profile.display_name,

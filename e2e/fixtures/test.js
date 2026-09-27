@@ -26,6 +26,9 @@ export const test = base.extend({
   seededPatient: async ({ patientScenario }, use) => {
     await use(await patientScenario.createPatient());
   },
+  seededDoctor: async ({ patientScenario }, use) => {
+    await use(await patientScenario.createDoctor());
+  },
 });
 
 export { expect };

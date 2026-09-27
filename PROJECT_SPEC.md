@@ -474,3 +474,11 @@ Each test creates independent disposable `e2e-` identities and complete linked d
 Cleanup is relationship-scoped to the exact E2E Patient, Doctor, UserProfile, appointment, record, Prescription, certificate, and availability IDs. UI-created appointments are found through their disposable Patient/Doctor links before removal. No broad collection deletion is permitted. The Patient certificate test verifies the browser-generated PDF download filename and `%PDF` file signature; lower-level PDF tests continue to validate detailed document content.
 
 Full Doctor, Staff, and Admin browser journey suites remain outside Milestone 24.2.
+
+## Doctor end-to-end journey baseline
+
+Milestone 24.3 extends the Playwright Chromium suite with real Doctor journeys covering authentication/session restoration, dashboard and schedule projections, recurring and published availability, blocked times, consultation context, MedicalRecord and Prescription persistence, immutable history, certificate issuance and PDF output, Doctor-owned consultation completion, deterministic scheduling/clinical failures, cross-Doctor ownership denial, empty states, and logout/protected-route behavior.
+
+The suite exercises Browser -> React -> Express -> MongoDB without route interception or frontend mocks. Doctor credentials are created through the existing production hashing boundary, test dates are derived from `Asia/Manila`, and database assertions confirm that successful and rejected UI/service actions preserve the expected state. Each test owns unique `e2e-` identities and removes only records linked to those identities.
+
+Staff and Admin full browser journey suites remain outside Milestone 24.3.

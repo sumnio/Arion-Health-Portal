@@ -251,3 +251,11 @@ Milestone 22 is complete. Runtime role modules have no dependency on the retaine
 Source documents currently live at the repository root (`AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`), with images in `wireframe/`. See `MILESTONE_1_NOTES.md` for discrepancies. Original approval documents are unchanged.
 
 Production hosting will need an SPA fallback to `index.html` for direct route loads. Deployment is outside this milestone.
+
+### Doctor end-to-end journeys
+
+Milestone 24.3 adds order-independent Playwright coverage under `e2e/doctor/` for the real Browser -> React -> Express -> MongoDB Doctor workflow. The suite verifies Doctor login and session restoration, assigned dashboard and schedule data, recurring availability lifecycle, published availability constraints, blocked-time lifecycle and appointment-overlap protection, consultation details, immutable MedicalRecord and Prescription creation, duplicate-record rejection, certificate issuance and PDF download, Doctor-owned completion rules, cross-Doctor denial, empty states, logout, and protected-route redirects.
+
+Doctor test accounts use the production bcrypt password service and linked UserProfile/Doctor documents. Dates come from the current `Asia/Manila` clinic date. Every test uses a unique `e2e-` marker and cleanup follows exact Patient, Doctor, profile, appointment, availability, record, Prescription, and certificate relationships; it never clears a collection broadly. Browser monitoring fails tests on uncaught page errors, unexpected console errors, or unexpected HTTP 500 responses.
+
+Run only the Doctor journeys with `npx playwright test e2e/doctor`.
