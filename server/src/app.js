@@ -74,6 +74,7 @@ export function createApp(
     (nodeEnv === 'test' ? createSecurityLogger({ write() {} }) : defaultSecurityLogger);
   const app = express();
   app.disable('x-powered-by');
+  if (nodeEnv === 'production') app.set('trust proxy', 1);
   app.use(helmet(securityHeadersOptions(nodeEnv)));
   app.use(cors(corsOptions(trustedOrigins)));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
@@ -89,6 +90,7 @@ export function createApp(
     mfaVerifyWindowMs: mfaVerifyRateLimitWindowMs,
     mfaVerifyMax: mfaVerifyRateLimitMax,
     securityLogger,
+    storeFactory: dependencies.rateLimitStoreFactory,
   });
   const authModule = dependencies.authModule ?? createAuthModule({ authSecret, mfaEncryptionKey, nodeEnv });
   const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({

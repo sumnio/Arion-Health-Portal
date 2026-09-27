@@ -19,13 +19,14 @@ const rateLimitedResponse = Object.freeze({
   }),
 });
 
-function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false, event = 'RATE_LIMIT_TRIGGERED' }) {
+function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false, event = 'RATE_LIMIT_TRIGGERED', store }) {
   return rateLimit({
     windowMs,
     max,
     skipSuccessfulRequests,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
+    ...(store ? { store } : {}),
     handler(request, response) {
       requestSecurityEvent(request, {
         event, severity: 'warning', outcome: 'denied',
@@ -45,7 +46,7 @@ export function createRateLimiters({
   adminProvisionMax = RATE_LIMIT_DEFAULTS.adminProvisionMax,
   mfaVerifyWindowMs = RATE_LIMIT_DEFAULTS.mfaVerifyWindowMs,
   mfaVerifyMax = RATE_LIMIT_DEFAULTS.mfaVerifyMax,
-  securityLogger,
+  storeFactory = () => undefined,
 } = {}) {
   return {
     loginRateLimiter: limiter({
@@ -53,12 +54,19 @@ export function createRateLimiters({
       max: loginMax,
       limiterType: 'login',
       skipSuccessfulRequests: true,
+      store: storeFactory('login'),
     }),
-    registerRateLimiter: limiter({ windowMs: registerWindowMs, max: registerMax, limiterType: 'registration' }),
+    registerRateLimiter: limiter({
+      windowMs: registerWindowMs,
+      max: registerMax,
+      limiterType: 'registration',
+      store: storeFactory('registration'),
+    }),
     adminProvisionRateLimiter: limiter({
       windowMs: adminProvisionWindowMs,
       max: adminProvisionMax,
       limiterType: 'admin_provision',
+      store: storeFactory('admin_provision'),
     }),
     mfaVerifyRateLimiter: limiter({
       windowMs: mfaVerifyWindowMs,
@@ -66,6 +74,7 @@ export function createRateLimiters({
       limiterType: 'mfa_verification',
       skipSuccessfulRequests: true,
       event: 'MFA_RATE_LIMITED',
+      store: storeFactory('mfa_verification'),
     }),
   };
 }

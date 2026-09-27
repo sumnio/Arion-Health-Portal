@@ -10,7 +10,7 @@ Use Node.js 24 LTS and npm.
 npm ci
 ```
 
-Copy `.env.example` to `.env.local` first and set `VITE_API_BASE_URL` to the backend origin. The example uses `http://127.0.0.1:5000`.
+The committed `.env.development` points Vite to `http://127.0.0.1:5000`. Use an ignored `.env.development.local` only when you need a different local API origin. The committed `.env.production` intentionally leaves `VITE_API_BASE_URL` empty so production builds call the same-origin `/api/*` routes.
 
 ```sh
 npm run dev
@@ -30,7 +30,7 @@ Use matching origins when testing cookie authentication. Configure production or
 
 The Express API applies Helmet's standard security headers before CORS and routes, keeps `X-Powered-By` disabled, and limits JSON request bodies to `100kb`. Malformed JSON returns a structured `400 INVALID_JSON`; oversized JSON returns `413 PAYLOAD_TOO_LARGE`. Both responses use the centralized error format and leave the server available. The API does not accept URL-encoded form bodies, so no URL-encoded parser is installed. Helmet's default CSP is retained because the server exposes JSON APIs rather than frontend HTML. HSTS is disabled for local/non-production HTTP and enabled through Helmet in production; the final HTTPS proxy and HSTS behavior must be verified during deployment.
 
-Targeted IP-based rate limiting protects `POST /api/auth/login` (10 failed attempts per 15 minutes), `POST /api/auth/register` (5 requests per 60 minutes), Admin MFA verification (5 failed attempts per 10 minutes), and the shared Admin provisioning budget for `POST /api/admin/doctors` and `POST /api/admin/staff` (20 authenticated Admin requests per 15 minutes). Limits may be adjusted with `AUTH_LOGIN_RATE_LIMIT_*`, `AUTH_REGISTER_RATE_LIMIT_*`, `MFA_VERIFY_RATE_LIMIT_*`, and `ADMIN_PROVISION_RATE_LIMIT_*`. A blocked request returns structured `429 RATE_LIMITED` JSON plus standard rate-limit headers. Successful login and MFA verification do not consume their failure budgets, and `/api/auth/me`, health, portal reads, and other normal API traffic are not rate-limited. This per-process MVP protection does not add account lockout, persistent failure counters, or a global limiter. Keep Express's default direct-IP behavior locally; production `trust proxy` must be configured only after the actual proxy chain is known and verified.
+Targeted IP-based rate limiting protects `POST /api/auth/login` (10 failed attempts per 15 minutes), `POST /api/auth/register` (5 requests per 60 minutes), Admin MFA verification (5 failed attempts per 10 minutes), and the shared Admin provisioning budget for `POST /api/admin/doctors` and `POST /api/admin/staff` (20 authenticated Admin requests per 15 minutes). Limits may be adjusted with `AUTH_LOGIN_RATE_LIMIT_*`, `AUTH_REGISTER_RATE_LIMIT_*`, `MFA_VERIFY_RATE_LIMIT_*`, and `ADMIN_PROVISION_RATE_LIMIT_*`. A blocked request returns structured `429 RATE_LIMITED` JSON plus standard rate-limit headers. Successful login and MFA verification do not consume their failure budgets, and `/api/auth/me`, health, portal reads, and other normal API traffic are not rate-limited. This per-process MVP protection does not add account lockout, persistent failure counters, or a global limiter. Express keeps direct-IP behavior locally and trusts exactly one proxy hop in production; the deployed Vercel proxy/IP behavior still requires live verification.
 
 ```sh
 npm test
@@ -79,7 +79,7 @@ npm install
 copy .env.example .env
 ```
 
-Set `MONGODB_URI` in `server/.env` to a development MongoDB connection string. Generate a unique random `AUTH_SECRET` of at least 32 characters for signing authentication JWTs. Generate `MFA_ENCRYPTION_KEY` as a separate random 32-byte value encoded with base64; for example, run `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` locally and copy the result into the ignored file. Missing, placeholder, weak, or malformed secrets are rejected outside tests, and the server never generates runtime replacements automatically. Keep that file local; `.env` files are ignored by Git. Do not place credentials or real secrets in `.env.example`.
+The committed `server/.env.example` is the production deployment inventory. For local development, set `NODE_ENV=development`, restore `CORS_ORIGIN=http://127.0.0.1:5173,http://localhost:5173`, and set `MONGODB_URI` to a development MongoDB connection string in the ignored `server/.env`. Generate a unique random `AUTH_SECRET` of at least 32 characters for signing authentication JWTs. Generate `MFA_ENCRYPTION_KEY` as a separate random 32-byte value encoded with base64; for example, run `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` locally and copy the result into the ignored file. Missing, placeholder, weak, or malformed secrets are rejected outside tests, and the server never generates runtime replacements automatically. Keep that file local; `.env` files are ignored by Git. Do not place credentials or real secrets in `.env.example`.
 
 Admin accounts use authenticator-app TOTP after the normal email/password step. First login shows a QR code and manual setup key; later logins request the six-digit authenticator code. Patient, Doctor, and Staff login remains unchanged. Recovery codes and self-service MFA reset are not implemented; a lost Admin authenticator requires controlled offline operator recovery.
 
@@ -87,7 +87,7 @@ The backend uses `otplib` for TOTP and the frontend uses `qrcode` to render the 
 
 `CORS_ORIGIN` is a comma-separated allowlist of exact trusted browser origins, for example `http://127.0.0.1:5173,http://localhost:5173`. Entries must be origin-only HTTP(S) URLs. Wildcards, credentials in URLs, paths, malformed values, and empty entries are rejected. Credentialed browser requests receive CORS access only when their Origin is listed. Requests without an Origin header remain available for health checks, API tools, and server-to-server requests.
 
-The root frontend environment may expose only public `VITE_` values. `VITE_API_BASE_URL` is public and expected. Never add MongoDB URIs, authentication secrets, passwords, private keys, Admin bootstrap credentials, or backend tokens to root frontend environment files or a `VITE_` variable.
+The root frontend environment may expose only public `VITE_` values. `VITE_API_BASE_URL` is public. Local development may set it to `http://127.0.0.1:5000`; the same-origin Vercel deployment uses an intentionally empty value because frontend request paths already include `/api`. Never set it to `/api`, which would create `/api/api/...` URLs. Never add MongoDB URIs, authentication secrets, passwords, private keys, Admin bootstrap credentials, or backend tokens to root frontend environment files or a `VITE_` variable.
 
 Set `CLINIC_LOCATION` to the real clinic address before issuing certificates. If it is omitted, certificate views show a clear “Clinic location not configured” value instead of fake clinic information.
 
@@ -154,7 +154,7 @@ The API starts only after required configuration passes validation and MongoDB c
 - `PATCH /api/admin/patients/:patientId/deactivate`
 - `PATCH /api/admin/patients/:patientId/reactivate`
 
-Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. The `arion_auth` cookie is host-only with `HttpOnly`, `SameSite=Lax`, `Path=/`, and an eight-hour lifetime. It is not readable by frontend JavaScript. Local/test HTTP uses `Secure=false`; production always uses `Secure=true` and therefore requires HTTPS. Logout clears the cookie with matching path, SameSite, and Secure behavior. A cookie Domain is intentionally unset. Final reverse-proxy configuration, HTTPS termination, cookie domain needs, and Express `trust proxy` must be decided from the actual hosting architecture during deployment; `trust proxy` remains disabled for now.
+Authentication uses bcryptjs password hashes and a signed JWT in an HttpOnly cookie. The frontend origin must match `CORS_ORIGIN`, and credentialed CORS is enabled for that configured origin. The `arion_auth` cookie is host-only with `HttpOnly`, `SameSite=Lax`, `Path=/`, and an eight-hour lifetime. It is not readable by frontend JavaScript. Local/test HTTP uses `Secure=false`; production always uses `Secure=true` and therefore requires HTTPS. Logout clears the cookie with matching path, SameSite, and Secure behavior. A cookie Domain is intentionally unset. Production on direct Vercel ingress trusts exactly one proxy hop; development and tests retain Express's default. Live deployment must verify the sanitized forwarded IP and HTTPS protocol before launch.
 
 Security-relevant activity is written as structured server-side JSON through `server/src/services/securityLogger.js`. Logged events cover authentication outcomes, logout, inactive-account denial, rate limits, authorization and ownership denials, Admin Doctor/Staff provisioning, account activation/deactivation, and protected-field or operator-style input rejection. Normal reads and ordinary business validation are intentionally excluded.
 
@@ -290,8 +290,39 @@ Milestones 24.1, 24.2, 24.3, 24.4, 24.5, 24.6, and 24.7 are complete. The final 
 
 Each full run returned every collection in `arion_health_e2e` to zero records. Final cleanup also confirmed no E2E listeners on ports 5000 or 5173, no Playwright or E2E Node processes, and no retained report, screenshot, trace, video, PDF, or MFA enrollment artifact. The MFA enrollment spec keeps trace and screenshot capture disabled.
 
-The final verification result is 102/102 frontend tests, 231/231 backend tests, a successful production build, and zero vulnerabilities in both dependency audits. Production source and bundle scans found no embedded backend secrets, connection strings, private keys, JWT literals, E2E credentials, or Playwright/E2E imports. Retained legacy mocks remain unreachable from the production entry graph.
+The Milestone 25.2 verification result is 106/106 frontend tests, 237/237 backend tests, 48/48 browser E2E tests, a successful production build, and zero vulnerabilities in both dependency audits. Production source and bundle scans found no embedded backend secrets, connection strings, private keys, JWT literals, E2E credentials, or Playwright/E2E imports. Retained legacy mocks remain unreachable from the production entry graph.
 
 Required production configuration is documented in the environment setup above: `MONGODB_URI`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, explicit `CORS_ORIGIN`, public `VITE_API_BASE_URL`, `CLINIC_TIME_ZONE`, and `CLINIC_LOCATION`; optional `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` enable clinic-hour enforcement when approved values are known.
 
 Milestone 25: Deployment is next. Deployment planning must finalize HTTPS termination, reverse-proxy and `trust proxy` configuration, host/domain cookie behavior, shared rate-limit storage if the API is scaled horizontally, durable security logs and retention, monitoring/alerts, firewall/WAF controls, MongoDB backup and recovery, production secret management, the real clinic location, and the final production timezone.
+
+### Milestone 25.2 Vercel preparation
+
+The repository now targets one Vercel Services project:
+
+```text
+https://<app-domain>/       -> Vite/React frontend service
+https://<app-domain>/api/* -> Express backend service -> MongoDB Atlas
+```
+
+`vercel.json` builds the root Vite service with `npm run build` into `dist`, builds `server/` as an Express service through `src/vercel.js`, sends `/api/*` to Express first, and sends all remaining paths to the frontend service. The frontend service rewrites React Router deep links to `index.html`; its SPA fallback never owns API paths. Static frontend responses add nosniff, strict-origin referrer, and frame-denial headers, while Express keeps Helmet for API responses.
+
+The Vercel handler never calls `listen()` or installs signal handlers. It validates backend configuration, awaits a globally cached Mongoose connection/in-flight promise, and reuses one Express app per warm instance. Local development continues to use `server/src/server.js`. Both packages require Node.js `24.x`.
+
+Production variables are assigned by service:
+
+| Service | Variable | Classification |
+| --- | --- | --- |
+| Frontend | `VITE_API_BASE_URL` (empty) | Public |
+| Backend | `MONGODB_URI` | Secret |
+| Backend | `AUTH_SECRET` | Secret |
+| Backend | `MFA_ENCRYPTION_KEY` | Secret |
+| Backend | `NODE_ENV=production` | Non-secret |
+| Backend | `CORS_ORIGIN=https://<app-domain>` | Non-secret |
+| Backend | `CLINIC_TIME_ZONE`, `CLINIC_LOCATION`, `CLINIC_NAME` | Non-secret/public display configuration |
+| Backend | `CLINIC_OPEN_TIME`, `CLINIC_CLOSE_TIME` | Optional non-secret configuration |
+| Backend | `*_RATE_LIMIT_WINDOW_MS`, `*_RATE_LIMIT_MAX` | Optional non-secret overrides |
+
+Production and preview values must be configured separately. Preview uses a stable trusted preview alias or one explicitly configured exact preview origin. Wildcard Vercel origins are prohibited. The Admin bootstrap remains a manually invoked controlled script and is not run during build or startup.
+
+This preparation does not deploy or create cloud resources. Atlas production setup/backups, production secrets, distributed rate limiting, the real clinic location/timezone, protected signature object storage/rendering, Vercel Services availability, and live HTTPS/cookie/CORS/proxy verification remain blockers for unrestricted public launch.

@@ -3,6 +3,8 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.development
+!.env.production
 !.env.e2e.example
 !server/.env.e2e.example
 *.local
