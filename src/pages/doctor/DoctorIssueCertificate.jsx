@@ -6,6 +6,7 @@ import RecordSection from '../../components/records/RecordSection.jsx';
 import FormField from '../../components/public/FormField.jsx';
 import StatusBadge from '../../components/dashboard/StatusBadge.jsx';
 import { clinicConfig } from '../../config/clinicConfig.js';
+import { certificateIssuanceEnabled } from '../../config/featureConfig.js';
 import { doctorApiErrorMessage, doctorApiService } from '../../services/doctorApiService.js';
 import { clinicToday, formatEncounter } from '../../services/dateTimeService.js';
 import '../../styles/doctor-certificate.css';
@@ -22,6 +23,7 @@ export default function DoctorIssueCertificate() {
   if (loading) return <div className="doctor-certificate-page"><h1>Issue Medical Certificate</h1><p role="status">Loading medical record…</p></div>;
   if (loadError || !record) return <div className="doctor-certificate-page"><h1>Certificate Unavailable</h1><RecordSection title="Unable to load medical record"><p role="alert">{loadError}</p><Link className="action-link" to="/doctor/schedule">Back to Schedule</Link></RecordSection></div>;
   const patientId = record.patient?.id; const back = <Link className="action-link" to={patientId ? `/doctor/patients/${patientId}` : '/doctor/schedule'}>Back to Patient Details</Link>;
+  if (!certificateIssuanceEnabled) return <div className="doctor-certificate-page"><h1>Medical Certificate Issuance Unavailable</h1><RecordSection title="Production safety restriction"><p role="alert">Medical certificate issuance is temporarily disabled until protected doctor signature storage and rendering are available.</p>{back}</RecordSection></div>;
   async function submit(event) { event.preventDefault(); const nextErrors = {}; if (!values.purpose.trim()) nextErrors.purpose = 'Enter a purpose.'; if (!values.diagnosis_summary.trim()) nextErrors.diagnosis_summary = 'Enter a diagnosis summary.'; if (values.valid_until && values.valid_until < values.date_issued) nextErrors.valid_until = 'Valid until must be on or after the issue date.'; if (Object.keys(nextErrors).length) { setErrors(nextErrors); return; } setSubmitting(true); setErrors({}); try { setIssued(await doctorApiService.issueCertificate(id, values, record.patientName)); } catch (error) { setErrors({ form: doctorApiErrorMessage(error, 'Unable to issue this certificate.') }); } finally { setSubmitting(false); } }
   return <div className="doctor-certificate-page"><h1>{issued ? 'Medical Certificate Issued' : 'Issue Medical Certificate'}</h1><p>{issued ? 'The issued certificate was reloaded from the server and is read-only.' : 'Create a certificate from the selected consultation. Fields marked * are required.'}</p><div className="doctor-certificate-layout"><div>
     <RecordSection title="Patient and Medical Record"><h3>{record.patientName}</h3><p>Issuing doctor: {record.doctor}</p><p>Consultation: {formatEncounter(record.encounter_at)}</p><p>Diagnosis: {record.diagnosis}</p><p className="record-reference">Related medical record: {record.id}</p></RecordSection>

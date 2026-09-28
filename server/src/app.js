@@ -58,6 +58,7 @@ export function createApp(
     clinicCloseTime = '',
     clinicName = 'Arion Health Clinic',
     clinicLocation = 'Clinic location not configured',
+    certificateIssuanceEnabled = true,
     loginRateLimitWindowMs = RATE_LIMIT_DEFAULTS.loginWindowMs,
     loginRateLimitMax = RATE_LIMIT_DEFAULTS.loginMax,
     registerRateLimitWindowMs = RATE_LIMIT_DEFAULTS.registerWindowMs,
@@ -106,7 +107,10 @@ export function createApp(
     dependencies.patientAppointmentModule ?? createPatientAppointmentModule({
       bookingAvailabilityService: schedulingModule.bookingAvailabilityService,
     });
-  const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({ clinic: schedulingModule.clinic });
+  const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({
+    clinic: schedulingModule.clinic,
+    certificateIssuanceEnabled,
+  });
   const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic });
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   app.use('/api/health', healthRouter);

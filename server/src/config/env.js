@@ -36,6 +36,13 @@ function parsePositiveInteger(value, fallback, name) {
   return result;
 }
 
+function parseBoolean(value, fallback, name) {
+  if (value == null || value === '') return fallback;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error(`${name} must be true or false.`);
+}
+
 function parseNodeEnvironment(value) {
   const nodeEnv = value?.trim() || 'development';
   if (!allowedNodeEnvironments.has(nodeEnv)) {
@@ -119,6 +126,20 @@ export function validateRuntimeConfig(config) {
   if (!Array.isArray(config.corsOrigins) || !config.corsOrigins.length) {
     throw new Error('CORS_ORIGIN must contain at least one trusted origin.');
   }
+  if (config.nodeEnv === 'production') {
+    if (!config.mongoDatabaseName) {
+      throw new Error('MONGODB_DB_NAME is required in production to isolate application data.');
+    }
+    if (!config.clinicTimeZone) {
+      throw new Error('CLINIC_TIME_ZONE is required in production.');
+    }
+    if (!config.clinicName) {
+      throw new Error('CLINIC_NAME is required in production.');
+    }
+    if (!config.clinicLocation || config.clinicLocation === 'Clinic location not configured') {
+      throw new Error('CLINIC_LOCATION must contain the real clinic location in production.');
+    }
+  }
   return config;
 }
 
@@ -134,11 +155,16 @@ export function loadConfig(environment = process.env) {
     corsOrigins,
     authSecret: environment.AUTH_SECRET?.trim() || '',
     mfaEncryptionKey: environment.MFA_ENCRYPTION_KEY?.trim() || '',
-    clinicTimeZone: environment.CLINIC_TIME_ZONE?.trim() || 'Asia/Manila',
+    clinicTimeZone: environment.CLINIC_TIME_ZONE?.trim() || (nodeEnv === 'production' ? '' : 'Asia/Manila'),
     clinicOpenTime: environment.CLINIC_OPEN_TIME?.trim() || '',
     clinicCloseTime: environment.CLINIC_CLOSE_TIME?.trim() || '',
-    clinicName: environment.CLINIC_NAME?.trim() || 'Arion Health Clinic',
-    clinicLocation: environment.CLINIC_LOCATION?.trim() || 'Clinic location not configured',
+    clinicName: environment.CLINIC_NAME?.trim() || (nodeEnv === 'production' ? '' : 'Arion Health Clinic'),
+    clinicLocation: environment.CLINIC_LOCATION?.trim() || (nodeEnv === 'production' ? '' : 'Clinic location not configured'),
+    certificateIssuanceEnabled: parseBoolean(
+      environment.CERTIFICATE_ISSUANCE_ENABLED,
+      nodeEnv !== 'production',
+      'CERTIFICATE_ISSUANCE_ENABLED',
+    ),
     loginRateLimitWindowMs: parsePositiveInteger(environment.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000, 'AUTH_LOGIN_RATE_LIMIT_WINDOW_MS'),
     loginRateLimitMax: parsePositiveInteger(environment.AUTH_LOGIN_RATE_LIMIT_MAX, 10, 'AUTH_LOGIN_RATE_LIMIT_MAX'),
     registerRateLimitWindowMs: parsePositiveInteger(environment.AUTH_REGISTER_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000, 'AUTH_REGISTER_RATE_LIMIT_WINDOW_MS'),

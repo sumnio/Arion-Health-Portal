@@ -85,7 +85,7 @@ export async function runCreateAdmin(environment = process.env) {
   catch (error) { console.error(`Admin account was not created: ${error.message}`); return 1; }
   const config = loadConfig(environment);
   try {
-    await connectDatabase(config.mongoUri);
+    await connectDatabase(config.mongoUri, { databaseName: config.mongoDatabaseName });
     await Promise.all([AuthAccount.init(), UserProfile.init()]);
     const result = await createAdminAccount(input);
     console.info(result.created

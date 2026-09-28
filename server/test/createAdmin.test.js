@@ -66,5 +66,6 @@ test('bootstrap has no HTTP route or role input and public registration remains 
   const source = await readFile(new URL('../scripts/createAdmin.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /Patient\.create|Doctor\.create|Staff\.create|Router\(|app\.(?:post|use)/);
   assert.match(source, /role: 'admin'/); assert.doesNotMatch(source, /ADMIN_ROLE/);
+  assert.match(source, /databaseName: config\.mongoDatabaseName/);
   assert.throws(() => validateRegistration({ role: 'admin' }), error => error.code === 'PUBLIC_ROLE_NOT_ALLOWED');
 });

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createApiClient } from '../src/services/apiClient.js';
 import { resolveApiBaseUrl } from '../src/config/apiConfig.js';
+import { resolveCertificateIssuanceEnabled } from '../src/config/featureConfig.js';
 
 test('API base supports explicit localhost and intentional same-origin empty values', () => {
   assert.equal(resolveApiBaseUrl('http://127.0.0.1:5000/'), 'http://127.0.0.1:5000');
@@ -16,6 +17,18 @@ test('Vite mode defaults keep development local and production same-origin', () 
   const production = readFileSync(new URL('../.env.production', import.meta.url), 'utf8');
   assert.match(development, /^VITE_API_BASE_URL=http:\/\/127\.0\.0\.1:5000$/m);
   assert.match(production, /^VITE_API_BASE_URL=$/m);
+  assert.match(production, /^VITE_CERTIFICATE_ISSUANCE_ENABLED=false$/m);
+});
+
+test('restricted Production disables certificate issuance without changing non-Production defaults', () => {
+  assert.equal(resolveCertificateIssuanceEnabled('false'), false);
+  assert.equal(resolveCertificateIssuanceEnabled('true'), true);
+  assert.equal(resolveCertificateIssuanceEnabled(undefined), true);
+  const issuePage = readFileSync(new URL('../src/pages/doctor/DoctorIssueCertificate.jsx', import.meta.url), 'utf8');
+  const recordPage = readFileSync(new URL('../src/pages/doctor/DoctorAddRecord.jsx', import.meta.url), 'utf8');
+  assert.match(issuePage, /certificateIssuanceEnabled/);
+  assert.match(issuePage, /Medical Certificate Issuance Unavailable/);
+  assert.match(recordPage, /certificateIssuanceEnabled &&/);
 });
 
 test('same-origin API client retains one canonical api prefix', async () => {

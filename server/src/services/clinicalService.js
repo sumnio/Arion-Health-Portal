@@ -68,7 +68,7 @@ function presentCertificate(item, clinic) {
   };
 }
 
-export function createClinicalService({ repository, clinic, now = () => new Date(), numberGenerator = generateCertificateNumber }) {
+export function createClinicalService({ repository, clinic, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
   async function doctorFor(profileId) {
     const doctor = await repository.findDoctorByUserProfileId(profileId);
     if (!doctor) throw httpError(403, 'DOCTOR_PROFILE_REQUIRED', 'An active Doctor profile is required.');
@@ -159,6 +159,9 @@ export function createClinicalService({ repository, clinic, now = () => new Date
     },
 
     async createCertificate(profileId, recordId, body) {
+      if (!certificateIssuanceEnabled) {
+        throw httpError(503, 'CERTIFICATE_ISSUANCE_DISABLED', 'Medical certificate issuance is temporarily unavailable.');
+      }
       validateClinicalObjectId(recordId, 'recordId');
       const input = validateCertificateCreate(body);
       const doctor = await doctorFor(profileId);

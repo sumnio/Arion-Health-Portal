@@ -18,7 +18,7 @@ const ids = {
 
 function clone(value) { return value == null ? value : structuredClone(value); }
 
-function createContext() {
+function createContext({ certificateIssuanceEnabled = true } = {}) {
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
     [ids.otherPatientProfile, { user_profile_id: ids.otherPatientProfile, display_name: 'Other Patient', role: 'patient', status: 'active' }],
@@ -99,7 +99,7 @@ function createContext() {
   };
   const tokens = createTokenService(SECRET);
   const authModule = { tokens, service: { async getAuthenticatedUser(profileId) { const found = profiles.get(String(profileId)); if (!found) throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); return clone(found); } } };
-  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City' }, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => 'AHC-20260925-ABCDEF12' });
+  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City' }, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => 'AHC-20260925-ABCDEF12', certificateIssuanceEnabled });
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, clinicalModule });
   return { app, appointments, records, prescriptions, certificates, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
 }
@@ -147,6 +147,19 @@ test('Patient reads own records with prescriptions but not another Patient recor
 test('Doctor reads only own consultation records', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const id = created.body.medical_record.id; assert.equal((await request(base, `/api/doctor/patients/${ids.patient}/records`, { cookie: context.cookie(ids.doctorProfile) })).status, 200); assert.equal((await request(base, `/api/doctor/records/${id}`, { cookie: context.cookie(ids.doctorProfile) })).status, 200); assert.equal((await request(base, `/api/doctor/records/${id}`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 404); }); });
 
 test('Doctor issues a server-numbered certificate with credentials and clinic information', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: { ...certificateBody, medical_certificate_number: 'CLIENT' } }); assert.equal(response.status, 400); const issued = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody }); const body = await issued.json(); assert.equal(issued.status, 201); assert.equal(body.medical_certificate.medical_certificate_number, 'AHC-20260925-ABCDEF12'); assert.equal(body.medical_certificate.status, 'issued'); assert.equal(body.medical_certificate.doctor.license_number, 'LIC-100'); assert.equal(body.medical_certificate.doctor.ptr_number, 'PTR-100'); assert.equal(body.medical_certificate.doctor.signature_available, true); assert.equal('signature_path' in body.medical_certificate.doctor, false); assert.equal(body.medical_certificate.clinic.location, 'Quezon City'); }); });
+
+test('restricted Production certificate issuance fails closed through the direct API', async () => {
+  const context = createContext({ certificateIssuanceEnabled: false });
+  await withServer(context.app, async (base) => {
+    const created = await createRecord(context, base);
+    const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, {
+      method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody,
+    });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error.code, 'CERTIFICATE_ISSUANCE_DISABLED');
+    assert.equal(context.certificates.size, 0);
+  });
+});
 
 test('certificate number collisions retry and then return controlled conflict', async () => { const context = createContext(); context.repository.failCertificateDuplicates = 3; await withServer(context.app, async (base) => { const created = await createRecord(context, base); const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody }); assert.equal(response.status, 409); assert.equal((await response.json()).error.code, 'CERTIFICATE_NUMBER_CONFLICT'); }); });
 test('valid_until before date_issued is rejected', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: { ...certificateBody, valid_until: '2026-09-24' } }); assert.equal(response.status, 400); }); });

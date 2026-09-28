@@ -13,10 +13,11 @@ function envKeys(path) {
     .filter(Boolean);
 }
 
-test('frontend environment files expose only the public API base URL', () => {
+test('frontend environment files expose only approved public configuration', () => {
+  const approved = new Set(['VITE_API_BASE_URL', 'VITE_CERTIFICATE_ISSUANCE_ENABLED']);
   for (const name of ['.env', '.env.example']) {
     const keys = envKeys(`${root}${name}`);
-    assert.ok(keys.every(key => key === 'VITE_API_BASE_URL'));
+    assert.ok(keys.every(key => approved.has(key)));
     assert.ok(keys.every(key => !/(SECRET|PASSWORD|TOKEN|PRIVATE|MONGO|ADMIN)/i.test(key)));
   }
 });
