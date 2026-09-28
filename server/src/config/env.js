@@ -44,6 +44,14 @@ function parseNodeEnvironment(value) {
   return nodeEnv;
 }
 
+function parseMongoDatabaseName(value) {
+  const name = value?.trim() || '';
+  if (name && !/^[A-Za-z0-9_-]{1,64}$/.test(name)) {
+    throw new Error('MONGODB_DB_NAME must contain only letters, numbers, underscores, or hyphens.');
+  }
+  return name;
+}
+
 function normalizeTrustedOrigin(value) {
   if (!value || value === '*') throw new Error('CORS_ORIGIN must contain explicit trusted origins.');
   let parsed;
@@ -121,6 +129,7 @@ export function loadConfig(environment = process.env) {
     port: parsePort(environment.PORT),
     nodeEnv,
     mongoUri: environment.MONGODB_URI?.trim() || '',
+    mongoDatabaseName: parseMongoDatabaseName(environment.MONGODB_DB_NAME),
     corsOrigin: corsOrigins[0],
     corsOrigins,
     authSecret: environment.AUTH_SECRET?.trim() || '',

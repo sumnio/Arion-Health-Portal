@@ -84,10 +84,12 @@ test('runtime configuration validates required values without exposing them', ()
   const valid = loadConfig({
     NODE_ENV: 'production',
     MONGODB_URI: 'mongodb://private-host/arion',
+    MONGODB_DB_NAME: 'arion_health_preview',
     AUTH_SECRET: 'strong-production-secret-1234567890',
     MFA_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
     CORS_ORIGIN: 'https://portal.example.test',
   });
+  assert.equal(valid.mongoDatabaseName, 'arion_health_preview');
   assert.equal(validateRuntimeConfig(valid), valid);
   assert.throws(
     () => validateRuntimeConfig(loadConfig({ AUTH_SECRET: 'strong-development-secret-123456789', CORS_ORIGIN: 'http://127.0.0.1:5173' })),
@@ -95,6 +97,7 @@ test('runtime configuration validates required values without exposing them', ()
   );
   assert.throws(() => loadConfig({ NODE_ENV: 'staging' }), /NODE_ENV/);
   assert.throws(() => loadConfig({ NODE_ENV: 'production', CORS_ORIGIN: '' }), /CORS_ORIGIN/);
+  assert.throws(() => loadConfig({ MONGODB_DB_NAME: 'unsafe/database' }), /MONGODB_DB_NAME/);
 });
 
 test('CORS configuration accepts normalized allowlists and rejects unsafe entries', () => {

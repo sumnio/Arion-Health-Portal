@@ -14,9 +14,9 @@ function mongooseStub(connectImplementation) {
   return {
     connection,
     get calls() { return calls; },
-    connect(uri) {
+    connect(uri, options) {
       calls += 1;
-      return connectImplementation({ uri, connection, calls });
+      return connectImplementation({ uri, options, connection, calls });
     },
     async disconnect() { connection.readyState = 0; },
   };
@@ -71,6 +71,22 @@ test('first MongoDB connection is cached and a ready connection is reused', asyn
   assert.equal(first, driver.connection);
   assert.equal(second, driver.connection);
   assert.equal(driver.calls, 1);
+});
+
+test('an explicit database name keeps preview data in its isolated database', async () => {
+  const cache = createConnectionCache();
+  let receivedOptions;
+  const driver = mongooseStub(async ({ options, connection }) => {
+    receivedOptions = options;
+    connection.readyState = 1;
+  });
+  await connectDatabase('mongodb+srv://example.invalid', {
+    databaseName: 'arion_health_preview',
+    mongooseInstance: driver,
+    connectionCache: cache,
+    logger() {},
+  });
+  assert.deepEqual(receivedOptions, { dbName: 'arion_health_preview' });
 });
 
 test('concurrent MongoDB connections reuse the same in-flight promise', async () => {

@@ -2,13 +2,18 @@ import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { loadConfig, validateRuntimeConfig } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { createMongoRateLimitStoreFactory } from './middleware/mongoRateLimitStore.js';
 import './models/index.js';
 
 async function start() {
   const config = validateRuntimeConfig(loadConfig());
-  await connectDatabase(config.mongoUri);
+  await connectDatabase(config.mongoUri, { databaseName: config.mongoDatabaseName });
 
-  const server = createServer(createApp(config));
+  const server = createServer(createApp(config, {
+    rateLimitStoreFactory: config.nodeEnv === 'production'
+      ? createMongoRateLimitStoreFactory()
+      : undefined,
+  }));
   server.listen(config.port, () => {
     console.info(`Arion Health API listening on port ${config.port}.`);
   });

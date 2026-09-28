@@ -17,6 +17,7 @@ export function requireMongoUri(uri) {
 }
 
 export function connectDatabase(uri, {
+  databaseName = '',
   mongooseInstance = mongoose,
   connectionCache = databaseConnectionCache,
   logger = console.info,
@@ -33,7 +34,8 @@ export function connectDatabase(uri, {
   }
   if (connectionCache.promise) return connectionCache.promise;
 
-  const connectionPromise = mongooseInstance.connect(mongoUri)
+  const connectOptions = databaseName ? { dbName: databaseName } : undefined;
+  const connectionPromise = mongooseInstance.connect(mongoUri, connectOptions)
     .then(() => {
       connectionCache.connection = mongooseInstance.connection;
       connectionCache.promise = null;
