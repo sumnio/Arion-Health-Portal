@@ -37,6 +37,8 @@ test('Staff session, dashboard, calendar confirmation, persistence, and logout u
   await page.getByRole('button', { name: new RegExp(patient.full_name) }).click();
   await expect(page.locator('.calendar-details').getByText('Confirmed', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Next day' }).click();
+  await expect(page.getByLabel('Selected date')).toHaveValue(staffScenario.futureDate(1));
+  await page.getByLabel('Selected date').fill(staffScenario.futureDate(14));
   await expect(page.getByText('No appointments for this date.')).toBeVisible();
 
   await logoutThroughUi(page);

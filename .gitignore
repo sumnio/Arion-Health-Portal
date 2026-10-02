@@ -11,4 +11,10 @@ dist/
 playwright-report/
 test-results/
 
+# Manual database backup artifacts are sensitive and must never be committed.
+backups/
+dumps/
+*.archive
+*.archive.gz
+
 .vercel/

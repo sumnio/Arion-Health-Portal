@@ -22,7 +22,7 @@ test('Staff sees only the limited record projection, cannot perform clinical act
 
   await loginAsStaff(page, seededStaff);
   await page.goto(`/staff/patients/${patient.patientId}/walk-in`);
-  await expect(page.getByText(patient.full_name)).toBeVisible();
+  await expect(page.getByRole('heading', { name: patient.full_name })).toBeVisible();
   await expect(page.getByText(doctor.display_name, { exact: true }).first()).toBeVisible();
   await expect(page.getByText('E2E limited diagnosis')).toBeVisible();
   await expect(page.getByText('E2E read-only doctor note')).toHaveCount(0);

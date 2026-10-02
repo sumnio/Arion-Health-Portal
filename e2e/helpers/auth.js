@@ -27,8 +27,9 @@ export async function loginAsAdmin(page, account, getTotpCode) {
   await loginThroughUi(page, account);
   await expect(page.getByRole('heading', { name: /Admin Verification|Set Up Admin Verification/ })).toBeVisible();
   const code = await getTotpCode();
-  await page.getByLabel('6-digit verification code').fill(code);
-  await page.getByRole('button', { name: /Verify and Continue|Finish Setup/ }).click();
+  const codeInput = page.getByLabel('6-digit verification code');
+  await codeInput.fill(code);
+  await codeInput.press('Enter');
   await expect(page).toHaveURL(dashboards.admin);
 }
 
