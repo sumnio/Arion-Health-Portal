@@ -523,7 +523,7 @@ The Milestone 25.2 verification suite passes 106 frontend tests, 237 backend tes
 
 Production configuration requires `MONGODB_URI`, a unique `AUTH_SECRET`, a base64 32-byte `MFA_ENCRYPTION_KEY`, explicit `CORS_ORIGIN` values, the public frontend `VITE_API_BASE_URL`, `CLINIC_TIME_ZONE`, and a real `CLINIC_LOCATION`. `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` remain optional until approved clinic hours are configured. Secrets belong in the deployment secret store and must never use a frontend `VITE_` variable.
 
-Milestone 25: Deployment is next. It must resolve environment-specific HTTPS termination, reverse-proxy and `trust proxy` behavior, host/domain cookie behavior, distributed rate-limit storage if horizontally scaled, durable security-log transport and retention, monitoring and alerts, firewall/WAF controls, MongoDB backups and recovery testing, production secrets management, real clinic location, and final production timezone confirmation. Deployment itself is outside Milestone 24.
+Milestone 25 subsequently completed the Vercel Preview and restricted Production deployment work described below. The final environment decisions, verified controls, free-tier limitations, and operational requirements are summarized in `PROJECT_HANDOFF.md` and `OPERATIONS_RUNBOOK.md`.
 
 ## Milestone 25.2 Vercel deployment preparation
 
@@ -604,3 +604,11 @@ Production certificate issuance remained unavailable in the Doctor interface and
 Cleanup deleted every disposable Production AuthAccount, UserProfile, Patient, Doctor, Staff, Appointment, availability/block, related record, certificate, and validation limiter by exact generated identity and verified zero remnants or orphans. The permanent active MFA-enrolled Admin remains. No real diagnosis, Prescription, MedicalRecord, or certificate was created.
 
 Milestone 25.7 completes with 107 frontend tests, 242 backend tests, 48 E2E journeys, a successful Production build, and zero dependency-audit vulnerabilities. Production remains **DEPLOYED + RESTRICTED**; the free-tier recovery/logging/monitoring limits, disabled certificate issuance, unresolved protected signature storage/rendering, and prohibition on real clinical data remain unchanged.
+
+## Milestone 25.8 final documentation and handoff
+
+Milestones 13–23, 24.1–24.7, and 25.1–25.8 are complete. The software MVP and its controlled deployment phase are complete. Production remains **DEPLOYED + RESTRICTED** at `https://arion-health-portal.vercel.app`, Preview remains protected and isolated at `https://arion-health-preview.vercel.app`, and Production `/api/health` returns 200.
+
+`PROJECT_HANDOFF.md` is the concise continuation document for system status, architecture, role boundaries, authentication/security, the 107 frontend / 242 backend / 48 E2E baseline, environment-variable names, deployment and rollback, backup limitations, certificate status, requirements before real clinical use, post-MVP workflow, backlog, and final classification. `OPERATIONS_RUNBOOK.md` remains the detailed operational procedure.
+
+The current Production environment is safe only for school/demo presentation and synthetic testing. It is not authorized for real patient or clinical data, live clinic operations, Production certificate issuance, or claims of managed recovery or durable audit logging. New work is post-MVP feature development and requires a separate approved scope.

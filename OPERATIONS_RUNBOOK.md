@@ -147,7 +147,7 @@ Never put actual values in documentation, Git, logs, support messages, screensho
 
 ## Production environment-variable inventory
 
-Required names: `MONGODB_URI`, `MONGODB_DB_NAME`, `NODE_ENV`, `CORS_ORIGIN`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, `CLINIC_NAME`, `CLINIC_LOCATION`, and `CLINIC_TIME_ZONE`. `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` are optional and must be configured together once approved. `CERTIFICATE_ISSUANCE_ENABLED` and the frontend `VITE_CERTIFICATE_ISSUANCE_ENABLED` remain `false` in restricted Production.
+Required backend names: `MONGODB_URI`, `MONGODB_DB_NAME`, `NODE_ENV`, `CORS_ORIGIN`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, `CLINIC_NAME`, `CLINIC_LOCATION`, and `CLINIC_TIME_ZONE`. The frontend uses public `VITE_API_BASE_URL` (intentionally empty for same-origin Vercel requests) and `VITE_CERTIFICATE_ISSUANCE_ENABLED`. `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` are optional and must be configured together once approved. `CERTIFICATE_ISSUANCE_ENABLED` and `VITE_CERTIFICATE_ISSUANCE_ENABLED` remain `false` in restricted Production.
 
 Optional rate-limit overrides are `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_RATE_LIMIT_MAX`, `AUTH_REGISTER_RATE_LIMIT_WINDOW_MS`, `AUTH_REGISTER_RATE_LIMIT_MAX`, `ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS`, `ADMIN_PROVISION_RATE_LIMIT_MAX`, `MFA_VERIFY_RATE_LIMIT_WINDOW_MS`, and `MFA_VERIFY_RATE_LIMIT_MAX`. Temporary `ADMIN_*` bootstrap values must remain absent after the one-time bootstrap. Review names and scopes only; never download or print Production values.
 
@@ -177,3 +177,9 @@ On 2026-10-02, a controlled live smoke used exact `prod-smoke-*` synthetic ident
 Cleanup removed and verified the absence of all disposable identities and linked operational data by exact generated IDs. The post-cleanup Admin dashboard showed zero Doctors, zero Staff, and zero Patients; the permanent Admin remained active and MFA-enrolled. Production and Preview were both Ready and remained isolated to `arion_health_production` and `arion_health_preview`. Production certificate issuance remained disabled and no clinical record, Prescription, or certificate was created.
 
 Use this as a point-in-time validation record, not continuous monitoring evidence. The free-tier retention, recovery, and alerting limitations elsewhere in this runbook still apply.
+
+## Milestone 25.8 final operations handoff
+
+The MVP and deployment milestones are complete. The Production environment remains **DEPLOYED + RESTRICTED** and synthetic/demo-only; Preview remains protected and isolated. `PROJECT_HANDOFF.md` contains the final architecture, role/security summary, environment-name inventory, restrictions, requirements before real clinical use, post-MVP workflow, and future-session prompt. This runbook remains the detailed source for operational actions.
+
+Do not enable Production certificate issuance, enter real clinical data, claim managed backup/PITR or durable log retention, or change Production secrets/cloud resources as routine maintenance. Those actions require an approved post-MVP scope, risk review, and controlled validation. Keep the permanent Admin credentials, authenticator custody, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, and Atlas credentials in approved external secure storage; keep temporary `ADMIN_*` variables absent.

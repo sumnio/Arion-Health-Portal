@@ -1,5 +1,13 @@
 # Arion Health Portal
 
+## Final MVP status
+
+MVP development and deployment are complete through Milestone 25.8. The live Production site is [arion-health-portal.vercel.app](https://arion-health-portal.vercel.app) and remains **DEPLOYED + RESTRICTED** for school/demo use with synthetic data only. The protected Preview site is [arion-health-preview.vercel.app](https://arion-health-preview.vercel.app) and uses a separate database and environment configuration.
+
+Production is not authorized for real patient or clinical data. Certificate issuance remains disabled there until protected Doctor signature storage and authorized rendering are implemented. Atlas Free has no managed backup/PITR, Vercel Hobby logs are short-lived with no Log Drain, durable monitoring/alerts are deferred, and Admin MFA recovery codes are not implemented.
+
+Read [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) for the architecture, roles, security model, final validation baseline, environment inventory, Production restrictions, requirements before real clinical use, post-MVP workflow, backlog, and new-session handoff. Use [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) for health checks, incidents, rollback, backups, restore limits, and recurring operator checks.
+
 Arion Health Portal contains a React frontend and a Node.js, Express, MongoDB, and Mongoose backend. Authentication and all four role portals use the backend API.
 
 ## Run locally
@@ -294,7 +302,7 @@ The Milestone 25.2 verification result is 106/106 frontend tests, 237/237 backen
 
 Required production configuration is documented in the environment setup above: `MONGODB_URI`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, explicit `CORS_ORIGIN`, public `VITE_API_BASE_URL`, `CLINIC_TIME_ZONE`, and `CLINIC_LOCATION`; optional `CLINIC_OPEN_TIME` and `CLINIC_CLOSE_TIME` enable clinic-hour enforcement when approved values are known.
 
-Milestone 25: Deployment is next. Deployment planning must finalize HTTPS termination, reverse-proxy and `trust proxy` configuration, host/domain cookie behavior, shared rate-limit storage if the API is scaled horizontally, durable security logs and retention, monitoring/alerts, firewall/WAF controls, MongoDB backup and recovery, production secret management, the real clinic location, and the final production timezone.
+Milestone 25 is complete through 25.8. The Vercel and Atlas configuration, live validation, free-tier operational limits, and post-MVP requirements are recorded in [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) and [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md).
 
 ### Milestone 25.2 Vercel preparation
 
@@ -398,3 +406,9 @@ Live checks reconfirmed `/api/health` 200, homepage/login/register availability,
 Final local validation remains 107 frontend tests, 242 backend tests, 48 Playwright journeys, a successful Production build, and zero vulnerabilities in both dependency audits. One Staff E2E locator was narrowed to its accessible heading after the Patient name correctly appeared in two visible regions. Temporary smoke code and generated Playwright artifacts were removed after validation.
 
 Milestone 25.7 is complete. Production remains **DEPLOYED + RESTRICTED** for synthetic school/demo use only. Atlas Free still lacks managed backup/PITR, Vercel Hobby still has short-lived logs and no Log Drain, durable monitoring/alerts remain deferred, protected Doctor signature storage/rendering remains unresolved, certificate issuance stays disabled, and real patient or clinical data remains prohibited.
+
+### Milestone 25.8 final handoff
+
+Milestones 13–23, 24.1–24.7, and 25.1–25.8 are complete. The final documentation consolidates system status, architecture, role and security boundaries, operational procedures, the 107 frontend / 242 backend / 48 E2E baseline, restricted Production data policy, requirements before real clinical use, and the post-MVP workflow in [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md).
+
+The final classification is unchanged: the project is safe for school/demo presentation, synthetic workflow demonstrations, local development, protected Preview testing, and restricted Production smoke validation. It is not authorized for real patient or clinical data, live clinic operations, clinical decision-making, Production certificate issuance, or claims of full disaster recovery or durable audit logging.
