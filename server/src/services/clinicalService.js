@@ -15,6 +15,15 @@ function id(value) {
 function duplicateKey(error) { return error?.code === 11000; }
 function iso(value) { return value ? new Date(value).toISOString() : null; }
 function date(value) { return value ? new Date(value).toISOString().slice(0, 10) : null; }
+function priorityAuditView(item) {
+  return {
+    id: id(item), appointment_id: id(item.appointment_id), previous_priority: item.previous_priority,
+    new_priority: item.new_priority, urgency_reason: item.urgency_reason ?? null,
+    explanation: item.explanation ?? null, correction_reason: item.correction_reason ?? null,
+    staff_actor: { id: id(item.staff_actor_user_profile_id), display_name: item.staff_actor_user_profile_id?.display_name ?? null },
+    changed_at: iso(item.created_at),
+  };
+}
 
 function doctorView(doctor) {
   return {
@@ -99,6 +108,14 @@ export function createClinicalService({ repository, clinic, now = () => new Date
         ...appointmentView(appointment), patient: patientView(appointment.patient_id),
         priority: appointment.priority, medical_record_id: recordByAppointment.get(id(appointment)) ?? null,
       }));
+    },
+    async priorityHistoryForDoctor(profileId, appointmentId) {
+      validateClinicalObjectId(appointmentId, 'appointmentId');
+      const doctor = await doctorFor(profileId);
+      const appointment = await repository.findAppointmentById(appointmentId);
+      if (!appointment) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
+      if (id(appointment.doctor_id) !== id(doctor)) throw httpError(403, 'FORBIDDEN', 'This appointment is assigned to another Doctor.');
+      return (await repository.listPriorityHistory(appointmentId)).map(priorityAuditView);
     },
     async createRecord(profileId, appointmentId, body) {
       validateClinicalObjectId(appointmentId, 'appointmentId');

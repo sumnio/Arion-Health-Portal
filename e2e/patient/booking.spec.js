@@ -11,14 +11,14 @@ async function selectBooking(page, doctor, slot, reason) {
   await expect(dateButton).toBeEnabled({ timeout: 20_000 });
   await dateButton.click();
   await page.getByRole('radio', { name: formatSlot(slot.time) }).check();
-  await page.getByPlaceholder('Briefly describe your concern').fill(reason);
+  await page.getByLabel('Specific reason for visit').selectOption(reason);
 }
 
 test('Patient books a published slot and appointment/detail persist after refresh', async ({ page, patientScenario, seededPatient }) => {
   const assertBrowserClean = observeBrowser(page);
   const doctor = await patientScenario.createDoctor();
   const slot = await patientScenario.createBookableSlot({ doctor });
-  const reason = `E2E booking ${Date.now()}`;
+  const reason = 'General health concern';
 
   await loginAsPatient(page, seededPatient);
   await selectBooking(page, doctor, slot, reason);
@@ -48,11 +48,40 @@ test('Patient receives a safe conflict when a displayed slot becomes occupied', 
   const occupyingPatient = await patientScenario.createPatient();
 
   await loginAsPatient(page, seededPatient);
-  await selectBooking(page, doctor, slot, 'E2E conflict check');
+  await selectBooking(page, doctor, slot, 'Follow-up consultation');
   await patientScenario.createAppointment({ patient: occupyingPatient, doctor, slot });
   await page.getByRole('button', { name: 'Confirm Appointment' }).click();
 
   await expect(page.getByRole('alert')).toContainText(/slot.*not available/i);
   await expect(page.getByRole('radio', { name: formatSlot(slot.time) })).toHaveCount(0);
+  assertBrowserClean();
+});
+
+test('Patient reason dropdown uses approved options and requires Other concern details', async ({ page, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page);
+  await loginAsPatient(page, seededPatient);
+  await page.goto('/patient/book');
+  const reason = page.getByLabel('Specific reason for visit');
+  await expect(reason.locator('option')).toHaveText([
+    'Select reason for visit',
+    'General health concern',
+    'Fever, cough, or cold symptoms',
+    'Headache or dizziness',
+    'Stomach pain or digestive concern',
+    'Blood pressure concern',
+    'Follow-up consultation',
+    'Routine health check',
+    'Laboratory results discussion',
+    'Medical clearance consultation',
+    'Other concern',
+  ]);
+  await reason.selectOption('Other concern');
+  const detail = page.getByLabel('Describe your other concern');
+  await expect(detail).toBeVisible();
+  await detail.fill('  Persistent fatigue  ');
+  await expect(page.locator('.booking-summary')).toContainText('Other concern: Persistent fatigue');
+  await reason.selectOption('Routine health check');
+  await expect(detail).toHaveCount(0);
+  await expect(page.locator('.booking-summary')).toContainText('Routine health check');
   assertBrowserClean();
 });

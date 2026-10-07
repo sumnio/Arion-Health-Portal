@@ -8,6 +8,17 @@ export const staffVisitTypes = [
   { id: 'check_up', name: 'Check-up' },
 ];
 const visitLabels = Object.fromEntries(staffVisitTypes.map((item) => [item.id, item.name]));
+export const NO_SHOW_GRACE_PERIOD_MS = 5 * 60 * 1000;
+export const urgentReasonOptions = Object.freeze([
+  'Sudden worsening of condition',
+  'Severe pain or discomfort',
+  'Breathing difficulty or respiratory concern',
+  'Dizziness, weakness, or risk of fainting',
+  'Active bleeding or recent injury',
+  'Doctor-directed priority',
+  'Other urgent concern',
+]);
+export const PRIORITY_REASON_MAX_LENGTH = 200;
 export function normalizeStaffPatient(patient) {
   return { ...patient, isSenior: patient.is_senior === true, hasPortalAccount: patient.has_portal_account === true };
 }
@@ -18,13 +29,25 @@ export function normalizeStaffAppointment(item) {
 export function staffApiErrorMessage(error, fallback = 'Unable to load Staff data.') {
   return apiErrorMessage(error, { fallback, forbidden: 'You do not have access to this Staff operation.', notFound: fallback });
 }
-export function staffCalendarActions(item, today = clinicToday()) {
+export function staffCalendarActions(item, today = clinicToday(), now = new Date()) {
   const active = ['pending', 'confirmed'].includes(item?.status); const unchecked = !item?.check_in_at;
-  return { confirm: active && unchecked && item.status === 'pending', cancel: active && unchecked && item.date >= today, queue: active && item.date === today };
+  const currentDayUnchecked = Boolean(active && unchecked && item?.date === today);
+  const noShowAvailableAt = item?.appointment_at ? new Date(item.appointment_at).getTime() + NO_SHOW_GRACE_PERIOD_MS : null;
+  return {
+    confirmArrival: currentDayUnchecked,
+    cancel: Boolean(active && unchecked && item?.date >= today),
+    queue: Boolean(active && item?.date === today && item?.check_in_at),
+    noShow: Boolean(currentDayUnchecked && noShowAvailableAt <= now.getTime()),
+    noShowGracePending: Boolean(currentDayUnchecked && noShowAvailableAt > now.getTime()),
+    noShowAvailableAt,
+  };
 }
 export function staffQueueActions(item, now = new Date()) {
   const active = item?.date === clinicToday(now) && ['pending', 'confirmed'].includes(item?.status);
-  return { checkIn: Boolean(active && item.status === 'confirmed' && !item.check_in_at), noShow: Boolean(active && !item.check_in_at && new Date(item.appointment_at) <= now), priority: Boolean(active) };
+  const unchecked = Boolean(active && !item?.check_in_at);
+  const noShowAvailableAt = item?.appointment_at ? new Date(item.appointment_at).getTime() + NO_SHOW_GRACE_PERIOD_MS : null;
+  const priorityEligible = Boolean(active && item.status === 'confirmed' && item.check_in_at);
+  return { confirmArrival: unchecked, noShow: Boolean(unchecked && noShowAvailableAt <= now.getTime()), noShowGracePending: Boolean(unchecked && noShowAvailableAt > now.getTime()), noShowAvailableAt, markUrgent: priorityEligible && item.priority !== 'urgent', setNormal: priorityEligible && item.priority === 'urgent' };
 }
 export function patientListPage(patients, page = 1) {
   const pageCount = Math.max(1, Math.ceil(patients.length / 5)); const current = Math.min(pageCount, Math.max(1, page));
@@ -42,8 +65,8 @@ export function createStaffApiService(repository = staffApiRepository) {
     async getPatientContext(id) { const [patient, records] = await Promise.all([repository.getPatient(id), repository.getRecordSummary(id)]); return { patient: normalizeStaffPatient(patient), records }; },
     getDoctors: () => repository.getDoctors(),
     registerWalkIn(values) { return repository.registerWalkIn({ ...values, address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: values.emergency_contact_number?.trim() || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean) }); },
-    createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: values.priority }); },
-    confirm: (id) => repository.confirmAppointment(id), checkIn: (id) => repository.checkIn(id), updatePriority: (id, priority) => repository.updatePriority(id, priority), noShow: (id) => repository.markNoShow(id), cancel: (id) => repository.cancelAppointment(id),
+    createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: 'normal' }); },
+    confirm: (id) => repository.confirmAppointment(id), checkIn: (id) => repository.checkIn(id), updatePriority: (id, payload) => repository.updatePriority(id, payload), getPriorityHistory: (id) => repository.getPriorityHistory(id), noShow: (id) => repository.markNoShow(id), cancel: (id) => repository.cancelAppointment(id),
   };
 }
 export const staffApiService = createStaffApiService();

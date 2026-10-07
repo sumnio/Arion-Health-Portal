@@ -5,6 +5,9 @@ export function createDoctorClinicalController({ clinicalService }) {
     async appointments(request, response) {
       response.json({ appointments: await clinicalService.listDoctorAppointments(request.authUser.user_profile_id, request.query) });
     },
+    async priorityHistory(request, response) {
+      response.json({ priority_history: await clinicalService.priorityHistoryForDoctor(request.authUser.user_profile_id, request.params.appointmentId) });
+    },
     async createRecord(request, response) {
       response.status(201).json({ medical_record: await clinicalService.createRecord(request.authUser.user_profile_id, request.params.appointmentId, request.body) });
     },

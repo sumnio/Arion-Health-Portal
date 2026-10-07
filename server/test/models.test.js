@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 
 import {
   Appointment,
+  AppointmentPriorityAudit,
   AuthAccount,
   Doctor,
   DoctorAvailability,
@@ -32,6 +33,7 @@ test('all domain models load with their intended collection names', () => {
       Doctor,
       Staff,
       Appointment,
+      AppointmentPriorityAudit,
       DoctorAvailability,
       DoctorPublishedAvailability,
       DoctorBlockedTime,
@@ -46,6 +48,7 @@ test('all domain models load with their intended collection names', () => {
       'doctors',
       'staff',
       'appointments',
+      'appointment_priority_audits',
       'doctor_availability',
       'doctor_published_availability',
       'doctor_blocked_times',
@@ -352,6 +355,19 @@ test('Appointment created_by is a nullable UserProfile reference', async () => {
   assert.equal(appointment.created_by, null);
 });
 
+test('priority audit requires approved append-only transition evidence', async () => {
+  const valid = new AppointmentPriorityAudit({ appointment_id: objectId(), previous_priority: 'normal', new_priority: 'urgent', urgency_reason: 'Other urgent concern', explanation: 'Prompt operational review required.', staff_actor_user_profile_id: objectId() });
+  await valid.validate();
+  assert.equal(AppointmentPriorityAudit.schema.path('appointment_id').options.immutable, true);
+  assert.equal(AppointmentPriorityAudit.schema.path('staff_actor_user_profile_id').options.immutable, true);
+  for (const input of [
+    { previous_priority: 'normal', new_priority: 'urgent', urgency_reason: 'Unapproved reason' },
+    { previous_priority: 'normal', new_priority: 'urgent', urgency_reason: 'Other urgent concern' },
+    { previous_priority: 'urgent', new_priority: 'normal' },
+    { previous_priority: 'normal', new_priority: 'normal', correction_reason: 'No change' },
+  ]) await assert.rejects(() => new AppointmentPriorityAudit({ appointment_id: objectId(), staff_actor_user_profile_id: objectId(), ...input }).validate());
+});
+
 test('relationship and scheduling lookup indexes are declared', () => {
   assert.ok(indexByName(Patient, 'patient_contact_lookup'));
   assert.ok(indexByName(Appointment, 'patient_appointment_history'));
@@ -362,4 +378,6 @@ test('relationship and scheduling lookup indexes are declared', () => {
   assert.ok(indexByName(DoctorBlockedTime, 'doctor_blocked_time_lookup'));
   assert.ok(indexByName(MedicalRecord, 'patient_medical_record_history'));
   assert.ok(indexByName(Prescription, 'medical_record_prescription_lookup'));
+  assert.ok(indexByName(AppointmentPriorityAudit, 'appointment_priority_audit_history'));
+  assert.ok(indexByName(AppointmentPriorityAudit, 'staff_priority_audit_activity'));
 });

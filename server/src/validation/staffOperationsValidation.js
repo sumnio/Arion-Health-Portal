@@ -1,4 +1,4 @@
-import { APPOINTMENT_PRIORITIES, APPOINTMENT_VISIT_TYPES } from '../models/index.js';
+import { APPOINTMENT_PRIORITIES, APPOINTMENT_VISIT_TYPES, PRIORITY_AUDIT_TEXT_MAX, URGENT_REASON_LABELS } from '../models/index.js';
 import { httpError } from '../utils/httpError.js';
 import { appointmentLocalParts, clinicDate, SLOT_TIME_PATTERN } from '../utils/schedulingTime.js';
 import { validateObjectId } from './appointmentValidation.js';
@@ -54,20 +54,30 @@ export function validateWalkInAppointment(body = {}, now, timeZone) {
   bodyObject(body); rejectUnknown(body, appointmentFields);
   const doctorId = validateObjectId(body.doctor_id, 'doctor_id');
   if (!APPOINTMENT_VISIT_TYPES.includes(body.visit_type)) throw httpError(400, 'INVALID_VISIT_TYPE', 'visit_type is not an approved value.');
-  if (!APPOINTMENT_PRIORITIES.includes(body.priority ?? 'normal')) throw httpError(400, 'INVALID_PRIORITY', 'priority must be normal or urgent.');
+  if (body.priority != null && body.priority !== 'normal') throw httpError(400, 'INVALID_PRIORITY', 'Walk-in appointments begin with normal priority. Use Mark Urgent after Confirm Arrival.');
   if (typeof body.appointment_at !== 'string' || body.appointment_at.length > 64) throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time string.');
   const appointmentAt = new Date(body.appointment_at);
   if (Number.isNaN(appointmentAt.getTime())) throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time.');
   const local = appointmentLocalParts(appointmentAt, timeZone);
   if (local.date !== clinicDate(now, timeZone)) throw httpError(400, 'WALK_IN_MUST_BE_TODAY', 'Walk-in appointments must be on the current clinic day.');
   if (appointmentAt < now || !SLOT_TIME_PATTERN.test(local.time) || appointmentAt.getUTCSeconds() !== 0 || appointmentAt.getUTCMilliseconds() !== 0) throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'Walk-in appointment time must be a current or future 30-minute slot.');
-  return { doctor_id: doctorId, appointment_at: appointmentAt, visit_type: body.visit_type, reason: text(body.reason, 'reason', false, INPUT_LIMITS.reason), priority: body.priority ?? 'normal' };
+  return { doctor_id: doctorId, appointment_at: appointmentAt, visit_type: body.visit_type, reason: text(body.reason, 'reason', false, INPUT_LIMITS.reason), priority: 'normal' };
 }
 
 export function validatePriority(body = {}) {
-  bodyObject(body); rejectUnknown(body, new Set(['priority']));
+  bodyObject(body); rejectUnknown(body, new Set(['priority', 'urgency_reason', 'explanation', 'correction_reason']));
   if (!APPOINTMENT_PRIORITIES.includes(body.priority)) throw httpError(400, 'INVALID_PRIORITY', 'priority must be normal or urgent.');
-  return body.priority;
+  if (body.priority === 'urgent') {
+    if (!URGENT_REASON_LABELS.includes(body.urgency_reason)) throw httpError(400, 'INVALID_URGENCY_REASON', 'Select an approved urgency reason.');
+    if (body.correction_reason != null) throw httpError(400, 'UNSUPPORTED_FIELD', 'correction_reason is not accepted when marking Urgent.');
+    const explanation = body.urgency_reason === 'Other urgent concern'
+      ? text(body.explanation, 'explanation', false, PRIORITY_AUDIT_TEXT_MAX)
+      : null;
+    if (body.urgency_reason !== 'Other urgent concern' && body.explanation != null) throw httpError(400, 'UNSUPPORTED_FIELD', 'explanation is accepted only for Other urgent concern.');
+    return { priority: 'urgent', urgency_reason: body.urgency_reason, explanation, correction_reason: null };
+  }
+  if (body.urgency_reason != null || body.explanation != null) throw httpError(400, 'UNSUPPORTED_FIELD', 'Urgency fields are not accepted when returning to Normal.');
+  return { priority: 'normal', urgency_reason: null, explanation: null, correction_reason: text(body.correction_reason, 'correction_reason', false, PRIORITY_AUDIT_TEXT_MAX) };
 }
 
 export function validateStaffAppointmentsQuery(query = {}) {

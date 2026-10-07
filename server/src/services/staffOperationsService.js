@@ -3,9 +3,20 @@ import { appointmentLocalParts, clinicDate, addDays, isValidDateOnly, zonedDateT
 import { validateObjectId } from '../validation/appointmentValidation.js';
 import { validatePriority, validateWalkInAppointment, validateWalkInPatient } from '../validation/staffOperationsValidation.js';
 
+export const NO_SHOW_GRACE_PERIOD_MS = 5 * 60 * 1000;
+
 function id(value) { const result = value?._id ?? value?.id ?? value; return result == null ? null : String(result); }
 function iso(value) { return value ? new Date(value).toISOString() : null; }
 function duplicateKey(error) { return error?.code === 11000; }
+function priorityAuditView(item) {
+  return {
+    id: id(item), appointment_id: id(item.appointment_id), previous_priority: item.previous_priority,
+    new_priority: item.new_priority, urgency_reason: item.urgency_reason ?? null,
+    explanation: item.explanation ?? null, correction_reason: item.correction_reason ?? null,
+    staff_actor: { id: id(item.staff_actor_user_profile_id), display_name: item.staff_actor_user_profile_id?.display_name ?? null },
+    changed_at: iso(item.created_at),
+  };
+}
 function ageAt(dob, date) {
   const birth = new Date(dob); const current = new Date(`${date}T00:00:00.000Z`);
   let age = current.getUTCFullYear() - birth.getUTCFullYear();
@@ -68,30 +79,47 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
     },
     async checkIn(appointmentId) {
       validateObjectId(appointmentId, 'appointmentId');
+      const current = now();
+      const date = clinicDate(current, clinic.timeZone);
+      const start = zonedDateTimeToUtc(date, '00:00', clinic.timeZone);
+      const end = zonedDateTimeToUtc(addDays(date, 1), '00:00', clinic.timeZone);
       const existing = await repository.findAppointmentById(appointmentId);
       if (!existing) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
-      if (appointmentLocalParts(existing.appointment_at, clinic.timeZone).date !== clinicDate(now(), clinic.timeZone) || existing.status !== 'confirmed' || existing.check_in_at) throw httpError(409, 'CHECK_IN_NOT_ALLOWED', 'Only an unchecked confirmed appointment for the current clinic day can be checked in.');
-      const updated = await repository.checkInConfirmed(appointmentId, now());
-      if (!updated) throw httpError(409, 'CHECK_IN_NOT_ALLOWED', 'This appointment can no longer be checked in.');
-      return queueView(updated, clinicDate(now(), clinic.timeZone));
+      if (appointmentLocalParts(existing.appointment_at, clinic.timeZone).date !== date || !['pending', 'confirmed'].includes(existing.status) || existing.check_in_at) throw httpError(409, 'CHECK_IN_NOT_ALLOWED', 'Only an unchecked pending or confirmed appointment for the current clinic day can confirm arrival.');
+      const updated = await repository.confirmArrivalEligible(appointmentId, current, start, end);
+      if (!updated) throw httpError(409, 'CHECK_IN_NOT_ALLOWED', 'Arrival can no longer be confirmed for this appointment.');
+      return queueView(updated, date);
     },
-    async updatePriority(appointmentId, body) {
+    async updatePriority(staffProfileId, appointmentId, body) {
       validateObjectId(appointmentId, 'appointmentId');
-      const priority = validatePriority(body);
+      validateObjectId(staffProfileId, 'staffProfileId');
+      const input = validatePriority(body);
       const existing = await repository.findAppointmentById(appointmentId);
       if (!existing) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
-      if (!['pending', 'confirmed'].includes(existing.status)) throw httpError(409, 'PRIORITY_NOT_ALLOWED', 'Priority cannot be changed for this appointment.');
-      const updated = await repository.updatePriorityEligible(appointmentId, priority);
-      if (!updated) throw httpError(409, 'PRIORITY_NOT_ALLOWED', 'Priority can no longer be changed for this appointment.');
-      return { id: id(updated), priority: updated.priority };
+      if (existing.status !== 'confirmed' || !existing.check_in_at) throw httpError(409, 'PRIORITY_NOT_ALLOWED', 'Priority can be changed only after Confirm Arrival for an active appointment.');
+      if (existing.priority === input.priority) throw httpError(409, 'PRIORITY_NOT_ALLOWED', `This appointment is already ${input.priority}.`);
+      if (existing.priority !== 'normal' || input.priority !== 'urgent') {
+        if (existing.priority !== 'urgent' || input.priority !== 'normal') throw httpError(409, 'PRIORITY_NOT_ALLOWED', 'This priority transition is not allowed.');
+      }
+      const changed = await repository.changePriorityWithAudit(appointmentId, existing.priority, input, staffProfileId);
+      if (!changed) throw httpError(409, 'PRIORITY_NOT_ALLOWED', 'Priority can no longer be changed for this appointment.');
+      return { id: id(changed.appointment), priority: changed.appointment.priority, audit_event: priorityAuditView(changed.audit) };
+    },
+    async priorityHistory(appointmentId) {
+      validateObjectId(appointmentId, 'appointmentId');
+      if (!(await repository.findAppointmentById(appointmentId))) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
+      return (await repository.listPriorityHistory(appointmentId)).map(priorityAuditView);
     },
     async markNoShow(appointmentId) {
       validateObjectId(appointmentId, 'appointmentId');
       const current = now();
       const existing = await repository.findAppointmentById(appointmentId);
       if (!existing) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
-      if (appointmentLocalParts(existing.appointment_at, clinic.timeZone).date !== clinicDate(current, clinic.timeZone) || !['pending', 'confirmed'].includes(existing.status) || existing.check_in_at || new Date(existing.appointment_at) > current) throw httpError(409, 'NO_SHOW_NOT_ALLOWED', 'This appointment cannot be marked as no-show.');
-      const updated = await repository.markNoShowEligible(appointmentId, current);
+      if (appointmentLocalParts(existing.appointment_at, clinic.timeZone).date !== clinicDate(current, clinic.timeZone) || !['pending', 'confirmed'].includes(existing.status) || existing.check_in_at) throw httpError(409, 'NO_SHOW_NOT_ALLOWED', 'This appointment cannot be marked as no-show.');
+      const eligibleAt = new Date(existing.appointment_at).getTime() + NO_SHOW_GRACE_PERIOD_MS;
+      if (current.getTime() < eligibleAt) throw httpError(409, 'NO_SHOW_GRACE_PERIOD', 'No-show becomes available five minutes after the scheduled appointment time.');
+      const cutoff = new Date(current.getTime() - NO_SHOW_GRACE_PERIOD_MS);
+      const updated = await repository.markNoShowEligible(appointmentId, cutoff);
       if (!updated) throw httpError(409, 'NO_SHOW_NOT_ALLOWED', 'This appointment can no longer be marked as no-show.');
       return { id: id(updated), status: updated.status };
     },

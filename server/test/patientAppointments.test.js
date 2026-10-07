@@ -161,7 +161,7 @@ const validBooking = {
   doctor_id: ids.doctor,
   appointment_at: '2026-09-26T10:00:00.000Z',
   visit_type: 'general_consultation',
-  reason: 'Recurring headache',
+  reason: 'Headache or dizziness',
 };
 
 test('unauthenticated Patient profile request returns 401', async () => {
@@ -274,6 +274,37 @@ test('deactivating a creator preserves the stored created_by history', async () 
 test('invalid visit_type is rejected', async () => {
   const { app, cookie } = createContext();
   await withServer(app, async (url) => assert.equal((await request(url, '/api/patient/appointments', { method: 'POST', cookie: cookie(ids.patientProfile), body: { ...validBooking, visit_type: 'emergency' } })).status, 400));
+});
+
+test('Patient booking accepts approved reasons and normalizes Other concern text', async () => {
+  const { app, cookie, appointments } = createContext();
+  await withServer(app, async (url) => {
+    const standard = await request(url, '/api/patient/appointments', { method: 'POST', cookie: cookie(ids.patientProfile), body: validBooking });
+    assert.equal(standard.status, 201);
+    assert.equal((await standard.json()).appointment.reason, 'Headache or dizziness');
+    const other = await request(url, '/api/patient/appointments', {
+      method: 'POST',
+      cookie: cookie(ids.patientProfile),
+      body: { ...validBooking, appointment_at: '2026-09-26T10:30:00.000Z', reason: 'Other concern:   Persistent fatigue   ' },
+    });
+    assert.equal(other.status, 201);
+    const otherId = (await other.json()).appointment.id;
+    assert.equal(appointments.get(otherId).reason, 'Other concern: Persistent fatigue');
+  });
+});
+
+test('Patient booking rejects unapproved, empty Other concern, and oversized reasons', async () => {
+  const { app, cookie } = createContext();
+  await withServer(app, async (url) => {
+    for (const reason of ['Recurring headache', 'Other concern:   ', `Other concern: ${'x'.repeat(986)}`]) {
+      const response = await request(url, '/api/patient/appointments', {
+        method: 'POST',
+        cookie: cookie(ids.patientProfile),
+        body: { ...validBooking, reason },
+      });
+      assert.equal(response.status, 400, reason.slice(0, 40));
+    }
+  });
 });
 
 test('past appointment is rejected', async () => {

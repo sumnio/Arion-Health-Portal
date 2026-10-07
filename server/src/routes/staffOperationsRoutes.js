@@ -22,6 +22,7 @@ export function createStaffOperationsRouter({ authModule, staffOperationsModule 
   router.get('/patients/:patientId/record-summary', controller.recordSummary);
   router.patch('/appointments/:appointmentId/check-in', controller.checkIn);
   router.patch('/appointments/:appointmentId/priority', controller.priority);
+  router.get('/appointments/:appointmentId/priority-history', controller.priorityHistory);
   router.patch('/appointments/:appointmentId/no-show', controller.noShow);
   router.patch('/appointments/:appointmentId/cancel', controller.cancel);
   router.get('/queue', controller.queue);

@@ -3,7 +3,7 @@ import { test, expect } from '../fixtures/test.js';
 import { loginAsStaff, logoutThroughUi } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
 
-test('Staff session, dashboard, calendar confirmation, persistence, and logout use live data', async ({ page, staffScenario, seededStaff }) => {
+test('Staff session, dashboard, atomic Confirm Arrival, persistence, and logout use live data', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const doctor = await staffScenario.createDoctor();
   const patient = await staffScenario.createPatient();
@@ -28,14 +28,25 @@ test('Staff session, dashboard, calendar confirmation, persistence, and logout u
   await page.getByRole('button', { name: new RegExp(patient.full_name) }).click();
   await expect(page.getByRole('definition').filter({ hasText: doctor.display_name })).toBeVisible();
   await expect(page.locator('.calendar-details').getByText('Pending', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm Appointment' }).click();
-  await expect(page.getByText('Appointment confirmed.', { exact: true })).toBeVisible();
-  expect((await Appointment.findById(appointment.appointmentId).lean()).status).toBe('confirmed');
+  await page.getByRole('button', { name: 'Confirm Arrival' }).click();
+  await expect(page.getByText('Arrival confirmed. Patient added to the active queue.', { exact: true })).toBeVisible();
+  const arrived = await Appointment.findById(appointment.appointmentId).lean();
+  expect(arrived.status).toBe('confirmed');
+  expect(arrived.check_in_at).not.toBeNull();
 
+  await page.goto('/staff/queue');
+  const waiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Active Queue/ }) });
+  await expect(waiting.getByText(patient.full_name)).toBeVisible();
+
+  await page.goto('/staff/calendar');
   await page.reload();
   await expect(page.getByText(patient.full_name)).toBeVisible();
   await page.getByRole('button', { name: new RegExp(patient.full_name) }).click();
   await expect(page.locator('.calendar-details').getByText('Confirmed', { exact: true })).toBeVisible();
+  await expect(page.getByRole('definition').filter({ hasText: 'Arrived / Confirmed' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirm Arrival' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Mark No-show' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'View in Appointment Queue' })).toBeVisible();
   await page.getByRole('button', { name: 'Next day' }).click();
   await expect(page.getByLabel('Selected date')).toHaveValue(staffScenario.futureDate(1));
   await page.getByLabel('Selected date').fill(staffScenario.futureDate(14));

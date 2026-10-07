@@ -8,6 +8,29 @@ export const patientVisitTypes = Object.freeze([
   { id: 'check_up', name: 'Check-up' },
 ]);
 
+export const patientVisitReasons = Object.freeze([
+  'General health concern',
+  'Fever, cough, or cold symptoms',
+  'Headache or dizziness',
+  'Stomach pain or digestive concern',
+  'Blood pressure concern',
+  'Follow-up consultation',
+  'Routine health check',
+  'Laboratory results discussion',
+  'Medical clearance consultation',
+  'Other concern',
+]);
+
+export const OTHER_CONCERN_PREFIX = 'Other concern: ';
+export const PATIENT_REASON_MAX_LENGTH = 1000;
+
+export function formatPatientVisitReason(selection, customText = '') {
+  if (!patientVisitReasons.includes(selection)) return '';
+  if (selection !== 'Other concern') return selection;
+  const detail = customText.trim();
+  return detail ? `${OTHER_CONCERN_PREFIX}${detail}` : '';
+}
+
 export const patientProfileSexOptions = Object.freeze([
   { value: 'male', label: 'Male' }, { value: 'female', label: 'Female' },
   { value: 'other', label: 'Other' }, { value: 'prefer_not_to_say', label: 'Prefer not to say' },
@@ -142,7 +165,7 @@ export function createPatientApiService(repository = patientApiRepository) {
         doctor_id: values.doctor,
         appointment_at: appointmentAt,
         visit_type: values.service,
-        reason: values.reason.trim(),
+        reason: formatPatientVisitReason(values.reason, values.otherReason),
       }));
     },
     async getAppointments() { return (await repository.getAppointments()).map(normalizeAppointment); },

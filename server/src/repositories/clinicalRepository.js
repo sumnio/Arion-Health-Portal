@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import {
   Appointment,
+  AppointmentPriorityAudit,
   Doctor,
   MedicalCertificate,
   MedicalRecord,
@@ -25,6 +26,12 @@ export const clinicalRepository = {
   },
   async findPatientById(patientId) { return Patient.findById(patientId).lean(); },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },
+  async listPriorityHistory(id) {
+    return AppointmentPriorityAudit.find({ appointment_id: id })
+      .sort({ created_at: 1, _id: 1 })
+      .populate({ path: 'staff_actor_user_profile_id', select: 'display_name' })
+      .lean();
+  },
   async findRecordByAppointmentId(id) { return MedicalRecord.findOne({ appointment_id: id }).lean(); },
   async listAppointmentsForDoctor(doctorId, { start, end, patientId } = {}) {
     const query = { doctor_id: doctorId };

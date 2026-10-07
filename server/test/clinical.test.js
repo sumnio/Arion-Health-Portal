@@ -51,6 +51,7 @@ function createContext({ certificateIssuanceEnabled = true } = {}) {
   const records = new Map();
   const prescriptions = new Map();
   const certificates = new Map();
+  const priorityAudits = [{ _id: '800000000000000000000001', appointment_id: ids.confirmed, previous_priority: 'normal', new_priority: 'urgent', urgency_reason: 'Severe pain or discomfort', explanation: null, correction_reason: null, staff_actor_user_profile_id: { _id: ids.staffProfile, display_name: 'Staff' }, created_at: new Date('2026-09-25T01:50:00Z') }];
   let sequence = 100;
   const nextId = () => (++sequence).toString(16).padStart(24, '0');
   const populateRecord = (record) => record ? {
@@ -66,6 +67,7 @@ function createContext({ certificateIssuanceEnabled = true } = {}) {
     async findPatientByUserProfileId(profileId) { return clone([...patients.values()].find((item) => item.user_profile_id === profileId)); },
     async findPatientById(patientId) { return clone(patients.get(String(patientId))); },
     async findAppointmentById(id) { return clone(appointments.get(String(id))); },
+    async listPriorityHistory(id) { return clone(priorityAudits.filter((item) => item.appointment_id === String(id))); },
     async findRecordByAppointmentId(id) { return clone([...records.values()].find((item) => item.appointment_id === String(id))); },
     async listAppointmentsForDoctor(doctorId, { start, end, patientId } = {}) {
       return [...appointments.values()].filter((item) => item.doctor_id === String(doctorId)
@@ -101,7 +103,7 @@ function createContext({ certificateIssuanceEnabled = true } = {}) {
   const authModule = { tokens, service: { async getAuthenticatedUser(profileId) { const found = profiles.get(String(profileId)); if (!found) throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); return clone(found); } } };
   const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City' }, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => 'AHC-20260925-ABCDEF12', certificateIssuanceEnabled });
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, clinicalModule });
-  return { app, appointments, records, prescriptions, certificates, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
+  return { app, appointments, records, prescriptions, certificates, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
 }
 
 async function withServer(app, callback) {
@@ -114,6 +116,8 @@ const recordBody = { diagnosis: 'Viral upper respiratory infection', notes: 'Res
 const certificateBody = { purpose: 'Fit to Work', diagnosis_summary: 'Recovered from viral infection', date_issued: '2026-09-25', valid_until: '2026-10-02' };
 
 test('Doctor reads only own assigned appointments with safe Patient context', async () => { const context = createContext(); await withServer(context.app, async (base) => { const response = await request(base, `/api/doctor/appointments?patient_id=${ids.patient}`, { cookie: context.cookie(ids.doctorProfile) }); assert.equal(response.status, 200); const body = await response.json(); assert.equal(body.appointments.length, 5); assert.equal(body.appointments[0].patient.full_name, 'Alex Patient'); assert.equal(body.appointments.some((item) => item.id === ids.otherDoctorAppointment), false); assert.equal('address' in body.appointments[0].patient, false); assert.equal((await request(base, '/api/doctor/appointments', { cookie: context.cookie(ids.patientProfile) })).status, 403); }); });
+
+test('assigned Doctor reads safe priority history while unrelated Doctor and other roles are denied', async () => { const context = createContext(); await withServer(context.app, async (base) => { const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/priority-history`, { cookie: context.cookie(ids.doctorProfile) }); const body = await response.json(); assert.equal(response.status, 200); assert.equal(body.priority_history[0].urgency_reason, 'Severe pain or discomfort'); assert.equal(JSON.stringify(body).includes('diagnosis'), false); assert.equal((await request(base, `/api/doctor/appointments/${ids.otherDoctorAppointment}/priority-history`, { cookie: context.cookie(ids.doctorProfile) })).status, 403); assert.equal((await request(base, `/api/doctor/appointments/${ids.confirmed}/priority-history`)).status, 401); for (const profile of [ids.patientProfile, ids.staffProfile, ids.adminProfile]) assert.equal((await request(base, `/api/doctor/appointments/${ids.confirmed}/priority-history`, { cookie: context.cookie(profile) })).status, 403); }); });
 
 async function createRecord(context, base, appointmentId = ids.confirmed) {
   const response = await request(base, `/api/doctor/appointments/${appointmentId}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: recordBody });

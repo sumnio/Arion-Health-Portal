@@ -47,11 +47,13 @@ Doctors may read only records from their own consultations through `GET /api/doc
 
 Staff can search basic Patient information with `GET /api/staff/patients?search=`, register guest walk-ins with `POST /api/staff/patients/walk-in`, and create same-day walk-in Appointments with `POST /api/staff/patients/:patientId/walk-in-appointments`. Walk-in registration creates only a Patient with `user_profile_id = null`; it creates no UserProfile or AuthAccount. Clear matches by contact number or exact name plus DOB are rejected so Staff can reuse the existing Patient identity. Name alone is never treated as a definitive duplicate.
 
-Staff-created walk-in Appointments are immediately `confirmed`, matching the approved Staff UI flow. They use the existing Appointment entity, preserve `Patient.id`, store the authenticated Staff UserProfile in `created_by`, and remain subject to same-Doctor slot uniqueness. Scheduled pending appointments continue to use `PATCH /api/staff/appointments/:appointmentId/confirm`.
+Staff-created walk-in Appointments are immediately `confirmed`, matching the approved Staff UI flow. They use the existing Appointment entity, preserve `Patient.id`, store the authenticated Staff UserProfile in `created_by`, and remain subject to same-Doctor slot uniqueness. Patient self-bookings remain `pending` and visible in the Staff Calendar. The standalone `PATCH /api/staff/appointments/:appointmentId/confirm` transition remains available for compatibility, but routine arrival uses the atomic check-in transition below.
 
-`PATCH /api/staff/appointments/:appointmentId/check-in` sets `check_in_at` from server time for an unchecked confirmed Appointment. `GET /api/staff/queue` returns only confirmed, checked-in Appointments on the current clinic day. Queue order is Urgent, then the shared Senior/PWD tier, then Normal; same-tier ordering uses `check_in_at`. Senior status is derived from DOB and is not stored. `PATCH /api/staff/appointments/:appointmentId/priority` accepts only `normal` or `urgent`.
+`PATCH /api/staff/appointments/:appointmentId/check-in` is the Staff Confirm Arrival transition. In one conditional database update, it accepts an unchecked `pending` or `confirmed` Appointment on the current clinic day, sets `status = confirmed`, and sets `check_in_at` from trusted server time without overwriting an existing timestamp. `GET /api/staff/queue` returns only confirmed, checked-in Appointments on the current clinic day. Queue order is Urgent, then the shared Senior/PWD tier, then Normal; same-tier ordering uses `check_in_at`. Senior status is derived from DOB and is not stored.
 
-`PATCH /api/staff/appointments/:appointmentId/no-show` preserves an eligible due, unchecked pending/confirmed Appointment while changing its status to `no_show`, which removes it from the queue. Doctor completion likewise removes an Appointment from Staff queue results. No Staff completion endpoint exists.
+`PATCH /api/staff/appointments/:appointmentId/priority` changes only checked-in confirmed Appointments. Normal to Urgent requires exactly one approved reason: Sudden worsening of condition; Severe pain or discomfort; Breathing difficulty or respiratory concern; Dizziness, weakness, or risk of fainting; Active bleeding or recent injury; Doctor-directed priority; or Other urgent concern. Other requires a bounded explanation. Urgent to Normal requires a bounded correction reason. Each change and its append-only `AppointmentPriorityAudit` event commit in one MongoDB transaction; actor and timestamp are server-derived. Staff may read this history, and only the Doctor assigned to the Appointment may read it through the Doctor route. Patient and Admin receive no urgency-history access.
+
+`PATCH /api/staff/appointments/:appointmentId/no-show` preserves an eligible unchecked pending/confirmed Appointment while changing its status to `no_show`, which removes it from the queue. Staff may perform this explicit action only when trusted server time is at least five minutes after the scheduled start; there is no automatic no-show transition. Doctor completion likewise removes an Appointment from Staff queue results. No Staff completion endpoint exists.
 
 `GET /api/staff/patients/:patientId/record-summary` returns only Patient name, encounter time, attending Doctor, and diagnosis summary. It excludes notes, prescriptions, and certificate content.
 
@@ -87,7 +89,7 @@ Every Patient endpoint requires a valid authenticated session, an active UserPro
 
 Patient profile updates support the approved contact and emergency-contact fields, PWD status, and the existing profile workflow's `dob` and `sex` fields. Updating `full_name` or `contact_number` also keeps the linked UserProfile's shared display/contact values synchronized. Identifiers, account status, role, allergies, and clinical data cannot be changed through this endpoint.
 
-Patient appointment creation accepts only `doctor_id`, `appointment_at`, canonical `visit_type`, and the schema-required free-text `reason`. The server derives the Patient, sets `created_by` to the authenticated Patient UserProfile ID, sets `status = pending`, `priority = normal`, and `check_in_at = null`, enforces future 30-minute slot boundaries and the approved 14-day Patient booking window, and maps the active same-Doctor/time unique-index collision to HTTP 409. Clients cannot choose or override the creator identity.
+Patient appointment creation accepts only `doctor_id`, `appointment_at`, canonical `visit_type`, and the schema-required `reason`. Patient self-booking uses the approved visit-reason labels; selecting `Other concern` requires details and stores the normalized value as `Other concern: [trimmed text]`. Staff walk-in creation retains its existing free-text reason behavior. The server derives the Patient, sets `created_by` to the authenticated Patient UserProfile ID, sets `status = pending`, `priority = normal`, and `check_in_at = null`, enforces future 30-minute slot boundaries and the approved 14-day Patient booking window, and maps the active same-Doctor/time unique-index collision to HTTP 409. Clients cannot choose or override the creator identity.
 
 Patients may cancel only their own future `pending` or `confirmed` appointments before check-in and before a MedicalRecord has been saved for the consultation. Cancellation changes the status to `cancelled` and preserves the document. Checked-in, recorded, completed, cancelled, and no-show appointments reject cancellation. This prevents a completed clinical encounter from being cancelled even if its shared Appointment status has not yet been updated to `completed`.
 
@@ -355,7 +357,7 @@ The same doctor must not have two active appointments in the same 30-minute slot
 - Follow-up
 - Check-up
 
-These are the only approved fixed MVP visit types. Appointment stores them in `visit_type` using canonical values `general_consultation`, `follow_up`, and `check_up`. Do not create a Service or Department table or conflate visit type with the free-text reason for visit.
+These are the only approved fixed MVP visit types. Appointment stores them in `visit_type` using canonical values `general_consultation`, `follow_up`, and `check_up`. Do not create a Service or Department table or conflate visit type with the separate reason for visit. Patient self-booking uses the approved reason dropdown (plus detailed `Other concern`); Staff walk-in reason entry remains free text.
 
 ### Normal walk-in appointment flow
 
@@ -374,8 +376,8 @@ Queue priority is:
 - Pregnancy does not require a separate queue priority or status. A case that qualifies as urgent under clinic policy uses the existing urgent Appointment priority; otherwise the standard derived tier applies.
 - Appointment priority values remain only `normal` and `urgent`. Senior/PWD is derived for queue ordering and is not a new stored Appointment priority.
 - Within the same tier, earlier `check_in_at` goes first. If a fallback is needed because `check_in_at` is unavailable, use `appointment_at` consistently. Do not order the queue by Appointment creation time.
-- Only eligible Appointments may be checked in. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible for normal check-in.
-- Check-in sets `check_in_at` and adds the patient to the waiting queue. A non-null `check_in_at` prevents duplicate check-in and must not be overwritten by a repeated normal check-in.
+- Only eligible current-clinic-day Appointments may confirm arrival. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible.
+- Confirm Arrival atomically sets `status = confirmed` and `check_in_at` from server time, adding the patient to the waiting queue. A non-null `check_in_at` prevents duplicate arrival confirmation and must not be overwritten.
 - Walk-ins use the same logic after staff creates their same-day Appointment and checks them in: Urgent -> Senior/PWD -> Normal, then earlier check-in first within the tier.
 - The approved model has no separate queue entity or additional queue priority values.
 

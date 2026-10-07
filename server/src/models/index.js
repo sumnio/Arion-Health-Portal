@@ -10,6 +10,7 @@ export {
   APPOINTMENT_VISIT_TYPES,
   SLOT_BLOCKING_STATUSES,
 } from './Appointment.js';
+export { AppointmentPriorityAudit, PRIORITY_AUDIT_TEXT_MAX, URGENT_REASON_LABELS } from './AppointmentPriorityAudit.js';
 export { DoctorAvailability } from './DoctorAvailability.js';
 export { DoctorPublishedAvailability } from './DoctorPublishedAvailability.js';
 export { DoctorBlockedTime } from './DoctorBlockedTime.js';

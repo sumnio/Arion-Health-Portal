@@ -129,6 +129,7 @@ The API starts only after required configuration passes validation and MongoDB c
 - `GET /api/patient/doctors/:doctorId/available-slots?date=YYYY-MM-DD`
 - `POST /api/doctor/appointments/:appointmentId/medical-record`
 - `PATCH /api/doctor/appointments/:appointmentId/complete`
+- `GET /api/doctor/appointments/:appointmentId/priority-history`
 - `GET /api/doctor/patients/:patientId/records`
 - `GET /api/doctor/records/:recordId`
 - `POST /api/doctor/records/:recordId/certificates`
@@ -145,6 +146,7 @@ The API starts only after required configuration passes validation and MongoDB c
 - `POST /api/staff/patients/:patientId/walk-in-appointments`
 - `PATCH /api/staff/appointments/:appointmentId/check-in`
 - `PATCH /api/staff/appointments/:appointmentId/priority`
+- `GET /api/staff/appointments/:appointmentId/priority-history`
 - `PATCH /api/staff/appointments/:appointmentId/no-show`
 - `PATCH /api/staff/appointments/:appointmentId/cancel`
 - `GET /api/staff/queue`
@@ -209,7 +211,7 @@ Clinical routes enforce authenticated ownership. Doctors create one immutable Me
 
 Issued certificates can be downloaded as PDFs from the authenticated Doctor issuance success state and Patient certificate-detail screen. PDF generation uses the already authorized response in the browser, adds no public certificate route, and does not include the protected signature storage path.
 
-Staff operational routes support basic Patient search, guest walk-in registration without an account, same-day confirmed walk-in Appointments, check-in, canonical priority changes, no-show transitions, and the active waiting queue. Queue order is Urgent, Senior/PWD, then Normal, with check-in time ordering inside each tier. Staff has a separate restricted record-summary projection and no consultation-completion or clinical-editing endpoint.
+Staff operational routes support basic Patient search, guest walk-in registration without an account, same-day confirmed walk-in Appointments, check-in, audited priority changes, no-show transitions, and the active waiting queue. Urgent requires Confirm Arrival and an approved reason; returning to Normal requires a correction reason. The Appointment update and append-only audit event use one MongoDB transaction. Queue order remains Urgent, Senior/PWD, then Normal, with check-in time ordering inside each tier. Staff has a separate restricted record-summary projection and no consultation-completion or clinical-editing endpoint. Staff and the assigned Doctor may read the minimal priority history; Patient and Admin may not.
 
 Admin routes provision Doctor and Staff accounts with server-assigned roles and bcrypt password hashes, expose safe non-clinical account projections, and manage explicit active/inactive lifecycle transitions. Deactivation preserves every linked identity and historical relationship while existing authorization blocks protected access. Patient administration covers linked portal status only; walk-ins without accounts cannot be activated/deactivated. No Admin hard-delete or clinical-editing route exists.
 

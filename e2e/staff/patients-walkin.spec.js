@@ -102,7 +102,7 @@ test('Staff creates a same-day walk-in Appointment with its own creator and non-
   expect(stored.status).toBe('confirmed');
   expect(String(stored.created_by)).toBe(seededStaff.profileId);
 
-  await page.getByRole('button', { name: 'Check In and Open Queue' }).click();
+  await page.getByRole('button', { name: 'Confirm Arrival and Open Queue' }).click();
   await expect(page).toHaveURL('/staff/queue');
   await expect(page.getByText(patient.full_name)).toBeVisible();
   await page.reload();

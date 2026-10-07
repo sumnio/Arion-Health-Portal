@@ -89,7 +89,7 @@ export const routeGroups = {
     },
     {
       "path": "/staff/queue",
-      "title": "Queue / Check-in"
+      "title": "Appointment Queue"
     },
     {
       "path": "/staff/patients",

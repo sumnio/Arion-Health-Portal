@@ -10,6 +10,7 @@ export function createDoctorApiRepository(client = apiClient) {
       const suffix = query.size ? `?${query}` : '';
       return (await request(`/api/doctor/appointments${suffix}`)).appointments;
     },
+    async getPriorityHistory(appointmentId) { return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/priority-history`)).priority_history; },
     async getRecurringAvailability() { return (await request('/api/doctor/availability')).availability; },
     async createRecurringAvailability(payload) { return (await request('/api/doctor/availability', { method: 'POST', body: payload })).availability; },
     async updateRecurringAvailability(id, payload) { return (await request(`/api/doctor/availability/${encodeURIComponent(id)}`, { method: 'PATCH', body: payload })).availability; },

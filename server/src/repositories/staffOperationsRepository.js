@@ -1,10 +1,12 @@
-import { Appointment, Doctor, MedicalRecord, Patient } from '../models/index.js';
+import mongoose from 'mongoose';
+import { Appointment, AppointmentPriorityAudit, Doctor, MedicalRecord, Patient } from '../models/index.js';
 
 const doctorPopulation = { path: 'doctor_id', select: 'specialty user_profile_id', populate: { path: 'user_profile_id', select: 'display_name' } };
 const queuePopulation = [
   { path: 'patient_id', select: 'full_name dob is_pwd sex contact_number' },
   doctorPopulation,
 ];
+const auditActorPopulation = { path: 'staff_actor_user_profile_id', select: 'display_name' };
 function escapeRegex(value) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function flexiblePhoneRegex(value, anchored = false) {
   const digits = value.replace(/\D/g, '');
@@ -45,14 +47,45 @@ export const staffOperationsRepository = {
   async doctorExists(id) { return Boolean(await Doctor.exists({ _id: id })); },
   async createAppointment(data) { return (await Appointment.create(data)).toObject(); },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },
-  async checkInConfirmed(id, timestamp) {
-    return Appointment.findOneAndUpdate({ _id: id, status: 'confirmed', check_in_at: null }, { $set: { check_in_at: timestamp } }, { new: true, runValidators: true }).populate(queuePopulation).lean();
+  async confirmArrivalEligible(id, timestamp, start, end) {
+    return Appointment.findOneAndUpdate(
+      { _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null, appointment_at: { $gte: start, $lt: end } },
+      { $set: { status: 'confirmed', check_in_at: timestamp } },
+      { new: true, runValidators: true },
+    ).populate(queuePopulation).lean();
   },
-  async updatePriorityEligible(id, priority) {
-    return Appointment.findOneAndUpdate({ _id: id, status: { $in: ['pending', 'confirmed'] } }, { $set: { priority } }, { new: true, runValidators: true }).populate(queuePopulation).lean();
+  async changePriorityWithAudit(id, previousPriority, input, staffActorId) {
+    const session = await mongoose.startSession();
+    try {
+      let result = null;
+      await session.withTransaction(async () => {
+        const appointment = await Appointment.findOneAndUpdate(
+          { _id: id, status: 'confirmed', check_in_at: { $ne: null }, priority: previousPriority },
+          { $set: { priority: input.priority } },
+          { new: true, runValidators: true, session },
+        ).populate(queuePopulation).lean();
+        if (!appointment) return;
+        const [audit] = await AppointmentPriorityAudit.create([{
+          appointment_id: id,
+          previous_priority: previousPriority,
+          new_priority: input.priority,
+          urgency_reason: input.urgency_reason,
+          explanation: input.explanation,
+          correction_reason: input.correction_reason,
+          staff_actor_user_profile_id: staffActorId,
+        }], { session });
+        result = { appointment, audit: audit.toObject() };
+      });
+      return result;
+    } finally {
+      await session.endSession();
+    }
   },
-  async markNoShowEligible(id, now) {
-    return Appointment.findOneAndUpdate({ _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null, appointment_at: { $lte: now } }, { $set: { status: 'no_show' } }, { new: true, runValidators: true }).populate(queuePopulation).lean();
+  async listPriorityHistory(id) {
+    return AppointmentPriorityAudit.find({ appointment_id: id }).sort({ created_at: 1, _id: 1 }).populate(auditActorPopulation).lean();
+  },
+  async markNoShowEligible(id, cutoff) {
+    return Appointment.findOneAndUpdate({ _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null, appointment_at: { $lte: cutoff } }, { $set: { status: 'no_show' } }, { new: true, runValidators: true }).populate(queuePopulation).lean();
   },
   async cancelEligible(id) {
     return Appointment.findOneAndUpdate(

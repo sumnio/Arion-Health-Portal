@@ -2,7 +2,16 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createPatientApiRepository } from '../src/repositories/patientApiRepository.js';
-import { canCancelPatientAppointment, createPatientApiService, patientBookingDates, patientVisitTypes } from '../src/services/patientApiService.js';
+import {
+  canCancelPatientAppointment,
+  createPatientApiService,
+  formatPatientVisitReason,
+  OTHER_CONCERN_PREFIX,
+  PATIENT_REASON_MAX_LENGTH,
+  patientBookingDates,
+  patientVisitReasons,
+  patientVisitTypes,
+} from '../src/services/patientApiService.js';
 
 const patient = { id: 'p1', full_name: 'Alex Patient', dob: '1990-01-15', sex: 'male', contact_number: '09171234567', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: ['Penicillin'], is_pwd: false };
 const doctor = { id: 'd1', display_name: 'Dr. Maria Santos', specialty: 'General Medicine' };
@@ -31,6 +40,41 @@ test('Patient booking stays within 14 days and uses the three canonical visit ty
   const dates = patientBookingDates(new Date('2026-09-25T12:00:00Z'));
   assert.equal(dates.length, 15); assert.equal(dates.at(-1), '2026-10-09');
   assert.deepEqual(patientVisitTypes.map(item => item.name), ['General Consultation', 'Follow-up', 'Check-up']);
+});
+
+test('Patient booking exposes the exact approved visit reasons', () => {
+  assert.deepEqual(patientVisitReasons, [
+    'General health concern',
+    'Fever, cough, or cold symptoms',
+    'Headache or dizziness',
+    'Stomach pain or digestive concern',
+    'Blood pressure concern',
+    'Follow-up consultation',
+    'Routine health check',
+    'Laboratory results discussion',
+    'Medical clearance consultation',
+    'Other concern',
+  ]);
+});
+
+test('Patient visit reason formatting preserves standard labels and normalizes Other concern', () => {
+  assert.equal(formatPatientVisitReason('Headache or dizziness', 'stale detail'), 'Headache or dizziness');
+  assert.equal(formatPatientVisitReason('Other concern', '  Persistent fatigue  '), 'Other concern: Persistent fatigue');
+  assert.equal(formatPatientVisitReason('Other concern', '   '), '');
+  assert.equal(formatPatientVisitReason('Unapproved reason', 'detail'), '');
+  assert.equal(PATIENT_REASON_MAX_LENGTH - OTHER_CONCERN_PREFIX.length, 985);
+});
+
+test('Patient appointment creation submits the final approved reason', async () => {
+  const payloads = [];
+  const repository = {
+    async createAppointment(payload) { payloads.push(payload); return { ...appointment, reason: payload.reason }; },
+  };
+  const service = createPatientApiService(repository);
+  const base = { doctor: 'd1', date: '2026-09-26', time: '10:00', service: 'general_consultation' };
+  await service.createAppointment({ ...base, reason: 'Routine health check', otherReason: 'stale detail' });
+  await service.createAppointment({ ...base, reason: 'Other concern', otherReason: '  Persistent fatigue  ' });
+  assert.deepEqual(payloads.map(item => item.reason), ['Routine health check', 'Other concern: Persistent fatigue']);
 });
 
 test('Patient cancellation is hidden after check-in, record creation, or completion', () => {

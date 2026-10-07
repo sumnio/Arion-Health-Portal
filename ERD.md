@@ -184,7 +184,7 @@ Patient 1 ─── * Appointment
 
 Staff has no ownership relationship with MedicalRecord, Prescription, or MedicalCertificate. Staff access is role-based and follows least privilege.
 
-- Staff may use basic Patient and Appointment information for calendar, appointment confirmation/cancellation, patient search, walk-in registration, same-day Appointment creation, check-in, queue management, and eligible no-show updates. Staff cannot mark a consultation completed.
+- Staff may use basic Patient and Appointment information for calendar, appointment confirmation/cancellation, patient search, walk-in registration, same-day Appointment creation, check-in, queue management, and explicit eligible no-show updates at least five minutes after the scheduled start. Staff cannot mark a consultation completed.
 - When operationally necessary, Staff may read only patient name, encounter date, attending Doctor, and a short diagnosis summary from the related MedicalRecord.
 - Staff must not see detailed doctor notes, full Prescription details, MedicalCertificate contents, or sensitive clinical narrative beyond the short diagnosis summary.
 - Staff cannot create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit Patient clinical history; or manage Doctor, Staff, or Admin accounts.
@@ -204,9 +204,11 @@ The waiting queue is derived from Appointment and Patient data; the approved mod
 - Senior status is derived from `Patient.dob`; there is no stored or manually assigned `is_senior` field. PWD status comes from `Patient.is_pwd`.
 - Pregnancy does not create a separate priority or status. Cases that meet clinic urgent criteria use the existing `Appointment.priority = urgent`; otherwise the standard derived tier applies.
 - `Appointment.priority` remains limited to `normal` and `urgent`; Senior/PWD is a derived queue tier.
+- Staff may assign Urgent only to a confirmed, checked-in Appointment and must provide one approved urgency reason. `Other urgent concern` requires a bounded explanation. Returning to Normal requires a bounded correction reason.
+- Each priority transition appends an `AppointmentPriorityAudit` event in the same MongoDB transaction as the Appointment update. Audit history is never rewritten, and `Appointment.reason` remains the Patient's visit reason.
 - Within a tier, order by `Appointment.check_in_at`, with earlier check-in first. Where a fallback is required because `check_in_at` is unavailable, use `Appointment.appointment_at` consistently. Never use `Appointment.created_at` for queue ordering.
-- Normal check-in applies only to eligible Appointments. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible.
-- Check-in sets `Appointment.check_in_at` and places the patient in the waiting queue. Requiring that `check_in_at` is null prevents duplicate check-in and preserves the original timestamp.
+- Confirm Arrival applies only to eligible current-clinic-day Appointments. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible.
+- Confirm Arrival atomically sets `Appointment.status = confirmed` and `Appointment.check_in_at` from server time, placing the patient in the waiting queue. Requiring that `check_in_at` is null prevents duplicate arrival confirmation and preserves the original timestamp.
 - Walk-in patients use the same behavior after staff creates their same-day Appointment: Urgent -> Senior/PWD -> Normal, then check-in time within the tier.
 - Only the Doctor assigned through `Appointment.doctor_id` may mark an eligible consultation `completed`, normally after saving its linked MedicalRecord. Completion removes the patient from the active waiting queue. Staff and Patient views read that same Appointment status.
 
@@ -411,6 +413,22 @@ The same Doctor cannot have two blocking Appointments in the same 30-minute slot
 Patient-facing slot generation uses only DoctorPublishedAvailability within 14 days, then removes DoctorBlockedTime overlaps, past slots, and blocking Appointments. Recurring DoctorAvailability is a publication template and is never exposed directly as bookable. Creating a block that overlaps a blocking Appointment is rejected, and deleting schedule rows does not delete or alter Appointment history.
 
 `patient_id`, `doctor_id`, and `created_by` have separate meanings: Patient receiving care, Doctor assigned to the consultation, and UserProfile account that created the Appointment. The creator relationship stores only the UserProfile reference and does not expose or copy authentication credentials. UserProfile deactivation does not null `created_by` and does not delete the Appointment.
+
+## AppointmentPriorityAudit Structure
+
+| Field | Type | Notes |
+|---|---|---|
+| id | identifier, PK | Append-only event identity |
+| appointment_id | identifier, FK | References Appointment |
+| previous_priority | enum | `normal`, `urgent` |
+| new_priority | enum | `normal`, `urgent` |
+| urgency_reason | enum, nullable | Approved urgency label for Normal → Urgent |
+| explanation | text, nullable | Maximum 200 characters; Other urgent concern only |
+| correction_reason | text, nullable | Maximum 200 characters; required for Urgent → Normal |
+| staff_actor_user_profile_id | identifier, FK | Server-derived Staff UserProfile |
+| created_at | timestamptz | Server-generated immutable event time |
+
+`Appointment 1 -> many AppointmentPriorityAudit` preserves every priority transition. `UserProfile 1 -> many AppointmentPriorityAudit` identifies the Staff actor without copying account data. Staff may read operational history; only the assigned Doctor has read-only Doctor access. Patient and Admin have no urgency-history access.
 
 ---
 
@@ -651,9 +669,11 @@ UserProfile 0..1 -> 0..1 Patient (via nullable, unique Patient.user_profile_id)
 UserProfile 1 -> 0..1 Doctor
 UserProfile 1 -> 0..1 Staff
 UserProfile 1 -> 0..many Appointment (via nullable Appointment.created_by)
+UserProfile 1 -> 0..many AppointmentPriorityAudit (via Staff actor)
 
 Patient 1 -> many Appointment
 Doctor 1 -> many Appointment
+Appointment 1 -> many AppointmentPriorityAudit
 
 Doctor 1 -> many DoctorAvailability
 Doctor 1 -> many DoctorPublishedAvailability
@@ -694,7 +714,7 @@ Doctor consultation through normal appointment flow
 MedicalRecord linked to that Appointment
 ```
 
-The Staff API registers a new walk-in as Patient only (`user_profile_id = null`) and creates no UserProfile/AuthAccount. Its same-day Appointment is immediately `confirmed`, with `created_by` referencing the authenticated Staff UserProfile. Check-in later sets `check_in_at` from server time. No separate walk-in or queue entity is introduced.
+The Staff API registers a new walk-in as Patient only (`user_profile_id = null`) and creates no UserProfile/AuthAccount. Its same-day Appointment is immediately `confirmed`, with `created_by` referencing the authenticated Staff UserProfile. Confirm Arrival later sets `check_in_at` from server time through the same atomic Staff transition. No separate walk-in or queue entity is introduced.
 
 The active queue is a projection of current-day confirmed Appointments with non-null `check_in_at`. Ordering derives Urgent -> Senior/PWD -> Normal from Appointment priority and Patient DOB/PWD data, then uses check-in time. No-show and Doctor completion preserve the Appointment but exclude it from this projection.
 

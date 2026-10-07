@@ -1,6 +1,6 @@
-import { Appointment } from '../../server/src/models/index.js';
+import { Appointment, AppointmentPriorityAudit } from '../../server/src/models/index.js';
 import { test, expect } from '../fixtures/test.js';
-import { loginAsStaff } from '../helpers/auth.js';
+import { loginAsDoctor, loginAsStaff, logoutThroughUi } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
 import { browserApi } from '../helpers/browserApi.js';
 
@@ -8,7 +8,7 @@ function checkedInAt(scenario, time) {
   return scenario.slotFor(scenario.today(), time).appointmentAt;
 }
 
-test('Staff checks in once and the waiting queue persists without duplicate entries', async ({ page, staffScenario, seededStaff }) => {
+test('Staff confirms arrival once and the waiting queue persists without duplicate entries', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const doctor = await staffScenario.createDoctor();
   const patient = await staffScenario.createGuestPatient();
@@ -21,12 +21,12 @@ test('Staff checks in once and the waiting queue persists without duplicate entr
   await loginAsStaff(page, seededStaff);
   await page.goto('/staff/queue');
   await page.getByRole('button', { name: new RegExp(patient.full_name) }).click();
-  await page.getByRole('button', { name: 'Check In' }).click();
-  await expect(page.getByText(`${patient.full_name} checked in.`)).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm Arrival' }).click();
+  await expect(page.getByText(`${patient.full_name} arrival confirmed.`)).toBeVisible();
   const checkedIn = await Appointment.findById(appointment.appointmentId).lean();
   expect(checkedIn.check_in_at).not.toBeNull();
   await page.reload();
-  const waiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Waiting queue/ }) });
+  const waiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Active Queue/ }) });
   await expect(waiting.getByText(patient.full_name)).toBeVisible();
   await expect(waiting.getByText(patient.full_name)).toHaveCount(1);
 
@@ -71,7 +71,7 @@ test('Queue order is Urgent then one Senior/PWD tier then Normal, and priority u
   expect(queueResponse.status).toBe(200);
   expect(queueResponse.body.queue).toHaveLength(5);
   await page.goto('/staff/queue');
-  const waiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Waiting queue/ }) });
+  const waiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Active Queue/ }) });
   await expect(waiting.locator('.queue-patient')).toHaveCount(5);
   const rows = await waiting.locator('.queue-patient').allTextContents();
   const position = name => rows.findIndex(text => text.includes(name));
@@ -84,15 +84,38 @@ test('Queue order is Urgent then one Senior/PWD tier then Normal, and priority u
   }
 
   await waiting.getByRole('button', { name: new RegExp(normal.full_name) }).click();
-  await page.getByRole('button', { name: 'Set Urgent' }).click();
-  await expect(page.getByText('Queue priority updated.')).toBeVisible();
+  await page.getByRole('button', { name: 'Mark Urgent' }).click();
+  await expect(page.getByRole('button', { name: 'Confirm Urgent' })).toBeDisabled();
+  await page.getByLabel('Urgent reason').selectOption('Severe pain or discomfort');
+  await page.getByRole('button', { name: 'Confirm Urgent' }).click();
+  await expect(page.getByText('Queue priority updated and audit history recorded.')).toBeVisible();
   expect((await Appointment.findById(appointments[4].appointmentId).lean()).priority).toBe('urgent');
+  let audits = await AppointmentPriorityAudit.find({ appointment_id: appointments[4].appointmentId }).sort({ created_at: 1 }).lean();
+  expect(audits).toHaveLength(1);
+  expect(audits[0].urgency_reason).toBe('Severe pain or discomfort');
+  expect(String(audits[0].staff_actor_user_profile_id)).toBe(seededStaff.profileId);
   await page.reload();
-  const refreshedWaiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Waiting queue/ }) });
+  const refreshedWaiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Active Queue/ }) });
   await expect(refreshedWaiting.locator('.queue-patient')).toHaveCount(5);
   const refreshedRows = await refreshedWaiting.locator('.queue-patient').allTextContents();
   expect(refreshedRows[0]).toContain(normal.full_name);
   expect(refreshedRows.findIndex(text => text.includes(urgent.full_name))).toBeLessThan(refreshedRows.findIndex(text => text.includes(senior.full_name)));
+  await refreshedWaiting.getByRole('button', { name: new RegExp(normal.full_name) }).click();
+  await page.getByRole('button', { name: 'Set Normal' }).click();
+  await expect(page.getByRole('button', { name: 'Confirm Normal' })).toBeDisabled();
+  await page.getByLabel('Correction reason').fill('Urgent priority was selected for the wrong patient.');
+  await page.getByRole('button', { name: 'Confirm Normal' }).click();
+  await expect(page.getByText('Queue priority updated and audit history recorded.')).toBeVisible();
+  audits = await AppointmentPriorityAudit.find({ appointment_id: appointments[4].appointmentId }).sort({ created_at: 1 }).lean();
+  expect(audits).toHaveLength(2);
+  expect(audits[0].urgency_reason).toBe('Severe pain or discomfort');
+  expect(audits[1].correction_reason).toBe('Urgent priority was selected for the wrong patient.');
+  await logoutThroughUi(page);
+  await loginAsDoctor(page, doctor);
+  await page.goto(`/doctor/patients/${normal.patientId}`);
+  await expect(page.getByRole('heading', { name: 'Urgency History' })).toBeVisible();
+  await expect(page.getByText('Severe pain or discomfort')).toBeVisible();
+  await expect(page.getByText('Urgent priority was selected for the wrong patient.')).toBeVisible();
   assertBrowserClean();
 });
 

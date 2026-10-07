@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   Appointment,
+  AppointmentPriorityAudit,
   AuthAccount,
   Doctor,
   DoctorAvailability,
@@ -243,6 +244,7 @@ export class PatientScenario {
     if (certificateQuery.$or.length) await MedicalCertificate.deleteMany(certificateQuery);
     if (recordIds.length) await Prescription.deleteMany({ medical_record_id: { $in: recordIds } });
     if (recordQuery.$or.length) await MedicalRecord.deleteMany(recordQuery);
+    if (appointmentIds.length) await AppointmentPriorityAudit.deleteMany({ appointment_id: { $in: appointmentIds } });
     if (appointmentQuery.$or.length) await Appointment.deleteMany(appointmentQuery);
     if (doctorIds.length) {
       await DoctorBlockedTime.deleteMany({ doctor_id: { $in: doctorIds } });

@@ -17,7 +17,7 @@
 .patient-booking .booking-step header p, .patient-booking .booking-hint { font-size: 12px; color: #607087; line-height: 1.6; margin: 0; }
 .patient-booking .form-field { margin: 0; }
 .patient-booking .form-field label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.patient-booking .form-field select, .patient-booking textarea { width: 100%; min-width: 0; background: white; border: 1px solid #cbd7e1; border-radius: 6px; padding: 12px; font: inherit; font-size: 13px; color: #20384a; }
+.patient-booking .form-field :is(input, select), .patient-booking textarea { width: 100%; min-width: 0; background: white; border: 1px solid #cbd7e1; border-radius: 6px; padding: 12px; font: inherit; font-size: 13px; color: #20384a; }
 .patient-booking .booking-hint { margin-top: 12px; }
 .patient-booking textarea { resize: vertical; min-height: 100px; }
 .patient-booking .booking-reason { grid-column: 1 / -1; }
@@ -39,7 +39,7 @@
 .patient-booking .booking-slot small { display: block; font-size: 10px; }
 .patient-booking .booking-slot input:checked + span { background: #2166d4; color: white; border-color: #2166d4; box-shadow: 0 0 0 2px #c3d9fa; }
 .patient-booking .booking-slot.unavailable { cursor: not-allowed; color: #778493; background: #f2f4f7; border-radius: 5px; }
-.patient-booking :is(button, select, textarea):focus-visible, .patient-booking .booking-slot input:focus-visible + span { outline: 3px solid #86b5f4; outline-offset: 2px; }
+.patient-booking :is(button, input, select, textarea):focus-visible, .patient-booking .booking-slot input:focus-visible + span { outline: 3px solid #86b5f4; outline-offset: 2px; }
 .patient-booking .booking-summary { position: sticky; top: 20px; padding: 22px; }
 .patient-booking .booking-summary > p { font-size: 13px; color: #52657b; line-height: 1.6; }
 .patient-booking dl { margin: 18px 0; }

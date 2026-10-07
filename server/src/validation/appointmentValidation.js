@@ -10,6 +10,39 @@ import {
 } from '../utils/schedulingTime.js';
 
 const allowedCreateFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason']);
+export const PATIENT_APPOINTMENT_REASONS = Object.freeze([
+  'General health concern',
+  'Fever, cough, or cold symptoms',
+  'Headache or dizziness',
+  'Stomach pain or digestive concern',
+  'Blood pressure concern',
+  'Follow-up consultation',
+  'Routine health check',
+  'Laboratory results discussion',
+  'Medical clearance consultation',
+]);
+export const OTHER_CONCERN_PREFIX = 'Other concern: ';
+
+function validatePatientAppointmentReason(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw httpError(400, 'INVALID_INPUT', 'reason is required.');
+  }
+  const reason = value.trim();
+  let normalized;
+  if (PATIENT_APPOINTMENT_REASONS.includes(reason)) {
+    normalized = reason;
+  } else if (reason.startsWith(OTHER_CONCERN_PREFIX)) {
+    const detail = reason.slice(OTHER_CONCERN_PREFIX.length).trim();
+    if (!detail) throw httpError(400, 'INVALID_APPOINTMENT_REASON', 'Other concern requires an explanation.');
+    normalized = `${OTHER_CONCERN_PREFIX}${detail}`;
+  } else {
+    throw httpError(400, 'INVALID_APPOINTMENT_REASON', 'reason must use an approved Patient booking option.');
+  }
+  if (normalized.length > INPUT_LIMITS.reason) {
+    throw httpError(400, 'INVALID_INPUT', `reason must not exceed ${INPUT_LIMITS.reason} characters.`);
+  }
+  return normalized;
+}
 
 export function validateObjectId(value, field = 'id') {
   if (!mongoose.isObjectIdOrHexString(value)) {
@@ -31,12 +64,7 @@ export function validateAppointmentCreate(body, now = new Date(), timeZone = 'As
   if (!APPOINTMENT_VISIT_TYPES.includes(body.visit_type)) {
     throw httpError(400, 'INVALID_VISIT_TYPE', 'visit_type is not an approved value.');
   }
-  if (typeof body.reason !== 'string' || !body.reason.trim()) {
-    throw httpError(400, 'INVALID_INPUT', 'reason is required.');
-  }
-  if (body.reason.trim().length > INPUT_LIMITS.reason) {
-    throw httpError(400, 'INVALID_INPUT', `reason must not exceed ${INPUT_LIMITS.reason} characters.`);
-  }
+  const reason = validatePatientAppointmentReason(body.reason);
 
   if (typeof body.appointment_at !== 'string' || body.appointment_at.length > 64) {
     throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time string.');
@@ -60,6 +88,6 @@ export function validateAppointmentCreate(body, now = new Date(), timeZone = 'As
     doctor_id: doctorId,
     appointment_at: appointmentAt,
     visit_type: body.visit_type,
-    reason: body.reason.trim(),
+    reason,
   };
 }

@@ -75,7 +75,7 @@ test('date/time inputs reject arrays and objects before Date coercion', () => {
       doctor_id: '507f1f77bcf86cd799439011',
       appointment_at: [],
       visit_type: 'general_consultation',
-      reason: 'Consultation',
+      reason: 'General health concern',
     }),
     error => error.code === 'INVALID_APPOINTMENT_TIME',
   );

@@ -271,7 +271,7 @@ The backend exposes only explicitly published slots within the Patient's 14-day 
 - Follow-up
 - Check-up
 
-These are the only approved fixed MVP visit types. Appointment stores them in `visit_type` with canonical values `general_consultation`, `follow_up`, and `check_up`. Do not create a Service or Department table, and do not conflate visit type with the free-text reason for visit.
+These are the only approved fixed MVP visit types. Appointment stores them in `visit_type` with canonical values `general_consultation`, `follow_up`, and `check_up`. Do not create a Service or Department table, and do not conflate visit type with the separate reason for visit. Patient self-booking uses the approved reason labels; `Other concern` is stored as `Other concern: [trimmed text]`. Staff walk-in reason entry remains free text.
 
 ### Normal walk-in appointment flow
 
@@ -309,7 +309,7 @@ Mongoose declares a partial unique index on `(doctor_id, appointment_at)` for `p
 - In the normal scheduled and walk-in flow, a linked saved MedicalRecord is required before Doctor completion.
 - Patient cancellation is allowed only for a future `pending` or `confirmed` Appointment that has not been checked in and has no linked MedicalRecord.
 - `cancelled`, `no_show`, and already `completed` Appointments cannot transition to `completed`.
-- Staff may confirm or cancel eligible Appointments and mark eligible unattended Appointments `no_show`, but Staff may not set `completed`.
+- Staff may confirm or cancel eligible Appointments and explicitly mark eligible unattended Appointments `no_show` only at or after the scheduled start plus five minutes, using trusted server time. No-show is never automatic, and Staff may not set `completed`.
 - `Appointment.status` is the single shared status read by Doctor, Staff, and Patient views. Do not add role-specific completion fields.
 - A completed Appointment is no longer part of the active waiting queue. Queue priority and check-in ordering remain unchanged.
 
@@ -326,6 +326,8 @@ Queue ordering for checked-in patients follows these three tiers:
 - PWD status comes from `Patient.is_pwd`.
 - Pregnancy does not have a separate queue priority or status. A case that qualifies as urgent under clinic policy uses the existing Appointment `priority = urgent`; otherwise it follows the Senior/PWD or Normal rules.
 - Appointment priority values remain only `normal` and `urgent`. Senior/PWD is a derived queue tier, not another Appointment priority value.
+- Staff may set `urgent` only after Confirm Arrival, when the Appointment is confirmed and `check_in_at` is non-null. An approved urgency reason is required. Returning `urgent` to `normal` requires a correction reason.
+- Priority state and its audit event are persisted in one MongoDB transaction. Existing Appointments without priority audit events remain valid historical data.
 
 Within the same priority tier:
 
@@ -336,13 +338,33 @@ Do not order the queue by Appointment `created_at`.
 
 ### Check-in rules
 
-- Normal check-in is allowed only for an eligible Appointment. With the approved statuses, `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible for normal check-in.
-- Checking in sets `Appointment.check_in_at`, after which the patient enters the waiting queue.
-- Prevent duplicate check-in: normal check-in requires `check_in_at` to be null and must not replace an existing check-in timestamp.
+- Confirm Arrival is allowed only for an eligible current-clinic-day Appointment. `pending` and `confirmed` may be eligible; `cancelled`, `completed`, and `no_show` are not eligible.
+- Confirm Arrival uses one conditional database update to set `Appointment.status = confirmed` and `Appointment.check_in_at` from server time, after which the patient enters the waiting queue.
+- Prevent duplicate arrival confirmation: Confirm Arrival requires `check_in_at` to be null and must not replace an existing check-in timestamp.
 - Walk-ins follow the same rules. Staff first selects or registers the Patient, creates the same-day Appointment, and then checks the patient in. Queue placement uses Urgent -> Senior/PWD -> Normal and the same within-tier timestamp ordering.
 - These rules introduce no additional queue fields or priority values.
-- The backend creates Staff walk-in Appointments directly as `confirmed`, records the authenticated Staff UserProfile in `created_by`, and sets `check_in_at` only through the Staff check-in transition using server time.
+- The backend creates Staff walk-in Appointments directly as `confirmed`, records the authenticated Staff UserProfile in `created_by`, and sets `check_in_at` only through the same Staff Confirm Arrival transition using server time.
 - Active queue queries include only current-clinic-day Appointments with `status = confirmed` and non-null `check_in_at`. Doctor completion and Staff no-show transitions preserve the Appointment while removing it from active queue results.
+
+## AppointmentPriorityAudit
+
+Append-only operational history for Staff priority changes. It does not replace or reuse `Appointment.reason`.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | identifier, PK | Audit event identity |
+| appointment_id | identifier, FK | References `Appointment.id`; immutable |
+| previous_priority | enum | `normal` or `urgent`; immutable |
+| new_priority | enum | `normal` or `urgent`; immutable |
+| urgency_reason | enum, nullable | One approved urgency reason when `new_priority = urgent` |
+| explanation | text, nullable | Trimmed, maximum 200 characters; only for `Other urgent concern` |
+| correction_reason | text, nullable | Trimmed, maximum 200 characters; required when returning to Normal |
+| staff_actor_user_profile_id | identifier, FK | Authenticated Staff UserProfile derived server-side; immutable |
+| created_at | timestamptz | Server-generated event time; no `updated_at` |
+
+Approved urgency reasons are exactly: `Sudden worsening of condition`, `Severe pain or discomfort`, `Breathing difficulty or respiratory concern`, `Dizziness, weakness, or risk of fainting`, `Active bleeding or recent injury`, `Doctor-directed priority`, and `Other urgent concern`.
+
+Indexes support `(appointment_id, created_at)` history reads and `(staff_actor_user_profile_id, created_at)` operational audit lookup. Application routes provide no update or delete operation for audit events. Staff may read relevant operational history. A Doctor may read history only for an Appointment assigned to that Doctor. Patient and Admin have no priority-history route.
 
 ---
 

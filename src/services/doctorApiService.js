@@ -80,6 +80,7 @@ export function createDoctorApiService(repository = doctorApiRepository) {
       const records = (history.medical_records ?? []).map(normalizeRecord);
       const certificates = (history.medical_certificates ?? []).map((item) => normalizeCertificate(item, appointment.patient.full_name));
       const existingRecord = records.find((item) => item.appointment_id === appointment.id) ?? null;
+      const priorityHistory = await repository.getPriorityHistory(appointment.id);
       const canAddRecord = appointment.status === 'confirmed' && !existingRecord;
       const canComplete = appointment.status === 'confirmed' && Boolean(appointment.check_in_at) && Boolean(existingRecord);
       const consultationMessage = existingRecord && appointment.status === 'completed' ? 'Consultation completed. The saved medical record is read-only.'
@@ -88,7 +89,7 @@ export function createDoctorApiService(repository = doctorApiRepository) {
             : appointment.status === 'no_show' ? 'The patient did not attend this appointment. Medical record creation is unavailable.'
               : appointment.status === 'pending' ? 'This appointment is awaiting confirmation.'
                 : canAddRecord ? 'Review the patient information before adding a medical record.' : 'This appointment is not eligible for a medical record.';
-      return { patient: appointment.patient, appointment, records, certificates, existingRecord, canAddRecord, canComplete, consultationMessage };
+      return { patient: appointment.patient, appointment, records, certificates, priorityHistory, existingRecord, canAddRecord, canComplete, consultationMessage };
     },
     async createMedicalRecord(appointmentId, values) {
       return normalizeRecord(await repository.createMedicalRecord(appointmentId, {
