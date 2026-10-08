@@ -6,7 +6,7 @@ export function createStaffOperationsController({ staffOperationsService }) {
     async appointments(request, response) { response.json({ appointments: await staffOperationsService.appointments(validateStaffAppointmentsQuery(request.query)) }); },
     async doctors(_request, response) { response.json({ doctors: await staffOperationsService.doctors() }); },
     async patients(request, response) { response.json({ patients: await staffOperationsService.searchPatients(validatePatientSearchQuery(request.query)) }); },
-    async patient(request, response) { response.json({ patient: await staffOperationsService.patient(request.params.patientId) }); },
+    async patient(request, response) { response.json(await staffOperationsService.patient(request.params.patientId)); },
     async registerWalkIn(request, response) { response.status(201).json({ patient: await staffOperationsService.registerWalkIn(request.body) }); },
     async createWalkInAppointment(request, response) { response.status(201).json({ appointment: await staffOperationsService.createWalkInAppointment(request.authUser.user_profile_id, request.params.patientId, request.body) }); },
     async checkIn(request, response) { validateEmptyBody(request.body); response.json({ queue_entry: await staffOperationsService.checkIn(request.params.appointmentId) }); },

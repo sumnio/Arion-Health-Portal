@@ -36,6 +36,18 @@ export const staffOperationsRepository = {
     const phonePattern = flexiblePhoneRegex(query);
     return Patient.find({ $or: [{ full_name: pattern }, { contact_number: phonePattern ?? pattern }] }).sort({ full_name: 1 }).limit(50).lean();
   },
+  async listAppointmentsForPatients(patientIds) {
+    return Appointment.find({ patient_id: { $in: patientIds } })
+      .sort({ appointment_at: -1 })
+      .populate(doctorPopulation)
+      .lean();
+  },
+  async listAppointmentsForPatient(patientId) {
+    return Appointment.find({ patient_id: patientId })
+      .sort({ appointment_at: -1 })
+      .populate(doctorPopulation)
+      .lean();
+  },
   async findPotentialDuplicate({ full_name, contact_number, dob }) {
     return Patient.findOne({ $or: [
       { contact_number: flexiblePhoneRegex(contact_number, true) },
@@ -99,7 +111,7 @@ export const staffOperationsRepository = {
   },
   async listRecordSummaries(patientId) {
     return MedicalRecord.find({ patient_id: patientId })
-      .select('patient_id doctor_id encounter_at diagnosis')
+      .select('patient_id doctor_id encounter_at')
       .sort({ encounter_at: -1 })
       .populate({ path: 'patient_id', select: 'full_name' })
       .populate(doctorPopulation)

@@ -2,6 +2,7 @@ import StaffDashboard from './StaffDashboard.jsx';
 import StaffCalendar from './StaffCalendar.jsx';
 import StaffQueue from './StaffQueue.jsx';
 import StaffPatients from './StaffPatients.jsx';
+import StaffPatientDetail from './StaffPatientDetail.jsx';
 import StaffDoctors from './StaffDoctors.jsx';
 import StaffDoctorSchedule from './StaffDoctorSchedule.jsx';
 import StaffRegisterWalkIn from './StaffRegisterWalkIn.jsx';
@@ -12,6 +13,7 @@ export default function StaffPage({ route }) {
   if (route.path === '/staff/calendar') return <StaffCalendar />;
   if (route.path === '/staff/queue') return <StaffQueue />;
   if (route.path === '/staff/patients') return <StaffPatients />;
+  if (route.path === '/staff/patients/:id') return <StaffPatientDetail />;
   if (route.path === '/staff/doctors') return <StaffDoctors />;
   if (route.path === '/staff/doctors/:id/schedule') return <StaffDoctorSchedule />;
   if (route.path === '/staff/patients/new') return <StaffRegisterWalkIn />;

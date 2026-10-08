@@ -37,6 +37,7 @@ STAFF
 /staff/calendar
 /staff/queue
 /staff/patients
+/staff/patients/:id
 /staff/doctors
 /staff/doctors/:id/schedule
 /staff/patients/new

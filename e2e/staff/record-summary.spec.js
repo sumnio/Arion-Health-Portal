@@ -4,7 +4,7 @@ import { loginAsDoctor, loginAsStaff } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
 import { browserApi, e2eBaseUrl } from '../helpers/browserApi.js';
 
-test('Staff sees only the limited record projection, cannot perform clinical actions, and Doctor completion removes the queue entry', async ({ page, browser, staffScenario, seededStaff }) => {
+test('Staff sees only non-clinical record metadata, cannot perform clinical actions, and Doctor completion removes the queue entry', async ({ page, browser, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const doctor = await staffScenario.createDoctor();
   const patient = await staffScenario.createGuestPatient();
@@ -24,11 +24,11 @@ test('Staff sees only the limited record projection, cannot perform clinical act
   await page.goto(`/staff/patients/${patient.patientId}/walk-in`);
   await expect(page.getByRole('heading', { name: patient.full_name })).toBeVisible();
   await expect(page.getByText(doctor.display_name, { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('E2E limited diagnosis')).toBeVisible();
+  await expect(page.getByText('E2E limited diagnosis')).toHaveCount(0);
   await expect(page.getByText('E2E read-only doctor note')).toHaveCount(0);
   await expect(page.getByText('E2E Cetirizine')).toHaveCount(0);
   await expect(page.getByText('E2E private certificate purpose')).toHaveCount(0);
-  await expect(page.getByText('Detailed notes, prescriptions, and certificates are not available to Staff.')).toBeVisible();
+  await expect(page.getByText('Diagnoses, clinical notes, prescriptions, and certificates are not available to Staff.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Add Medical Record|Issue Certificate|Complete Consultation|Mark Consultation Completed/i })).toHaveCount(0);
 
   const createRecord = await browserApi(page, `/api/doctor/appointments/${appointment.appointmentId}/medical-record`, {
@@ -44,7 +44,7 @@ test('Staff sees only the limited record projection, cannot perform clinical act
   expect((await Appointment.findById(appointment.appointmentId).lean()).status).toBe('confirmed');
 
   await page.goto(`/staff/patients/${emptyPatient.patientId}/walk-in`);
-  await expect(page.getByText('No consultation summaries available.')).toBeVisible();
+  await expect(page.getByText('No previous consultations available.')).toBeVisible();
 
   const doctorContext = await browser.newContext({ baseURL: e2eBaseUrl });
   const doctorPage = await doctorContext.newPage();

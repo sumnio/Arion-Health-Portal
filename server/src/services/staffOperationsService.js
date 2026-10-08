@@ -25,7 +25,7 @@ function ageAt(dob, date) {
 }
 function patientView(item, date) {
   const age = ageAt(item.dob, date);
-  return { id: id(item), full_name: item.full_name, contact_number: item.contact_number, dob: new Date(item.dob).toISOString().slice(0, 10), age, sex: item.sex, is_pwd: item.is_pwd === true, is_senior: age >= 60, has_portal_account: Boolean(item.user_profile_id) };
+  return { id: id(item), full_name: item.full_name, contact_number: item.contact_number, dob: new Date(item.dob).toISOString().slice(0, 10), age, sex: item.sex, address: item.address ?? null, is_pwd: item.is_pwd === true, is_senior: age >= 60, has_portal_account: Boolean(item.user_profile_id) };
 }
 function doctorView(item) { return { id: id(item), display_name: item?.user_profile_id?.display_name ?? null, specialty: item?.specialty ?? null }; }
 function tier(appointment, patient, date) { if (appointment.priority === 'urgent') return 0; return patient.is_pwd || ageAt(patient.dob, date) >= 60 ? 1 : 2; }
@@ -36,6 +36,23 @@ function queueView(item, date) {
 function appointmentView(item, date) {
   const patient = patientView(item.patient_id, date);
   return { id: id(item), patient, doctor: doctorView(item.doctor_id), appointment_at: iso(item.appointment_at), check_in_at: iso(item.check_in_at), status: item.status, visit_type: item.visit_type, reason: item.reason, priority: item.priority };
+}
+function patientAppointmentView(item, patient, timeZone) {
+  const date = appointmentLocalParts(item.appointment_at, timeZone).date;
+  const priorityTier = tier(item, patient, date);
+  return {
+    id: id(item), doctor: doctorView(item.doctor_id), appointment_at: iso(item.appointment_at),
+    check_in_at: iso(item.check_in_at), status: item.status, visit_type: item.visit_type,
+    reason: item.reason, priority: item.priority,
+    queue_priority: ['urgent', 'senior_pwd', 'normal'][priorityTier],
+    origin: patient.user_profile_id && id(item.created_by) === id(patient.user_profile_id) ? 'patient' : 'staff',
+  };
+}
+function appointmentHighlights(items, current) {
+  const ordered = [...items].sort((left, right) => new Date(left.appointment_at) - new Date(right.appointment_at));
+  const past = ordered.filter((item) => new Date(item.appointment_at) <= current);
+  const upcoming = ordered.find((item) => ['pending', 'confirmed'].includes(item.status) && new Date(item.appointment_at) > current) ?? null;
+  return { latest_appointment: past.at(-1) ?? null, upcoming_appointment: upcoming };
 }
 
 export function createStaffOperationsService({ repository, clinic, now = () => new Date() }) {
@@ -52,11 +69,23 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
       validateObjectId(patientId, 'patientId');
       const patient = await repository.findPatientById(patientId);
       if (!patient) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
-      return patientView(patient, clinicDate(now(), clinic.timeZone));
+      const appointments = (await repository.listAppointmentsForPatient(patientId)).map((item) => patientAppointmentView(item, patient, clinic.timeZone)).sort((left, right) => new Date(right.appointment_at) - new Date(left.appointment_at));
+      return { patient: patientView(patient, clinicDate(now(), clinic.timeZone)), appointments };
     },
     async searchPatients(search = '') {
       const today = clinicDate(now(), clinic.timeZone);
-      return (await repository.searchPatients(search)).map((item) => patientView(item, today));
+      const patients = await repository.searchPatients(search);
+      const appointments = patients.length ? await repository.listAppointmentsForPatients(patients.map((item) => item._id ?? item.id)) : [];
+      const byPatient = new Map();
+      for (const appointment of appointments) {
+        const patientId = id(appointment.patient_id);
+        const patient = patients.find((item) => id(item) === patientId);
+        if (!patient) continue;
+        const list = byPatient.get(patientId) ?? [];
+        list.push(patientAppointmentView(appointment, patient, clinic.timeZone));
+        byPatient.set(patientId, list);
+      }
+      return patients.map((item) => ({ ...patientView(item, today), ...appointmentHighlights(byPatient.get(id(item)) ?? [], now()) }));
     },
     async registerWalkIn(body) {
       const input = validateWalkInPatient(body, now());
@@ -141,7 +170,7 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
     async recordSummary(patientId) {
       validateObjectId(patientId, 'patientId');
       if (!(await repository.findPatientById(patientId))) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
-      return (await repository.listRecordSummaries(patientId)).map((item) => ({ id: id(item), patient_name: item.patient_id?.full_name ?? null, encounter_at: iso(item.encounter_at), attending_doctor: item.doctor_id?.user_profile_id?.display_name ?? null, diagnosis_summary: item.diagnosis }));
+      return (await repository.listRecordSummaries(patientId)).map((item) => ({ id: id(item), patient_name: item.patient_id?.full_name ?? null, encounter_at: iso(item.encounter_at), attending_doctor: item.doctor_id?.user_profile_id?.display_name ?? null }));
     },
   };
 }

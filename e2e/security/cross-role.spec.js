@@ -84,8 +84,8 @@ test('Staff receives only the limited record projection and cannot invoke clinic
   await loginAsStaff(page, staff);
   const summary = await browserApi(page, `/api/staff/patients/${patient.patientId}/record-summary`);
   expect(summary.status).toBe(200);
-  expect(summary.body.medical_record_summaries[0]).toEqual(expect.objectContaining({ patient_name: patient.full_name, diagnosis_summary: 'Limited diagnosis', attending_doctor: doctor.display_name }));
-  expect(JSON.stringify(summary.body)).not.toMatch(/read-only doctor note|Cetirizine|Private purpose|prescription|certificate/i);
+  expect(summary.body.medical_record_summaries[0]).toEqual(expect.objectContaining({ patient_name: patient.full_name, attending_doctor: doctor.display_name }));
+  expect(JSON.stringify(summary.body)).not.toMatch(/Limited diagnosis|read-only doctor note|Cetirizine|Private purpose|diagnosis|prescription|certificate/i);
   for (const response of [
     await browserApi(page, `/api/doctor/records/${record.recordId}`),
     await browserApi(page, `/api/patient/records/${record.recordId}`),

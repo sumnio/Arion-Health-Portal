@@ -100,6 +100,10 @@ export const routeGroups = {
       "title": "Patients"
     },
     {
+      "path": "/staff/patients/:id",
+      "title": "Patient Details"
+    },
+    {
       "path": "/staff/doctors",
       "title": "Doctors"
     },

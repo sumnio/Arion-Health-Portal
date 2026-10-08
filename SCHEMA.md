@@ -623,22 +623,21 @@ Staff may access operational information needed to:
 - check in eligible Patients and manage the queue; and
 - mark eligible unattended Appointments as `no_show`.
 
-When operationally necessary, Staff may read only this limited MedicalRecord projection:
+When operationally necessary, Staff may read only this limited non-clinical MedicalRecord metadata projection:
 
 - patient name;
 - `MedicalRecord.encounter_at`;
-- attending Doctor; and
-- a short diagnosis summary derived from `MedicalRecord.diagnosis`.
+- attending Doctor.
 
-Staff must not access detailed `MedicalRecord.notes`, full Prescription details, MedicalCertificate contents, or sensitive clinical narrative beyond the approved short diagnosis summary. Detailed clinical information remains Doctor-only.
+Staff must not access `MedicalRecord.diagnosis`, detailed `MedicalRecord.notes`, Prescription details, MedicalCertificate clinical contents, or other clinical narrative. Detailed clinical information remains Doctor-only.
 
 Staff must not create, edit, or delete MedicalRecords; create or edit Prescriptions; issue, edit, or delete MedicalCertificates; modify Doctor clinical decisions; edit Patient clinical history; or manage Doctor, Staff, or Admin accounts.
 
-The Staff backend exposes a dedicated limited projection containing only Patient name, MedicalRecord encounter time, attending Doctor display name, and diagnosis summary. It does not reuse the Doctor/Patient detailed response and never includes notes, Prescriptions, or MedicalCertificate contents.
+The Staff backend's legacy record-summary route exposes only non-clinical metadata: Patient name, MedicalRecord encounter time, and attending Doctor display name. It does not reuse the Doctor/Patient detailed response and never includes diagnosis, notes, Prescriptions, or MedicalCertificate contents. Staff Patient Detail instead uses Patient demographics and operational Appointment history.
 
 Staff must not mark an Appointment `completed`. Staff may read the resulting shared status after the assigned Doctor completes the consultation.
 
-The limited diagnosis summary is an authorization/view boundary, not a new schema field.
+The operational Staff projection is an authorization/view boundary and adds no schema field.
 
 ## Admin
 

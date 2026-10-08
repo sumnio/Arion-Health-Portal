@@ -33,7 +33,23 @@ export function staffBlockedTimePayload(values) {
   };
 }
 export function normalizeStaffPatient(patient) {
-  return { ...patient, isSenior: patient.is_senior === true, hasPortalAccount: patient.has_portal_account === true };
+  return {
+    ...patient,
+    isSenior: patient.is_senior === true,
+    hasPortalAccount: patient.has_portal_account === true,
+    latestAppointment: patient.latest_appointment ? normalizeStaffPatientAppointment(patient.latest_appointment) : null,
+    upcomingAppointment: patient.upcoming_appointment ? normalizeStaffPatientAppointment(patient.upcoming_appointment) : null,
+  };
+}
+export function normalizeStaffPatientAppointment(item) {
+  const local = clinicDateTimeParts(item.appointment_at);
+  return {
+    ...item, date: local.date, time: local.time, timeLabel: formatSlot(local.time),
+    doctorName: item.doctor?.display_name ?? 'Doctor unavailable',
+    visitLabel: visitLabels[item.visit_type] ?? item.visit_type,
+    priorityLabel: item.queue_priority === 'urgent' ? 'Urgent' : item.queue_priority === 'senior_pwd' ? 'Senior / PWD' : 'Normal',
+    originLabel: item.origin === 'patient' ? 'Patient booking' : 'Staff-created / walk-in',
+  };
 }
 export function normalizeStaffAppointment(item) {
   const local = clinicDateTimeParts(item.appointment_at); const patient = normalizeStaffPatient(item.patient ?? {});
@@ -75,6 +91,14 @@ export function createStaffApiService(repository = staffApiRepository) {
       return { date, appointments, queue, total: appointments.length, urgent: queue.filter((item) => item.priority === 'urgent').length, completed: appointments.filter((item) => item.status === 'completed').length, upcoming: appointments.filter((item) => ['pending', 'confirmed'].includes(item.status) && !item.check_in_at) };
     },
     async searchPatients(query = '') { return (await repository.searchPatients(query)).map(normalizeStaffPatient); },
+    async getPatientDetails(id) {
+      const detail = await repository.getPatientDetails(id);
+      const appointments = (detail.appointments ?? []).map(normalizeStaffPatientAppointment).sort((left, right) => new Date(right.appointment_at) - new Date(left.appointment_at));
+      const current = new Date();
+      const upcomingAppointment = [...appointments].reverse().find((item) => ['pending', 'confirmed'].includes(item.status) && new Date(item.appointment_at) > current) ?? null;
+      const latestAppointment = appointments.find((item) => new Date(item.appointment_at) <= current) ?? null;
+      return { patient: normalizeStaffPatient(detail.patient), appointments, latestAppointment, upcomingAppointment };
+    },
     async getPatientContext(id) { const [patient, records] = await Promise.all([repository.getPatient(id), repository.getRecordSummary(id)]); return { patient: normalizeStaffPatient(patient), records }; },
     getDoctors: () => repository.getDoctors(),
     async getDoctorDirectory() {

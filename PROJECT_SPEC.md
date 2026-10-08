@@ -45,7 +45,7 @@ Doctors may read only records from their own consultations through `GET /api/doc
 
 ## Staff operations API status
 
-Staff can search basic Patient information with `GET /api/staff/patients?search=`, register guest walk-ins with `POST /api/staff/patients/walk-in`, and create same-day walk-in Appointments with `POST /api/staff/patients/:patientId/walk-in-appointments`. Walk-in registration creates only a Patient with `user_profile_id = null`; it creates no UserProfile or AuthAccount. Clear matches by contact number or exact name plus DOB are rejected so Staff can reuse the existing Patient identity. Name alone is never treated as a definitive duplicate.
+Staff can search operational Patient information with `GET /api/staff/patients?search=`, open `/staff/patients/:patientId`, register guest walk-ins with `POST /api/staff/patients/walk-in`, and create same-day walk-in Appointments with `POST /api/staff/patients/:patientId/walk-in-appointments`. List results include demographics, portal-link status, and safe latest/upcoming Appointment summaries. The detail response includes safe Patient demographics and newest-first operational Appointment history: date/time, status, Doctor, visit type and reason, arrival, queue priority, and Patient-versus-Staff origin. Walk-in registration creates only a Patient with `user_profile_id = null`; it creates no UserProfile or AuthAccount. Clear matches by contact number or exact name plus DOB are rejected so Staff can reuse the existing Patient identity. Name alone is never treated as a definitive duplicate.
 
 Staff-created walk-in Appointments are immediately `confirmed`, matching the approved Staff UI flow. They use the existing Appointment entity, preserve `Patient.id`, store the authenticated Staff UserProfile in `created_by`, and remain subject to same-Doctor slot uniqueness. Patient self-bookings remain `pending` and visible in the Staff Calendar. The standalone `PATCH /api/staff/appointments/:appointmentId/confirm` transition remains available for compatibility, but routine arrival uses the atomic check-in transition below.
 
@@ -55,9 +55,9 @@ Staff-created walk-in Appointments are immediately `confirmed`, matching the app
 
 `PATCH /api/staff/appointments/:appointmentId/no-show` preserves an eligible unchecked pending/confirmed Appointment while changing its status to `no_show`, which removes it from the queue. Staff may perform this explicit action only when trusted server time is at least five minutes after the scheduled start; there is no automatic no-show transition. Doctor completion likewise removes an Appointment from Staff queue results. No Staff completion endpoint exists.
 
-`GET /api/staff/patients/:patientId/record-summary` returns only Patient name, encounter time, attending Doctor, and diagnosis summary. It excludes notes, prescriptions, and certificate content.
+`GET /api/staff/patients/:patientId/record-summary` returns only non-clinical record metadata: Patient name, encounter time, and attending Doctor. It excludes diagnosis, notes, prescriptions, and certificate content.
 
-The live Staff frontend uses `GET /api/staff/appointments?date=YYYY-MM-DD` for operational calendar/day data, `GET /api/staff/doctors` for the active Doctor directory, and `GET /api/staff/patients/:patientId` for basic Patient context. These endpoints expose only the fields needed by approved Staff workflows. `PATCH /api/staff/appointments/:appointmentId/cancel` preserves the Appointment while allowing Staff to cancel only an unchecked pending or confirmed Appointment.
+The live Staff frontend uses `GET /api/staff/appointments?date=YYYY-MM-DD` for operational calendar/day data, `GET /api/staff/doctors` for the active Doctor directory, and `GET /api/staff/patients/:patientId` for Patient demographics plus operational Appointment history. These endpoints expose only the fields needed by approved Staff workflows and no MedicalRecord body. `PATCH /api/staff/appointments/:appointmentId/cancel` preserves the Appointment while allowing Staff to cancel only an unchecked pending or confirmed Appointment.
 
 ## Admin account API status
 

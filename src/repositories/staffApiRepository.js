@@ -15,6 +15,7 @@ export function createStaffApiRepository(client = apiClient) {
     async deleteBlockedTime(id, blockedId) { return request(`/api/staff/doctors/${encodeURIComponent(id)}/blocked-times/${encodeURIComponent(blockedId)}`, { method: 'DELETE' }); },
     async searchPatients(search = '') { return (await request(`/api/staff/patients?search=${encodeURIComponent(search)}`)).patients; },
     async getPatient(id) { return (await request(`/api/staff/patients/${encodeURIComponent(id)}`)).patient; },
+    async getPatientDetails(id) { return request(`/api/staff/patients/${encodeURIComponent(id)}`); },
     async registerWalkIn(payload) { return (await request('/api/staff/patients/walk-in', { method: 'POST', body: payload })).patient; },
     async createWalkInAppointment(patientId, payload) { return (await request(`/api/staff/patients/${encodeURIComponent(patientId)}/walk-in-appointments`, { method: 'POST', body: payload })).appointment; },
     async getQueue() { return (await request('/api/staff/queue')).queue; },
