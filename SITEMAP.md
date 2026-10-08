@@ -34,6 +34,7 @@ DOCTOR
 
 STAFF
 /staff/dashboard
+/staff/analytics
 /staff/calendar
 /staff/queue
 /staff/patients
@@ -45,6 +46,7 @@ STAFF
 
 ADMIN
 /admin/dashboard
+/admin/analytics
 /admin/patients
 /admin/doctors
 /admin/staff

@@ -8,8 +8,10 @@ import StaffDoctorSchedule from './StaffDoctorSchedule.jsx';
 import StaffRegisterWalkIn from './StaffRegisterWalkIn.jsx';
 import StaffWalkInAppointment from './StaffWalkInAppointment.jsx';
 import PlaceholderPage from '../../components/PlaceholderPage.jsx';
+import AnalyticsRoute from '../analytics/AnalyticsRoute.jsx';
 export default function StaffPage({ route }) {
   if (route.path === '/staff/dashboard') return <StaffDashboard />;
+  if (route.path === '/staff/analytics') return <AnalyticsRoute />;
   if (route.path === '/staff/calendar') return <StaffCalendar />;
   if (route.path === '/staff/queue') return <StaffQueue />;
   if (route.path === '/staff/patients') return <StaffPatients />;

@@ -19,6 +19,8 @@ import { createStaffSchedulingRouter } from './routes/staffSchedulingRoutes.js';
 import { createStaffOperationsModule } from './services/staffOperationsModule.js';
 import { createAdminAccountModule } from './services/adminAccountModule.js';
 import { createAdminAccountRouter } from './routes/adminAccountRoutes.js';
+import { createAnalyticsModule } from './services/analyticsModule.js';
+import { createAnalyticsRouter } from './routes/analyticsRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createRateLimiters, RATE_LIMIT_DEFAULTS } from './middleware/rateLimiters.js';
@@ -114,6 +116,7 @@ export function createApp(
   });
   const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic });
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
+  const analyticsModule = dependencies.analyticsModule ?? createAnalyticsModule({ clinic: schedulingModule.clinic });
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv, rateLimiters }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
@@ -129,7 +132,9 @@ export function createApp(
   );
   app.use('/api/staff', createStaffOperationsRouter({ authModule, staffOperationsModule }));
   app.use('/api/staff', createStaffSchedulingRouter({ authModule, schedulingModule }));
+  app.use('/api/staff', createAnalyticsRouter({ authModule, analyticsModule, role: 'staff' }));
   app.use('/api/admin', createAdminAccountRouter({ authModule, adminAccountModule, rateLimiters }));
+  app.use('/api/admin', createAnalyticsRouter({ authModule, analyticsModule, role: 'admin' }));
   if (enableAuthorizationProbes) {
     app.use('/api/authz-test', createAuthorizationProbeRouter(authModule));
   }

@@ -5,6 +5,7 @@ export const PERMISSIONS = Object.freeze({
   DOCTOR_PORTAL_ACCESS: 'doctor:portal:access',
   STAFF_OPERATIONS: 'staff:operations',
   ADMIN_ACCOUNT_MANAGEMENT: 'admin:accounts:manage',
+  CLINIC_ANALYTICS_READ: 'clinic:analytics:read',
   CLINICAL_RECORD_CREATE: 'clinical-record:create',
   CERTIFICATE_ISSUE: 'medical-certificate:issue',
   CONSULTATION_COMPLETE: 'consultation:complete',
@@ -18,8 +19,8 @@ const rolePermissions = Object.freeze({
     PERMISSIONS.CERTIFICATE_ISSUE,
     PERMISSIONS.CONSULTATION_COMPLETE,
   ]),
-  staff: new Set([PERMISSIONS.STAFF_OPERATIONS]),
-  admin: new Set([PERMISSIONS.ADMIN_ACCOUNT_MANAGEMENT]),
+  staff: new Set([PERMISSIONS.STAFF_OPERATIONS, PERMISSIONS.CLINIC_ANALYTICS_READ]),
+  admin: new Set([PERMISSIONS.ADMIN_ACCOUNT_MANAGEMENT, PERMISSIONS.CLINIC_ANALYTICS_READ]),
 });
 
 export function isApprovedRole(role) {

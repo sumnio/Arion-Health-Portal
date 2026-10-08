@@ -635,6 +635,8 @@ Staff must not create, edit, or delete MedicalRecords; create or edit Prescripti
 
 The Staff backend's legacy record-summary route exposes only non-clinical metadata: Patient name, MedicalRecord encounter time, and attending Doctor display name. It does not reuse the Doctor/Patient detailed response and never includes diagnosis, notes, Prescriptions, or MedicalCertificate contents. Staff Patient Detail instead uses Patient demographics and operational Appointment history.
 
+Clinic Analytics adds no schema. Its Staff/Admin read routes aggregate existing Appointment records with minimal Patient DOB/PWD fields and Doctor display names for the selected Asia/Manila period. No analytics documents, cached counters, monthly totals, Patient lists, MedicalRecord fields, or clinical narratives are returned or persisted. Standard visit reasons remain exact labels; any other stored reason contributes only to the `Other / legacy` aggregate bucket.
+
 Staff must not mark an Appointment `completed`. Staff may read the resulting shared status after the assigned Doctor completes the consultation.
 
 The operational Staff projection is an authorization/view boundary and adds no schema field.

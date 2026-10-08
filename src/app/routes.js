@@ -88,6 +88,10 @@ export const routeGroups = {
       "title": "Staff Dashboard"
     },
     {
+      "path": "/staff/analytics",
+      "title": "Analytics"
+    },
+    {
       "path": "/staff/calendar",
       "title": "Full Calendar"
     },
@@ -124,6 +128,10 @@ export const routeGroups = {
     {
       "path": "/admin/dashboard",
       "title": "Admin Dashboard"
+    },
+    {
+      "path": "/admin/analytics",
+      "title": "Analytics"
     },
     {
       "path": "/admin/patients",

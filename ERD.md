@@ -192,6 +192,8 @@ Staff has no ownership relationship with MedicalRecord, Prescription, or Medical
 
 This permission note changes no entity relationship or schema field. Staff Patient Detail uses the existing Patient-to-Appointment relationship for operational history and does not project MedicalRecord clinical content.
 
+Clinic Analytics is a read-only projection over existing Appointment -> Patient and Appointment -> Doctor relationships. It creates no analytics entity or relationship. Active Staff and MFA-authenticated Admin receive aggregate counts plus Doctor display labels; Patient identifiers/names and all MedicalRecord, Prescription, MedicalCertificate, free-text urgency, and legacy free-text reason content remain outside the projection.
+
 ## Queue and check-in behavior
 
 The waiting queue is derived from Appointment and Patient data; the approved model has no separate queue entity or additional queue fields.
