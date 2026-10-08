@@ -12,6 +12,7 @@ export function createPatientApiRepository(client = apiClient) {
     async getAppointments() { return (await client.request('/api/patient/appointments')).appointments; },
     async getAppointment(id) { return (await client.request(`/api/patient/appointments/${encodeURIComponent(id)}`)).appointment; },
     async cancelAppointment(id) { return (await client.request(`/api/patient/appointments/${encodeURIComponent(id)}/cancel`, { method: 'PATCH' })).appointment; },
+    async rescheduleAppointment(id, payload) { return (await client.request(`/api/patient/appointments/${encodeURIComponent(id)}/reschedule`, { method: 'PATCH', body: payload })).appointment; },
     async getRecords() { return (await client.request('/api/patient/records')).medical_records; },
     async getRecord(id) { return (await client.request(`/api/patient/records/${encodeURIComponent(id)}`)).medical_record; },
     async getCertificates() { return (await client.request('/api/patient/certificates')).medical_certificates; },

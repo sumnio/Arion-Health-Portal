@@ -37,6 +37,13 @@
 .patient-appointments .appointment-editor label { display: grid; gap: 7px; margin: 14px 0; font-size: 13px; }
 .patient-appointments .appointment-editor :is(input, select) { min-width: 0; width: 100%; padding: 10px; background: white; border: 1px solid #bdccdc; border-radius: 5px; font: inherit; }
 .patient-appointments .appointment-editor .appointment-error { color: #a33434; }
+.patient-appointments .reschedule-action { margin-top: 12px; }
+.patient-appointments .reschedule-editor { display: grid; gap: 16px; }
+.patient-appointments .reschedule-current { display: grid; gap: 8px; margin: 0; }
+.patient-appointments .reschedule-current div { display: grid; grid-template-columns: minmax(112px, 144px) 1fr; gap: 12px; }
+.patient-appointments .reschedule-current dt { color: #52606d; font-weight: 700; }
+.patient-appointments .reschedule-current dd { margin: 0; }
+.patient-appointments .reschedule-editor .booking-calendar { max-width: 544px; }
 .patient-appointments .appointment-detail-heading { margin: 10px 0 24px; }
 .patient-appointments .appointment-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
 .patient-appointments .appointment-detail-layout > div { display: grid; gap: 16px; min-width: 0; }

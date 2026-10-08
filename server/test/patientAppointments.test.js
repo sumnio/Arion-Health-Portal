@@ -21,7 +21,7 @@ const ids = {
   otherAppointment: '100000000000000000000005',
 };
 
-function createContext() {
+function createContext({ currentTime = NOW } = {}) {
   const recordedAppointments = new Set();
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
@@ -34,7 +34,7 @@ function createContext() {
     [ids.otherPatient, { _id: ids.otherPatient, user_profile_id: ids.otherPatientProfile, full_name: 'Other Patient', dob: new Date('1988-02-10'), sex: 'female', contact_number: '09170000000', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: [], is_pwd: false }],
   ]);
   const doctor = { _id: ids.doctor, specialty: 'General Medicine', user_profile_id: { display_name: 'Dr. Maria Santos' } };
-  const base = (id, patientId, status, appointmentAt) => ({
+  const base = (id, patientId, status, appointmentAt, createdBy = ids.patientProfile) => ({
     _id: id,
     patient_id: patientId,
     doctor_id: doctor,
@@ -44,13 +44,14 @@ function createContext() {
     status,
     priority: 'normal',
     check_in_at: null,
+    created_by: createdBy,
   });
   const appointments = new Map([
     [ids.pending, base(ids.pending, ids.patient, 'pending', '2026-09-27T10:00:00.000Z')],
     [ids.completed, base(ids.completed, ids.patient, 'completed', '2026-09-20T09:00:00.000Z')],
     [ids.cancelled, base(ids.cancelled, ids.patient, 'cancelled', '2026-09-28T09:00:00.000Z')],
     [ids.noShow, base(ids.noShow, ids.patient, 'no_show', '2026-09-19T09:00:00.000Z')],
-    [ids.otherAppointment, base(ids.otherAppointment, ids.otherPatient, 'pending', '2026-09-27T11:00:00.000Z')],
+    [ids.otherAppointment, base(ids.otherAppointment, ids.otherPatient, 'pending', '2026-09-27T11:00:00.000Z', ids.otherPatientProfile)],
   ]);
   let sequence = 16;
 
@@ -73,6 +74,10 @@ function createContext() {
   }
   const appointmentRepository = {
     forceDuplicate: false,
+    beforeCancel: null,
+    beforeReschedule: null,
+    lastCancelTime: null,
+    forceRescheduleDuplicate: false,
     async listActiveDoctors() { return [structuredClone(doctor)]; },
     async doctorExists(id) { return id === ids.doctor; },
     async create(data) {
@@ -96,10 +101,22 @@ function createContext() {
     async findById(appointmentId) { return cloneAppointment(appointments.get(appointmentId)); },
     async medicalRecordExists(appointmentId) { return recordedAppointments.has(String(appointmentId)); },
     async listRecordedAppointmentIds(appointmentIds) { return appointmentIds.map(String).filter((id) => recordedAppointments.has(id)); },
-    async cancelOwnedEligible(appointmentId, patientId) {
+    async cancelOwnedEligible(appointmentId, patientId, current, expectedAppointmentAt) {
+      this.lastCancelTime = current;
+      this.beforeCancel?.({ appointmentId, patientId, current, appointments });
       const item = appointments.get(appointmentId);
-      if (!item || item.patient_id !== patientId || !['pending', 'confirmed'].includes(item.status) || item.check_in_at) return null;
+      if (!item || item.patient_id !== patientId || !['pending', 'confirmed'].includes(item.status) || item.check_in_at || new Date(item.appointment_at).getTime() !== new Date(expectedAppointmentAt).getTime() || new Date(item.appointment_at) <= current) return null;
       item.status = 'cancelled';
+      return cloneAppointment(item);
+    },
+    async rescheduleOwnedEligible({ appointmentId, patientId, userProfileId, doctorId, expectedAppointmentAt, eligibilityCutoff, appointmentAt }) {
+      await this.beforeReschedule?.({ appointmentId, patientId, userProfileId, doctorId, expectedAppointmentAt, eligibilityCutoff, appointmentAt, appointments });
+      const item = appointments.get(appointmentId);
+      if (!item || item.patient_id !== patientId || String(item.created_by) !== String(userProfileId) || String(item.doctor_id?._id ?? item.doctor_id) !== String(doctorId) || !['pending', 'confirmed'].includes(item.status) || item.check_in_at || new Date(item.appointment_at).getTime() !== new Date(expectedAppointmentAt).getTime() || new Date(item.appointment_at) < eligibilityCutoff) return null;
+      const occupied = [...appointments.values()].some((other) => other !== item && String(other.doctor_id?._id ?? other.doctor_id) === String(doctorId) && new Date(other.appointment_at).getTime() === appointmentAt.getTime() && ['pending', 'confirmed', 'completed'].includes(other.status));
+      if (this.forceRescheduleDuplicate || occupied) throw Object.assign(new Error('duplicate'), { code: 11000 });
+      item.appointment_at = new Date(appointmentAt);
+      item.status = 'pending';
       return cloneAppointment(item);
     },
     async confirmPending(appointmentId) {
@@ -111,6 +128,16 @@ function createContext() {
   };
 
   const tokens = createTokenService(SECRET);
+  const bookingAvailabilityService = {
+    timeZone: 'Asia/Manila',
+    calls: [],
+    unavailable: new Map(),
+    async assertBookable(doctorId, appointmentAt) {
+      this.calls.push({ doctorId: String(doctorId), appointmentAt: new Date(appointmentAt) });
+      const error = this.unavailable.get(new Date(appointmentAt).toISOString());
+      if (error) throw error;
+    },
+  };
   const authService = {
     async getAuthenticatedUser(id) {
       const profile = profiles.get(String(id));
@@ -123,7 +150,8 @@ function createContext() {
   const patientAppointmentModule = createPatientAppointmentModule({
     patients: patientRepository,
     appointments: appointmentRepository,
-    now: () => new Date(NOW),
+    bookingAvailabilityService,
+    now: () => new Date(currentTime),
   });
   const app = createApp(
     { nodeEnv: 'test', authSecret: SECRET },
@@ -135,6 +163,7 @@ function createContext() {
     appointments,
     recordedAppointments,
     appointmentRepository,
+    bookingAvailabilityService,
     cookie(profileId) { return `arion_auth=${tokens.sign(profileId)}`; },
   };
 }
@@ -163,6 +192,7 @@ const validBooking = {
   visit_type: 'general_consultation',
   reason: 'Headache or dizziness',
 };
+const validReschedule = { appointment_at: '2026-09-28T10:00:00.000Z' };
 
 test('unauthenticated Patient profile request returns 401', async () => {
   const { app } = createContext();
@@ -383,13 +413,92 @@ test('invalid appointment ObjectId is rejected', async () => {
   await withServer(app, async (url) => assert.equal((await request(url, '/api/patient/appointments/not-an-id', { cookie: cookie(ids.patientProfile) })).status, 400));
 });
 
-test('Patient can cancel an eligible own appointment and the document is preserved', async () => {
-  const { app, cookie, appointments } = createContext();
+test('Patient can cancel an eligible future pending appointment and the document is preserved', async () => {
+  const { app, cookie, appointments, appointmentRepository } = createContext();
   await withServer(app, async (url) => {
     const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH', cookie: cookie(ids.patientProfile) });
     assert.equal(response.status, 200);
     assert.equal((await response.json()).appointment.status, 'cancelled');
     assert.equal(appointments.get(ids.pending).status, 'cancelled');
+    assert.equal(appointmentRepository.lastCancelTime.toISOString(), NOW.toISOString());
+  });
+});
+
+test('Patient can cancel an eligible future confirmed appointment before check-in', async () => {
+  const { app, cookie, appointments } = createContext();
+  appointments.get(ids.pending).status = 'confirmed';
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH', cookie: cookie(ids.patientProfile) });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).appointment.status, 'cancelled');
+    assert.equal(appointments.get(ids.pending).status, 'cancelled');
+  });
+});
+
+for (const [label, appointmentAt] of [
+  ['at the exact appointment start time', NOW],
+  ['after the appointment start time', new Date(NOW.getTime() - 1)],
+]) {
+  test(`Patient cannot cancel ${label}`, async () => {
+    const { app, cookie, appointments } = createContext();
+    appointments.get(ids.pending).appointment_at = appointmentAt;
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH', cookie: cookie(ids.patientProfile) });
+      assert.equal(response.status, 409);
+      assert.equal((await response.json()).error.code, 'APPOINTMENT_NOT_IN_FUTURE');
+      assert.equal(appointments.get(ids.pending).status, 'pending');
+    });
+  });
+}
+
+test('atomic cancellation rejects stale appointment time state', async () => {
+  const { app, cookie, appointments, appointmentRepository } = createContext();
+  appointmentRepository.beforeCancel = ({ appointmentId, current }) => {
+    appointments.get(appointmentId).appointment_at = new Date(current);
+  };
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH', cookie: cookie(ids.patientProfile) });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'INVALID_STATUS_TRANSITION');
+    assert.equal(appointments.get(ids.pending).status, 'pending');
+  });
+});
+
+test('Patient cannot cancel another Patient appointment', async () => {
+  const { app, cookie, appointments } = createContext();
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.otherAppointment}/cancel`, { method: 'PATCH', cookie: cookie(ids.patientProfile) });
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error.code, 'APPOINTMENT_NOT_FOUND');
+    assert.equal(appointments.get(ids.otherAppointment).status, 'pending');
+  });
+});
+
+test('unauthenticated request cannot cancel a Patient appointment', async () => {
+  const { app, appointments } = createContext();
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH' });
+    assert.equal(response.status, 401);
+    assert.equal(appointments.get(ids.pending).status, 'pending');
+  });
+});
+
+test('wrong-role request cannot cancel a Patient appointment', async () => {
+  const { app, cookie, appointments } = createContext();
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH', cookie: cookie(ids.staffProfile) });
+    assert.equal(response.status, 403);
+    assert.equal(appointments.get(ids.pending).status, 'pending');
+  });
+});
+
+test('inactive Patient cannot cancel an appointment', async () => {
+  const { app, cookie, profiles, appointments } = createContext();
+  profiles.get(ids.patientProfile).status = 'inactive';
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/cancel`, { method: 'PATCH', cookie: cookie(ids.patientProfile) });
+    assert.equal(response.status, 403);
+    assert.equal(appointments.get(ids.pending).status, 'pending');
   });
 });
 
@@ -469,4 +578,224 @@ test('Patient cancellation rejects direct status and ownership fields', async ()
     assert.equal((await response.json()).error.code, 'UNSUPPORTED_FIELD');
     assert.equal(appointments.get(ids.pending).status, 'pending');
   });
+});
+
+test('Patient reschedules an eligible pending appointment while preserving identity and immutable fields', async () => {
+  const { app, cookie, appointments, bookingAvailabilityService } = createContext();
+  const before = structuredClone(appointments.get(ids.pending));
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.appointment.id, ids.pending);
+    assert.equal(body.appointment.appointment_at, validReschedule.appointment_at);
+    assert.equal(body.appointment.status, 'pending');
+    assert.equal(body.appointment.patient_created, true);
+    const stored = appointments.get(ids.pending);
+    assert.equal(String(stored.doctor_id._id), String(before.doctor_id._id));
+    assert.equal(stored.patient_id, before.patient_id);
+    assert.equal(stored.visit_type, before.visit_type);
+    assert.equal(stored.reason, before.reason);
+    assert.equal(stored.priority, before.priority);
+    assert.equal(stored.created_by, before.created_by);
+    assert.equal(bookingAvailabilityService.calls[0].doctorId, ids.doctor);
+  });
+});
+
+test('Patient rescheduling resets an eligible unchecked confirmed appointment to pending', async () => {
+  const { app, cookie, appointments } = createContext();
+  appointments.get(ids.pending).status = 'confirmed';
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).appointment.status, 'pending');
+  });
+});
+
+for (const [label, offset, expectedStatus] of [
+  ['more than 60 minutes before', 60 * 60 * 1000 + 1, 200],
+  ['exactly 60 minutes before', 60 * 60 * 1000, 200],
+  ['59 minutes 59 seconds before', 60 * 60 * 1000 - 1000, 409],
+]) {
+  test(`Patient reschedule cutoff: ${label}`, async () => {
+    const { app, cookie, appointments } = createContext();
+    appointments.get(ids.pending).appointment_at = new Date(NOW.getTime() + offset);
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+      assert.equal(response.status, expectedStatus);
+      if (expectedStatus === 409) assert.equal((await response.json()).error.code, 'RESCHEDULE_CUTOFF_PASSED');
+    });
+  });
+}
+
+test('checked-in and recorded appointments cannot be rescheduled', async () => {
+  for (const reason of ['checked-in', 'recorded']) {
+    const { app, cookie, appointments, recordedAppointments } = createContext();
+    appointments.get(ids.pending).status = 'confirmed';
+    if (reason === 'checked-in') appointments.get(ids.pending).check_in_at = new Date(NOW);
+    else recordedAppointments.add(ids.pending);
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+      assert.equal(response.status, 409);
+      assert.equal((await response.json()).error.code, reason === 'checked-in' ? 'APPOINTMENT_ALREADY_CHECKED_IN' : 'MEDICAL_RECORD_EXISTS');
+    });
+  }
+});
+
+for (const [label, id] of [['completed', ids.completed], ['cancelled', ids.cancelled], ['no-show', ids.noShow]]) {
+  test(`${label} appointment cannot be rescheduled`, async () => {
+    const { app, cookie } = createContext();
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${id}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+      assert.equal(response.status, 409);
+      assert.equal((await response.json()).error.code, 'RESCHEDULE_NOT_ALLOWED');
+    });
+  });
+}
+
+test('Patient reschedule preserves safe ownership and role boundaries', async () => {
+  const { app, cookie, profiles, appointments } = createContext();
+  await withServer(app, async (url) => {
+    assert.equal((await request(url, `/api/patient/appointments/${ids.otherAppointment}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule })).status, 404);
+    assert.equal((await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', body: validReschedule })).status, 401);
+    assert.equal((await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.staffProfile), body: validReschedule })).status, 403);
+    profiles.get(ids.patientProfile).status = 'inactive';
+    assert.equal((await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule })).status, 403);
+    assert.equal(appointments.get(ids.pending).appointment_at.toISOString(), '2026-09-27T10:00:00.000Z');
+  });
+});
+
+test('Staff-created appointment is not Patient-reschedulable', async () => {
+  const { app, cookie, appointments } = createContext();
+  appointments.get(ids.pending).created_by = ids.staffProfile;
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'RESCHEDULE_NOT_ALLOWED');
+  });
+});
+
+for (const field of ['doctor_id', 'patient_id', 'status', 'priority', 'check_in_at', 'created_by', 'visit_type', 'reason']) {
+  test(`Patient cannot supply ${field} when rescheduling`, async () => {
+    const { app, cookie } = createContext();
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: { ...validReschedule, [field]: 'forged' } });
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).error.code, 'RESTRICTED_FIELD');
+    });
+  });
+}
+
+for (const [label, body, code] of [
+  ['empty body', {}, 'INVALID_INPUT'],
+  ['malformed target timestamp', { appointment_at: 'not-a-time' }, 'INVALID_APPOINTMENT_TIME'],
+  ['past target slot', { appointment_at: '2026-09-24T10:00:00.000Z' }, 'APPOINTMENT_IN_PAST'],
+  ['non-30-minute target slot', { appointment_at: '2026-09-28T10:15:00.000Z' }, 'INVALID_APPOINTMENT_TIME'],
+  ['target outside 14-day horizon', { appointment_at: '2026-10-10T10:00:00.000Z' }, 'OUTSIDE_BOOKING_WINDOW'],
+]) {
+  test(`Patient reschedule rejects ${label}`, async () => {
+    const { app, cookie } = createContext();
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body });
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).error.code, code);
+    });
+  });
+}
+
+test('Patient reschedule rejects the current slot as a no-op', async () => {
+  const { app, cookie } = createContext();
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: { appointment_at: '2026-09-27T10:00:00.000Z' } });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'RESCHEDULE_NO_CHANGE');
+  });
+});
+
+for (const label of ['unpublished', 'Doctor-blocked', 'otherwise unavailable']) {
+  test(`${label} target slot is rejected by shared availability validation`, async () => {
+    const { app, cookie, bookingAvailabilityService } = createContext();
+    bookingAvailabilityService.unavailable.set(validReschedule.appointment_at, Object.assign(new Error('That appointment slot is not available.'), { status: 409, code: 'APPOINTMENT_SLOT_UNAVAILABLE' }));
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+      assert.equal(response.status, 409);
+      assert.equal((await response.json()).error.code, 'APPOINTMENT_SLOT_UNAVAILABLE');
+    });
+  });
+}
+
+test('occupied target and duplicate-key target races map to safe slot conflicts', async () => {
+  for (const mode of ['occupied', 'duplicate']) {
+    const { app, cookie, appointments, appointmentRepository } = createContext();
+    if (mode === 'occupied') {
+      appointments.set('100000000000000000000099', { ...structuredClone(appointments.get(ids.pending)), _id: '100000000000000000000099', patient_id: ids.otherPatient, appointment_at: new Date(validReschedule.appointment_at) });
+    } else appointmentRepository.forceRescheduleDuplicate = true;
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+      assert.equal(response.status, 409);
+      assert.equal((await response.json()).error.code, 'APPOINTMENT_SLOT_CONFLICT');
+      assert.equal(appointments.get(ids.pending).appointment_at.toISOString(), '2026-09-27T10:00:00.000Z');
+    });
+  }
+});
+
+test('stale original appointment time fails atomic rescheduling safely', async () => {
+  const { app, cookie, appointments, appointmentRepository } = createContext();
+  appointmentRepository.beforeReschedule = ({ appointmentId }) => { appointments.get(appointmentId).appointment_at = new Date('2026-09-27T10:30:00.000Z'); };
+  await withServer(app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'RESCHEDULE_CONFLICT');
+  });
+});
+
+test('concurrent reschedules allow only one stale-state transition', async () => {
+  const { app, cookie, appointments, appointmentRepository } = createContext();
+  let reached = 0;
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  appointmentRepository.beforeReschedule = async () => {
+    reached += 1;
+    if (reached === 2) release();
+    await gate;
+  };
+  await withServer(app, async (url) => {
+    const responses = await Promise.all([
+      request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule }),
+      request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: { appointment_at: '2026-09-28T10:30:00.000Z' } }),
+    ]);
+    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
+    assert.ok(['2026-09-28T10:00:00.000Z', '2026-09-28T10:30:00.000Z'].includes(appointments.get(ids.pending).appointment_at.toISOString()));
+  });
+});
+
+test('two appointments racing for one target slot cannot both succeed', async () => {
+  const secondId = '100000000000000000000098';
+  const { app, cookie, appointments } = createContext();
+  appointments.set(secondId, { ...structuredClone(appointments.get(ids.pending)), _id: secondId, appointment_at: new Date('2026-09-27T11:30:00.000Z') });
+  await withServer(app, async (url) => {
+    const responses = await Promise.all([
+      request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule }),
+      request(url, `/api/patient/appointments/${secondId}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule }),
+    ]);
+    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
+    assert.equal([...appointments.values()].filter((item) => ['pending', 'confirmed', 'completed'].includes(item.status) && new Date(item.appointment_at).toISOString() === validReschedule.appointment_at).length, 1);
+  });
+});
+
+test('Confirm Arrival, No-show, and cancellation winning first block rescheduling', async () => {
+  for (const winner of ['arrival', 'no-show', 'cancellation']) {
+    const { app, cookie, appointments, appointmentRepository } = createContext();
+    appointmentRepository.beforeReschedule = ({ appointmentId }) => {
+      const item = appointments.get(appointmentId);
+      if (winner === 'arrival') { item.status = 'confirmed'; item.check_in_at = new Date(NOW); }
+      if (winner === 'no-show') item.status = 'no_show';
+      if (winner === 'cancellation') item.status = 'cancelled';
+    };
+    await withServer(app, async (url) => {
+      const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: cookie(ids.patientProfile), body: validReschedule });
+      assert.equal(response.status, 409);
+      assert.equal((await response.json()).error.code, 'RESCHEDULE_CONFLICT');
+    });
+  }
 });

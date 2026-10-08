@@ -86,7 +86,7 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
       const existing = await repository.findAppointmentById(appointmentId);
       if (!existing) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
       if (appointmentLocalParts(existing.appointment_at, clinic.timeZone).date !== date || !['pending', 'confirmed'].includes(existing.status) || existing.check_in_at) throw httpError(409, 'CHECK_IN_NOT_ALLOWED', 'Only an unchecked pending or confirmed appointment for the current clinic day can confirm arrival.');
-      const updated = await repository.confirmArrivalEligible(appointmentId, current, start, end);
+      const updated = await repository.confirmArrivalEligible(appointmentId, current, start, end, existing.appointment_at);
       if (!updated) throw httpError(409, 'CHECK_IN_NOT_ALLOWED', 'Arrival can no longer be confirmed for this appointment.');
       return queueView(updated, date);
     },
@@ -119,7 +119,7 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
       const eligibleAt = new Date(existing.appointment_at).getTime() + NO_SHOW_GRACE_PERIOD_MS;
       if (current.getTime() < eligibleAt) throw httpError(409, 'NO_SHOW_GRACE_PERIOD', 'No-show becomes available five minutes after the scheduled appointment time.');
       const cutoff = new Date(current.getTime() - NO_SHOW_GRACE_PERIOD_MS);
-      const updated = await repository.markNoShowEligible(appointmentId, cutoff);
+      const updated = await repository.markNoShowEligible(appointmentId, cutoff, existing.appointment_at);
       if (!updated) throw httpError(409, 'NO_SHOW_NOT_ALLOWED', 'This appointment can no longer be marked as no-show.');
       return { id: id(updated), status: updated.status };
     },

@@ -59,7 +59,7 @@ export function createStaffApiService(repository = staffApiRepository) {
     async getQueue() { return (await repository.getQueue()).map(normalizeStaffAppointment); },
     async getDashboard() {
       const date = clinicToday(); const [appointments, queue] = await Promise.all([this.getAppointments(date), this.getQueue()]);
-      return { date, appointments, queue, total: appointments.length, checkedIn: appointments.filter((item) => item.check_in_at).length, completed: appointments.filter((item) => item.status === 'completed').length, upcoming: appointments.filter((item) => ['pending', 'confirmed'].includes(item.status) && !item.check_in_at) };
+      return { date, appointments, queue, total: appointments.length, urgent: queue.filter((item) => item.priority === 'urgent').length, completed: appointments.filter((item) => item.status === 'completed').length, upcoming: appointments.filter((item) => ['pending', 'confirmed'].includes(item.status) && !item.check_in_at) };
     },
     async searchPatients(query = '') { return (await repository.searchPatients(query)).map(normalizeStaffPatient); },
     async getPatientContext(id) { const [patient, records] = await Promise.all([repository.getPatient(id), repository.getRecordSummary(id)]); return { patient: normalizeStaffPatient(patient), records }; },

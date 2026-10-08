@@ -59,5 +59,14 @@ export function createPatientController({ patientService, appointmentService }) 
       );
       response.json({ appointment });
     },
+
+    async rescheduleAppointment(request, response) {
+      const appointment = await appointmentService.rescheduleForPatient(
+        request.authUser.user_profile_id,
+        request.params.appointmentId,
+        request.body,
+      );
+      response.json({ appointment });
+    },
   };
 }

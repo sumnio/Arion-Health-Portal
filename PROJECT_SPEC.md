@@ -84,6 +84,7 @@ The authenticated Patient API provides:
 - `GET /api/patient/appointments`
 - `GET /api/patient/appointments/:appointmentId`
 - `PATCH /api/patient/appointments/:appointmentId/cancel`
+- `PATCH /api/patient/appointments/:appointmentId/reschedule`
 
 Every Patient endpoint requires a valid authenticated session, an active UserProfile with role `patient`, and a Patient linked through `Patient.user_profile_id`. The API never accepts `patient_id` for self-service operations. Profile lookup, appointment list/detail, creation, and cancellation are scoped to that linked Patient. Appointment ownership failures use the same not-found response as missing appointments to avoid exposing another Patient's data.
 
@@ -92,6 +93,8 @@ Patient profile updates support the approved contact and emergency-contact field
 Patient appointment creation accepts only `doctor_id`, `appointment_at`, canonical `visit_type`, and the schema-required `reason`. Patient self-booking uses the approved visit-reason labels; selecting `Other concern` requires details and stores the normalized value as `Other concern: [trimmed text]`. Staff walk-in creation retains its existing free-text reason behavior. The server derives the Patient, sets `created_by` to the authenticated Patient UserProfile ID, sets `status = pending`, `priority = normal`, and `check_in_at = null`, enforces future 30-minute slot boundaries and the approved 14-day Patient booking window, and maps the active same-Doctor/time unique-index collision to HTTP 409. Clients cannot choose or override the creator identity.
 
 Patients may cancel only their own future `pending` or `confirmed` appointments before check-in and before a MedicalRecord has been saved for the consultation. Cancellation changes the status to `cancelled` and preserves the document. Checked-in, recorded, completed, cancelled, and no-show appointments reject cancellation. This prevents a completed clinical encounter from being cancelled even if its shared Appointment status has not yet been updated to `completed`.
+
+Patients may reschedule only an owned Appointment originally created by their authenticated Patient account. The original Appointment must be `pending` or unchecked `confirmed`, have no MedicalRecord, and remain at least 60 minutes away; exactly 60 minutes is allowed. `PATCH /api/patient/appointments/:appointmentId/reschedule` accepts only `appointment_at`, keeps the same Appointment ID, Patient, Doctor, visit type, reason, priority, and `created_by`, and resets status to `pending`. The target is revalidated against the trusted current time, 30-minute boundary, clinic-local 14-day horizon, published availability, blocked time, configured clinic hours, and the existing unique Doctor/time constraint. No dedicated reschedule history is stored.
 
 The Staff lifecycle action `PATCH /api/staff/appointments/:appointmentId/confirm` requires an active Staff account and permits only `pending -> confirmed`. The backend also implements the approved check-in, queue, no-show, priority, and walk-in operations. Consultation completion remains Doctor-owned.
 

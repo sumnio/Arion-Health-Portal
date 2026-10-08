@@ -47,9 +47,9 @@ export const staffOperationsRepository = {
   async doctorExists(id) { return Boolean(await Doctor.exists({ _id: id })); },
   async createAppointment(data) { return (await Appointment.create(data)).toObject(); },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },
-  async confirmArrivalEligible(id, timestamp, start, end) {
+  async confirmArrivalEligible(id, timestamp, start, end, expectedAppointmentAt) {
     return Appointment.findOneAndUpdate(
-      { _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null, appointment_at: { $gte: start, $lt: end } },
+      { _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null, appointment_at: { $eq: expectedAppointmentAt, $gte: start, $lt: end } },
       { $set: { status: 'confirmed', check_in_at: timestamp } },
       { new: true, runValidators: true },
     ).populate(queuePopulation).lean();
@@ -84,8 +84,8 @@ export const staffOperationsRepository = {
   async listPriorityHistory(id) {
     return AppointmentPriorityAudit.find({ appointment_id: id }).sort({ created_at: 1, _id: 1 }).populate(auditActorPopulation).lean();
   },
-  async markNoShowEligible(id, cutoff) {
-    return Appointment.findOneAndUpdate({ _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null, appointment_at: { $lte: cutoff } }, { $set: { status: 'no_show' } }, { new: true, runValidators: true }).populate(queuePopulation).lean();
+  async markNoShowEligible(id, cutoff, expectedAppointmentAt) {
+    return Appointment.findOneAndUpdate({ _id: id, status: { $in: ['pending', 'confirmed'] }, check_in_at: null, appointment_at: { $eq: expectedAppointmentAt, $lte: cutoff } }, { $set: { status: 'no_show' } }, { new: true, runValidators: true }).populate(queuePopulation).lean();
   },
   async cancelEligible(id) {
     return Appointment.findOneAndUpdate(

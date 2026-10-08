@@ -63,6 +63,17 @@ export function canCancelPatientAppointment(item, now = new Date()) {
   return Boolean(item && ['pending', 'confirmed'].includes(item.status) && !item.check_in_at && !item.has_medical_record && new Date(item.appointment_at) > now);
 }
 
+export function canReschedulePatientAppointment(item, now = new Date()) {
+  return Boolean(
+    item
+    && item.patient_created === true
+    && ['pending', 'confirmed'].includes(item.status)
+    && !item.check_in_at
+    && !item.has_medical_record
+    && new Date(item.appointment_at).getTime() - now.getTime() >= 60 * 60 * 1000
+  );
+}
+
 const visitTypeLabel = (value) => patientVisitTypes.find((item) => item.id === value)?.name ?? value ?? 'Consultation';
 const nullableText = (value) => value ?? '';
 
@@ -142,7 +153,14 @@ export function patientApiErrorMessage(error, fallback = 'Unable to load Patient
     fallback,
     forbidden: 'You do not have access to this information.',
     notFound: fallback,
-    codeMessages: { APPOINTMENT_SLOT_CONFLICT: 'This appointment slot is no longer available.' },
+    codeMessages: {
+      APPOINTMENT_SLOT_CONFLICT: 'This appointment slot is no longer available.',
+      APPOINTMENT_SLOT_UNAVAILABLE: 'This appointment slot is no longer available.',
+      RESCHEDULE_CUTOFF_PASSED: 'This appointment can no longer be rescheduled because it starts in less than one hour.',
+      RESCHEDULE_NO_CHANGE: 'Choose a date or time different from the current appointment.',
+      RESCHEDULE_NOT_ALLOWED: 'This appointment cannot be rescheduled.',
+      RESCHEDULE_CONFLICT: 'This appointment changed before rescheduling could finish. Refresh and try again.',
+    },
   });
 }
 
@@ -171,6 +189,11 @@ export function createPatientApiService(repository = patientApiRepository) {
     async getAppointments() { return (await repository.getAppointments()).map(normalizeAppointment); },
     async getAppointment(id) { return normalizeAppointment(await repository.getAppointment(id)); },
     async cancelAppointment(id) { return normalizeAppointment(await repository.cancelAppointment(id)); },
+    async rescheduleAppointment(id, date, time) {
+      return normalizeAppointment(await repository.rescheduleAppointment(id, {
+        appointment_at: `${date}T${time}:00+08:00`,
+      }));
+    },
     async getRecords() { return (await repository.getRecords()).map(normalizeRecord); },
     async getRecord(id) {
       const [rawRecord, certificates] = await Promise.all([repository.getRecord(id), repository.getCertificates()]);

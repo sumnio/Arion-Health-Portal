@@ -56,15 +56,42 @@ export const appointmentRepository = {
     return records.map((record) => String(record.appointment_id));
   },
 
-  async cancelOwnedEligible(appointmentId, patientId) {
+  async cancelOwnedEligible(appointmentId, patientId, current, expectedAppointmentAt) {
     return Appointment.findOneAndUpdate(
       {
         _id: appointmentId,
         patient_id: patientId,
         status: { $in: ['pending', 'confirmed'] },
         check_in_at: null,
+        appointment_at: { $eq: expectedAppointmentAt, $gt: current },
       },
       { $set: { status: 'cancelled' } },
+      { new: true, runValidators: true },
+    )
+      .populate(doctorDisplayPopulation)
+      .lean();
+  },
+
+  async rescheduleOwnedEligible({
+    appointmentId,
+    patientId,
+    userProfileId,
+    doctorId,
+    expectedAppointmentAt,
+    eligibilityCutoff,
+    appointmentAt,
+  }) {
+    return Appointment.findOneAndUpdate(
+      {
+        _id: appointmentId,
+        patient_id: patientId,
+        doctor_id: doctorId,
+        created_by: userProfileId,
+        status: { $in: ['pending', 'confirmed'] },
+        check_in_at: null,
+        appointment_at: { $eq: expectedAppointmentAt, $gte: eligibilityCutoff },
+      },
+      { $set: { appointment_at: appointmentAt, status: 'pending' } },
       { new: true, runValidators: true },
     )
       .populate(doctorDisplayPopulation)

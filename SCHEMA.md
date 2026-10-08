@@ -308,6 +308,7 @@ Mongoose declares a partial unique index on `(doctor_id, appointment_at)` for `p
 - Only the Doctor referenced by `Appointment.doctor_id` may change an eligible consultation to `completed`.
 - In the normal scheduled and walk-in flow, a linked saved MedicalRecord is required before Doctor completion.
 - Patient cancellation is allowed only for a future `pending` or `confirmed` Appointment that has not been checked in and has no linked MedicalRecord.
+- Patient rescheduling retains the same Appointment and changes only `appointment_at`; it is limited to Patient-created `pending` or unchecked `confirmed` Appointments with no MedicalRecord and an original start at least 60 minutes away. The Doctor, Patient, visit type, reason, priority, and creator remain unchanged, while status resets to `pending`. The replacement must satisfy the existing 14-day Patient booking and availability rules. No reschedule field or history entity is stored.
 - `cancelled`, `no_show`, and already `completed` Appointments cannot transition to `completed`.
 - Staff may confirm or cancel eligible Appointments and explicitly mark eligible unattended Appointments `no_show` only at or after the scheduled start plus five minutes, using trusted server time. No-show is never automatic, and Staff may not set `completed`.
 - `Appointment.status` is the single shared status read by Doctor, Staff, and Patient views. Do not add role-specific completion fields.

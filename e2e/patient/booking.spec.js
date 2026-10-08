@@ -52,7 +52,7 @@ test('Patient receives a safe conflict when a displayed slot becomes occupied', 
   await patientScenario.createAppointment({ patient: occupyingPatient, doctor, slot });
   await page.getByRole('button', { name: 'Confirm Appointment' }).click();
 
-  await expect(page.getByRole('alert')).toContainText(/slot.*not available/i);
+  await expect(page.getByRole('alert')).toContainText(/slot.*(?:not|no longer) available/i);
   await expect(page.getByRole('radio', { name: formatSlot(slot.time) })).toHaveCount(0);
   assertBrowserClean();
 });

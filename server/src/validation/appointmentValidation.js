@@ -10,6 +10,7 @@ import {
 } from '../utils/schedulingTime.js';
 
 const allowedCreateFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason']);
+const allowedRescheduleFields = new Set(['appointment_at']);
 export const PATIENT_APPOINTMENT_REASONS = Object.freeze([
   'General health concern',
   'Fever, cough, or cold symptoms',
@@ -51,6 +52,30 @@ export function validateObjectId(value, field = 'id') {
   return value;
 }
 
+function validateAppointmentTime(value, now, timeZone, { requireTimezone = false } = {}) {
+  if (typeof value !== 'string' || value.length > 64) {
+    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time string.');
+  }
+  if (requireTimezone && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must include a valid date, time, and timezone.');
+  }
+  const appointmentAt = new Date(value);
+  if (Number.isNaN(appointmentAt.getTime())) {
+    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time.');
+  }
+  if (appointmentAt <= now) {
+    throw httpError(400, 'APPOINTMENT_IN_PAST', 'appointment_at must be in the future.');
+  }
+  const local = appointmentLocalParts(appointmentAt, timeZone);
+  if (local.date > addDays(clinicDate(now, timeZone), 14)) {
+    throw httpError(400, 'OUTSIDE_BOOKING_WINDOW', 'appointment_at must be within 14 days.');
+  }
+  if (!SLOT_TIME_PATTERN.test(local.time) || appointmentAt.getUTCSeconds() !== 0 || appointmentAt.getUTCMilliseconds() !== 0) {
+    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must start on a 30-minute boundary.');
+  }
+  return appointmentAt;
+}
+
 export function validateAppointmentCreate(body, now = new Date(), timeZone = 'Asia/Manila') {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw httpError(400, 'INVALID_INPUT', 'Request body must be an object.');
@@ -66,23 +91,7 @@ export function validateAppointmentCreate(body, now = new Date(), timeZone = 'As
   }
   const reason = validatePatientAppointmentReason(body.reason);
 
-  if (typeof body.appointment_at !== 'string' || body.appointment_at.length > 64) {
-    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time string.');
-  }
-  const appointmentAt = new Date(body.appointment_at);
-  if (Number.isNaN(appointmentAt.getTime())) {
-    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time.');
-  }
-  if (appointmentAt <= now) {
-    throw httpError(400, 'APPOINTMENT_IN_PAST', 'appointment_at must be in the future.');
-  }
-  const local = appointmentLocalParts(appointmentAt, timeZone);
-  if (local.date > addDays(clinicDate(now, timeZone), 14)) {
-    throw httpError(400, 'OUTSIDE_BOOKING_WINDOW', 'appointment_at must be within 14 days.');
-  }
-  if (!SLOT_TIME_PATTERN.test(local.time) || appointmentAt.getUTCSeconds() !== 0 || appointmentAt.getUTCMilliseconds() !== 0) {
-    throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must start on a 30-minute boundary.');
-  }
+  const appointmentAt = validateAppointmentTime(body.appointment_at, now, timeZone);
 
   return {
     doctor_id: doctorId,
@@ -90,4 +99,19 @@ export function validateAppointmentCreate(body, now = new Date(), timeZone = 'As
     visit_type: body.visit_type,
     reason,
   };
+}
+
+export function validateAppointmentReschedule(body, now = new Date(), timeZone = 'Asia/Manila') {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw httpError(400, 'INVALID_INPUT', 'Request body must be an object.');
+  }
+  const keys = Object.keys(body);
+  if (!keys.length) {
+    throw httpError(400, 'INVALID_INPUT', 'appointment_at is required.');
+  }
+  const unsupported = keys.find((field) => !allowedRescheduleFields.has(field));
+  if (unsupported) {
+    throw httpError(400, 'RESTRICTED_FIELD', `${unsupported} cannot be changed when rescheduling.`);
+  }
+  return { appointment_at: validateAppointmentTime(body.appointment_at, now, timeZone, { requireTimezone: true }) };
 }

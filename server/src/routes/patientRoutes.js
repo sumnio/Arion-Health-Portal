@@ -27,5 +27,6 @@ export function createPatientRouter({ authModule, patientAppointmentModule }) {
   router.get('/appointments', controller.listAppointments);
   router.get('/appointments/:appointmentId', controller.appointment);
   router.patch('/appointments/:appointmentId/cancel', controller.cancelAppointment);
+  router.patch('/appointments/:appointmentId/reschedule', controller.rescheduleAppointment);
   return router;
 }

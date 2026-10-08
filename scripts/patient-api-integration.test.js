@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createPatientApiRepository } from '../src/repositories/patientApiRepository.js';
 import {
   canCancelPatientAppointment,
+  canReschedulePatientAppointment,
   createPatientApiService,
   formatPatientVisitReason,
   OTHER_CONCERN_PREFIX,
@@ -15,19 +16,19 @@ import {
 
 const patient = { id: 'p1', full_name: 'Alex Patient', dob: '1990-01-15', sex: 'male', contact_number: '09171234567', address: null, emergency_contact_name: null, emergency_contact_number: null, emergency_contact_relationship: null, allergies: ['Penicillin'], is_pwd: false };
 const doctor = { id: 'd1', display_name: 'Dr. Maria Santos', specialty: 'General Medicine' };
-const appointment = { id: 'a1', patient_id: 'p1', doctor, appointment_at: '2026-09-26T02:00:00.000Z', visit_type: 'general_consultation', reason: 'Headache', status: 'pending', priority: 'normal', check_in_at: null };
+const appointment = { id: 'a1', patient_id: 'p1', doctor, appointment_at: '2026-09-26T02:00:00.000Z', visit_type: 'general_consultation', reason: 'Headache', status: 'pending', priority: 'normal', check_in_at: null, patient_created: true };
 const record = { id: 'r1', patient, doctor, appointment, encounter_at: '2026-09-20T01:00:00.000Z', diagnosis: 'Migraine', notes: 'Rest', follow_up: null, prescriptions: [{ id: 'rx1', medicine: 'Paracetamol', dosage: '500 mg', instructions: 'As needed' }] };
 const certificate = { id: 'c1', medical_certificate_number: 'AHC-1', patient_id: 'p1', doctor: { ...doctor, license_number: 'LIC-1', ptr_number: 'PTR-1', signature_available: true }, medical_record_id: 'r1', date_issued: '2026-09-20', purpose: 'Medical leave', diagnosis_summary: 'Migraine', valid_until: null, status: 'issued', clinic: { name: 'Arion Health Clinic', location: 'Clinic address' } };
 
 test('Patient repository uses the approved authenticated API routes and methods', async () => {
-  const calls = []; const client = { async request(path, options = {}) { calls.push([path, options]); if (path === '/api/patient/profile') return { patient }; if (path === '/api/patient/doctors') return { doctors: [doctor] }; if (path.includes('available-slots')) return { slots: [] }; if (path === '/api/patient/appointments' && options.method === 'POST') return { appointment }; if (path === '/api/patient/appointments') return { appointments: [appointment] }; if (path.endsWith('/cancel')) return { appointment: { ...appointment, status: 'cancelled' } }; if (path === '/api/patient/records') return { medical_records: [record] }; if (path === '/api/patient/certificates') return { medical_certificates: [certificate] }; throw new Error(path); } };
+  const calls = []; const client = { async request(path, options = {}) { calls.push([path, options]); if (path === '/api/patient/profile') return { patient }; if (path === '/api/patient/doctors') return { doctors: [doctor] }; if (path.includes('available-slots')) return { slots: [] }; if (path === '/api/patient/appointments' && options.method === 'POST') return { appointment }; if (path === '/api/patient/appointments') return { appointments: [appointment] }; if (path.endsWith('/cancel')) return { appointment: { ...appointment, status: 'cancelled' } }; if (path.endsWith('/reschedule')) return { appointment: { ...appointment, appointment_at: options.body.appointment_at } }; if (path === '/api/patient/records') return { medical_records: [record] }; if (path === '/api/patient/certificates') return { medical_certificates: [certificate] }; throw new Error(path); } };
   const repository = createPatientApiRepository(client);
-  await repository.getProfile(); await repository.getDoctors(); await repository.getAvailableSlots('d1', '2026-09-26'); await repository.createAppointment({}); await repository.getAppointments(); await repository.cancelAppointment('a1'); await repository.getRecords(); await repository.getCertificates();
-  assert.deepEqual(calls.map(([path, options]) => [path, options.method ?? 'GET']), [['/api/patient/profile', 'GET'], ['/api/patient/doctors', 'GET'], ['/api/patient/doctors/d1/available-slots?date=2026-09-26', 'GET'], ['/api/patient/appointments', 'POST'], ['/api/patient/appointments', 'GET'], ['/api/patient/appointments/a1/cancel', 'PATCH'], ['/api/patient/records', 'GET'], ['/api/patient/certificates', 'GET']]);
+  await repository.getProfile(); await repository.getDoctors(); await repository.getAvailableSlots('d1', '2026-09-26'); await repository.createAppointment({}); await repository.getAppointments(); await repository.cancelAppointment('a1'); await repository.rescheduleAppointment('a1', { appointment_at: '2026-09-27T02:00:00.000Z' }); await repository.getRecords(); await repository.getCertificates();
+  assert.deepEqual(calls.map(([path, options]) => [path, options.method ?? 'GET']), [['/api/patient/profile', 'GET'], ['/api/patient/doctors', 'GET'], ['/api/patient/doctors/d1/available-slots?date=2026-09-26', 'GET'], ['/api/patient/appointments', 'POST'], ['/api/patient/appointments', 'GET'], ['/api/patient/appointments/a1/cancel', 'PATCH'], ['/api/patient/appointments/a1/reschedule', 'PATCH'], ['/api/patient/records', 'GET'], ['/api/patient/certificates', 'GET']]);
 });
 
 test('Patient API service normalizes live profile, appointments, records, and safe certificate details', async () => {
-  const repository = { async getProfile() { return patient; }, async updateProfile() { return patient; }, async getDoctors() { return [doctor]; }, async getAvailableSlots() { return { slots: [{ start_time: '10:00', end_time: '10:30', appointment_at: appointment.appointment_at }] }; }, async createAppointment() { return appointment; }, async getAppointments() { return [appointment]; }, async getAppointment() { return appointment; }, async cancelAppointment() { return { ...appointment, status: 'cancelled' }; }, async getRecords() { return [record]; }, async getRecord() { return record; }, async getCertificates() { return [certificate]; }, async getCertificate() { return certificate; } };
+  const repository = { async getProfile() { return patient; }, async updateProfile() { return patient; }, async getDoctors() { return [doctor]; }, async getAvailableSlots() { return { slots: [{ start_time: '10:00', end_time: '10:30', appointment_at: appointment.appointment_at }] }; }, async createAppointment() { return appointment; }, async getAppointments() { return [appointment]; }, async getAppointment() { return appointment; }, async cancelAppointment() { return { ...appointment, status: 'cancelled' }; }, async rescheduleAppointment() { return { ...appointment, appointment_at: '2026-09-27T02:00:00.000Z' }; }, async getRecords() { return [record]; }, async getRecord() { return record; }, async getCertificates() { return [certificate]; }, async getCertificate() { return certificate; } };
   const service = createPatientApiService(repository);
   assert.equal((await service.getProfile()).fullName, 'Alex Patient');
   assert.equal((await service.getAppointments())[0].service, 'General Consultation');
@@ -83,6 +84,38 @@ test('Patient cancellation is hidden after check-in, record creation, or complet
   assert.equal(canCancelPatientAppointment({ ...future, check_in_at: '2099-09-26T01:45:00.000Z' }), false);
   assert.equal(canCancelPatientAppointment({ ...future, has_medical_record: true }), false);
   assert.equal(canCancelPatientAppointment({ ...future, status: 'completed' }), false);
+});
+
+test('Patient reschedule visibility enforces Patient origin, state, record, and exact one-hour cutoff', () => {
+  const now = new Date('2026-09-26T01:00:00.000Z');
+  const eligible = { ...appointment, appointment_at: '2026-09-26T02:00:00.000Z' };
+  assert.equal(canReschedulePatientAppointment(eligible, now), true);
+  assert.equal(canReschedulePatientAppointment({ ...eligible, appointment_at: '2026-09-26T01:59:59.000Z' }, now), false);
+  assert.equal(canReschedulePatientAppointment({ ...eligible, patient_created: false }, now), false);
+  assert.equal(canReschedulePatientAppointment({ ...eligible, check_in_at: now.toISOString() }, now), false);
+  assert.equal(canReschedulePatientAppointment({ ...eligible, has_medical_record: true }, now), false);
+  assert.equal(canReschedulePatientAppointment({ ...eligible, status: 'completed' }, now), false);
+});
+
+test('Patient reschedule submits only the new appointment time', async () => {
+  const calls = [];
+  const service = createPatientApiService({
+    async rescheduleAppointment(id, payload) { calls.push({ id, payload }); return { ...appointment, appointment_at: payload.appointment_at }; },
+  });
+  const updated = await service.rescheduleAppointment('a1', '2026-09-27', '10:30');
+  assert.deepEqual(calls, [{ id: 'a1', payload: { appointment_at: '2026-09-27T10:30:00+08:00' } }]);
+  assert.equal(updated.id, 'a1');
+});
+
+test('Patient reschedule form keeps Doctor, visit type, and reason read-only while reusing booking controls', async () => {
+  const source = await readFile(new URL('../src/components/appointments/PatientRescheduleForm.jsx', import.meta.url), 'utf8');
+  assert.match(source, /BookingCalendar/);
+  assert.match(source, /appointment\.doctor/);
+  assert.match(source, /appointment\.service/);
+  assert.match(source, /appointment\.reason/);
+  assert.doesNotMatch(source, /name="(?:doctor|visit_type|reason)"/);
+  assert.match(source, /disabled=\{busy \|\| loading\}/);
+  assert.match(source, /refreshDate/);
 });
 
 test('Patient pages no longer import feature mock services or advertise mock clinical data', async () => {
