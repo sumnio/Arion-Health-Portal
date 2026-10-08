@@ -21,7 +21,7 @@ export default function PatientRescheduleForm({ appointment, onRescheduled }) {
   if (!canReschedulePatientAppointment(appointment)) return null;
 
   const slots = slotsByDate[date] ?? [];
-  const availableDates = new Set(Object.entries(slotsByDate).filter(([, values]) => values.length).map(([value]) => value));
+  const availableDates = new Set(Object.entries(slotsByDate).filter(([, values]) => values.some((slot) => slot.available)).map(([value]) => value));
 
   async function loadAvailability() {
     setLoading(true);
@@ -43,7 +43,7 @@ export default function PatientRescheduleForm({ appointment, onRescheduled }) {
 
   async function submit(event) {
     event.preventDefault();
-    if (!availableDates.has(date) || !slots.some((slot) => slot.time === time)) {
+    if (!availableDates.has(date) || !slots.some((slot) => slot.time === time && slot.available)) {
       setMessage('Select an available new date and time.');
       return;
     }
@@ -81,9 +81,9 @@ export default function PatientRescheduleForm({ appointment, onRescheduled }) {
       <BookingCalendar value={date} doctorId={appointment.doctor_id} availableDates={availableDates} loading={loading} onChange={(value) => { setDate(value); setTime(''); setMessage(''); }} invalid={Boolean(message && !date)} />
       <fieldset className="booking-slots">
         <legend>New appointment time</legend>
-        {slots.map((slot) => <label key={slot.time} className="booking-slot"><input type="radio" name="reschedule-time" value={slot.time} checked={time === slot.time} onChange={() => { setTime(slot.time); setMessage(''); }} /><span>{formatSlot(slot.time)}</span></label>)}
+        {slots.map((slot) => <label key={slot.time} className={`booking-slot${slot.available ? '' : ' unavailable'}`}><input type="radio" name="reschedule-time" value={slot.time} checked={time === slot.time} disabled={!slot.available} onChange={() => { setTime(slot.time); setMessage(''); }} /><span>{formatSlot(slot.time)}{!slot.available && <small>Occupied</small>}</span></label>)}
       </fieldset>
-      <p className="booking-hint">{loading ? 'Loading available appointments…' : !date ? 'Choose an available date.' : !slots.length ? 'No available slots on this date.' : 'Choose one available 30-minute slot.'}</p>
+      <p className="booking-hint">{loading ? 'Loading appointment times…' : !date ? 'Choose an available date.' : !slots.length ? 'No published slots on this date.' : 'Available slots can be selected. Occupied slots are shown but disabled.'}</p>
       <div className="appointment-buttons">
         <button className="action-link primary-action" type="submit" disabled={busy || loading}>{busy ? 'Rescheduling…' : 'Confirm New Schedule'}</button>
         <button type="button" className="action-link" disabled={busy} onClick={() => { setOpen(false); setMessage(''); }}>Keep Current Schedule</button>

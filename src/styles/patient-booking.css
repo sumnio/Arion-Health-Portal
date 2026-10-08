@@ -38,7 +38,9 @@
 .patient-booking .booking-slot > span { display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #cbd7e1; border-radius: 5px; padding: 8px 4px; min-height: 47px; font-size: 12px; }
 .patient-booking .booking-slot small { display: block; font-size: 10px; }
 .patient-booking .booking-slot input:checked + span { background: #2166d4; color: white; border-color: #2166d4; box-shadow: 0 0 0 2px #c3d9fa; }
-.patient-booking .booking-slot.unavailable { cursor: not-allowed; color: #778493; background: #f2f4f7; border-radius: 5px; }
+.patient-booking .booking-slot.unavailable { cursor: not-allowed; color: #778493; }
+.patient-booking .booking-slot.unavailable > span { background: #f2f4f7; border-color: #d8dee6; }
+.patient-booking .booking-slot.unavailable small { margin-top: 3px; color: #9b3030; font-weight: 700; }
 .patient-booking :is(button, input, select, textarea):focus-visible, .patient-booking .booking-slot input:focus-visible + span { outline: 3px solid #86b5f4; outline-offset: 2px; }
 .patient-booking .booking-summary { position: sticky; top: 20px; padding: 22px; }
 .patient-booking .booking-summary > p { font-size: 13px; color: #52657b; line-height: 1.6; }

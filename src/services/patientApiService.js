@@ -171,7 +171,12 @@ export function createPatientApiService(repository = patientApiRepository) {
     async getDoctors() { return (await repository.getDoctors()).map((doctor) => ({ id: doctor.id, name: doctor.display_name, specialty: doctor.specialty ?? '' })); },
     async getAvailableSlots(doctorId, date) {
       const result = await repository.getAvailableSlots(doctorId, date);
-      return (result.slots ?? []).map((slot) => ({ ...slot, time: slot.start_time, available: true }));
+      return (result.slots ?? []).map((slot) => ({
+        ...slot,
+        time: slot.start_time,
+        available: slot.available !== false,
+        occupied: slot.occupied === true,
+      }));
     },
     async getBookableDates(doctorId, dates) {
       const results = await Promise.all(dates.map(async (date) => ({ date, slots: await service.getAvailableSlots(doctorId, date) })));

@@ -77,7 +77,9 @@ test('Patient reschedule refreshes stale availability after a target-slot confli
   await page.getByRole('button', { name: 'Confirm New Schedule' }).click();
 
   await expect(page.getByRole('alert')).toContainText(/slot.*available/i);
-  await expect(page.getByRole('radio', { name: formatSlot(target.time) })).toHaveCount(0);
+  const occupiedSlot = page.getByRole('radio', { name: new RegExp(`${formatSlot(target.time)}\\s+Occupied`, 'i') });
+  await expect(occupiedSlot).toBeVisible();
+  await expect(occupiedSlot).toBeDisabled();
   assertBrowserClean();
 });
 

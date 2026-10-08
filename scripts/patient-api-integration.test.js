@@ -28,10 +28,11 @@ test('Patient repository uses the approved authenticated API routes and methods'
 });
 
 test('Patient API service normalizes live profile, appointments, records, and safe certificate details', async () => {
-  const repository = { async getProfile() { return patient; }, async updateProfile() { return patient; }, async getDoctors() { return [doctor]; }, async getAvailableSlots() { return { slots: [{ start_time: '10:00', end_time: '10:30', appointment_at: appointment.appointment_at }] }; }, async createAppointment() { return appointment; }, async getAppointments() { return [appointment]; }, async getAppointment() { return appointment; }, async cancelAppointment() { return { ...appointment, status: 'cancelled' }; }, async rescheduleAppointment() { return { ...appointment, appointment_at: '2026-09-27T02:00:00.000Z' }; }, async getRecords() { return [record]; }, async getRecord() { return record; }, async getCertificates() { return [certificate]; }, async getCertificate() { return certificate; } };
+  const repository = { async getProfile() { return patient; }, async updateProfile() { return patient; }, async getDoctors() { return [doctor]; }, async getAvailableSlots() { return { slots: [{ start_time: '10:00', end_time: '10:30', appointment_at: appointment.appointment_at, available: false, occupied: true }] }; }, async createAppointment() { return appointment; }, async getAppointments() { return [appointment]; }, async getAppointment() { return appointment; }, async cancelAppointment() { return { ...appointment, status: 'cancelled' }; }, async rescheduleAppointment() { return { ...appointment, appointment_at: '2026-09-27T02:00:00.000Z' }; }, async getRecords() { return [record]; }, async getRecord() { return record; }, async getCertificates() { return [certificate]; }, async getCertificate() { return certificate; } };
   const service = createPatientApiService(repository);
   assert.equal((await service.getProfile()).fullName, 'Alex Patient');
   assert.equal((await service.getAppointments())[0].service, 'General Consultation');
+  assert.deepEqual(await service.getAvailableSlots('d1', '2026-09-26'), [{ start_time: '10:00', end_time: '10:30', appointment_at: appointment.appointment_at, time: '10:00', available: false, occupied: true }]);
   assert.equal((await service.getRecord('r1')).prescriptions[0].medicine, 'Paracetamol');
   const item = await service.getCertificate('c1');
   assert.equal(item.medical_certificate_number, 'AHC-1'); assert.equal(item.signature_available, true); assert.equal('signature_path' in item, false);

@@ -45,9 +45,15 @@ export function createBookingAvailabilityService({ repository, clinic, now = () 
         const start = zonedDateTimeToUtc(date, startTime, clinic.timeZone);
         const end = new Date(start.getTime() + SLOT_MS);
         if (start <= current) continue;
-        if (occupied.has(start.getTime())) continue;
         if (blocks.some((item) => start < new Date(item.end_at) && end > new Date(item.start_at))) continue;
-        result.push({ start_time: startTime, end_time: endTime, appointment_at: start.toISOString() });
+        const isOccupied = occupied.has(start.getTime());
+        result.push({
+          start_time: startTime,
+          end_time: endTime,
+          appointment_at: start.toISOString(),
+          available: !isOccupied,
+          occupied: isOccupied,
+        });
       }
     }
     return result.sort((left, right) => left.appointment_at.localeCompare(right.appointment_at));
@@ -62,7 +68,7 @@ export function createBookingAvailabilityService({ repository, clinic, now = () 
     async assertBookable(doctorId, appointmentAt) {
       const local = appointmentLocalParts(appointmentAt, clinic.timeZone);
       const slots = await getAvailableSlots(doctorId, local.date);
-      if (!slots.some((slot) => new Date(slot.appointment_at).getTime() === new Date(appointmentAt).getTime())) {
+      if (!slots.some((slot) => slot.available && new Date(slot.appointment_at).getTime() === new Date(appointmentAt).getTime())) {
         throw httpError(409, 'APPOINTMENT_SLOT_UNAVAILABLE', 'That appointment slot is not available.');
       }
     },
