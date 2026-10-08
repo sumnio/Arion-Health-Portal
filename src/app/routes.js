@@ -96,6 +96,14 @@ export const routeGroups = {
       "title": "Patients"
     },
     {
+      "path": "/staff/doctors",
+      "title": "Doctors"
+    },
+    {
+      "path": "/staff/doctors/:id/schedule",
+      "title": "Manage Schedule"
+    },
+    {
       "path": "/staff/patients/new",
       "title": "Register Walk-in Patient"
     },

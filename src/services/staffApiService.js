@@ -19,6 +19,19 @@ export const urgentReasonOptions = Object.freeze([
   'Other urgent concern',
 ]);
 export const PRIORITY_REASON_MAX_LENGTH = 200;
+export const staffWeekDays = Object.freeze(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
+export function staffPublicationWindow(now = new Date()) {
+  const start = clinicToday(now); const end = new Date(`${start}T00:00:00.000Z`); end.setUTCDate(end.getUTCDate() + 30);
+  return { start, end: end.toISOString().slice(0, 10) };
+}
+export function staffBlockedTimePayload(values) {
+  const next = new Date(`${values.date}T00:00:00.000Z`); next.setUTCDate(next.getUTCDate() + 1);
+  return {
+    start_at: values.whole_day ? `${values.date}T00:00:00+08:00` : `${values.date}T${values.start_time}:00+08:00`,
+    end_at: values.whole_day ? `${next.toISOString().slice(0, 10)}T00:00:00+08:00` : `${values.date}T${values.end_time}:00+08:00`,
+    reason: values.reason.trim(),
+  };
+}
 export function normalizeStaffPatient(patient) {
   return { ...patient, isSenior: patient.is_senior === true, hasPortalAccount: patient.has_portal_account === true };
 }
@@ -54,7 +67,7 @@ export function patientListPage(patients, page = 1) {
   return { items: patients.slice((current - 1) * 5, current * 5), total: patients.length, page: current, pageCount };
 }
 export function createStaffApiService(repository = staffApiRepository) {
-  return {
+  const service = {
     async getAppointments(date = clinicToday()) { return (await repository.getAppointments(date)).map(normalizeStaffAppointment); },
     async getQueue() { return (await repository.getQueue()).map(normalizeStaffAppointment); },
     async getDashboard() {
@@ -64,10 +77,32 @@ export function createStaffApiService(repository = staffApiRepository) {
     async searchPatients(query = '') { return (await repository.searchPatients(query)).map(normalizeStaffPatient); },
     async getPatientContext(id) { const [patient, records] = await Promise.all([repository.getPatient(id), repository.getRecordSummary(id)]); return { patient: normalizeStaffPatient(patient), records }; },
     getDoctors: () => repository.getDoctors(),
+    async getDoctorDirectory() {
+      const date = clinicToday();
+      const [doctors, appointments] = await Promise.all([repository.getDoctors(), repository.getAppointments(date)]);
+      const schedules = await Promise.all(doctors.map(doctor => repository.getDoctorSchedule(doctor.id)));
+      return doctors.map((doctor, index) => ({
+        ...doctor,
+        todayAppointmentCount: appointments.filter(item => String(item.doctor?.id) === String(doctor.id)).length,
+        scheduledToday: schedules[index].published_availability.some(item => item.availability_date === date),
+      }));
+    },
+    async getDoctorSchedule(id) {
+      const [doctors, schedule] = await Promise.all([repository.getDoctors(), repository.getDoctorSchedule(id)]);
+      return { doctor: doctors.find(item => String(item.id) === String(id)) ?? null, schedule };
+    },
+    createDoctorAvailability: (id, payload) => repository.createDoctorAvailability(id, payload),
+    updateDoctorAvailability: (id, availabilityId, payload) => repository.updateDoctorAvailability(id, availabilityId, payload),
+    deleteDoctorAvailability: (id, availabilityId) => repository.deleteDoctorAvailability(id, availabilityId),
+    createPublishedAvailability: (id, payload) => repository.createPublishedAvailability(id, payload),
+    deletePublishedAvailability: (id, publishedId) => repository.deletePublishedAvailability(id, publishedId),
+    createBlockedTime: (id, values) => repository.createBlockedTime(id, staffBlockedTimePayload(values)),
+    deleteBlockedTime: (id, blockedId) => repository.deleteBlockedTime(id, blockedId),
     registerWalkIn(values) { return repository.registerWalkIn({ ...values, address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: values.emergency_contact_number?.trim() || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean) }); },
     createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: 'normal' }); },
     confirm: (id) => repository.confirmAppointment(id), checkIn: (id) => repository.checkIn(id), updatePriority: (id, payload) => repository.updatePriority(id, payload), getPriorityHistory: (id) => repository.getPriorityHistory(id), noShow: (id) => repository.markNoShow(id), cancel: (id) => repository.cancelAppointment(id),
   };
+  return service;
 }
 export const staffApiService = createStaffApiService();
 

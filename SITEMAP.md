@@ -36,6 +36,8 @@ STAFF
 /staff/calendar
 /staff/queue
 /staff/patients
+/staff/doctors
+/staff/doctors/:id/schedule
 /staff/patients/new
 /staff/patients/:id/walk-in
 

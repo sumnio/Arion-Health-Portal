@@ -615,6 +615,7 @@ Staff access follows least privilege. Backend authorization and database access 
 Staff may access operational information needed to:
 
 - view the Staff Dashboard and clinic calendar;
+- view active Doctors and manage their schedules through the dedicated Staff Doctors pages;
 - view operational Appointment details;
 - confirm or cancel eligible Appointments where appropriate;
 - search Patients and view basic Patient information needed for operations;

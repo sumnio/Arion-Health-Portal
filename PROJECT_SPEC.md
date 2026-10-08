@@ -213,6 +213,7 @@ Authorization probe routes used by automated and live validation are disabled by
 ### Staff
 - View the Staff Dashboard
 - View and manage the clinic calendar and appointment operations
+- View active Doctors and manage each Doctor's schedule through the dedicated Doctors workflow
 - Search existing patients and register walk-in patients
 - Create same-day walk-in appointments
 - Check in patients and manage the queue
@@ -227,6 +228,7 @@ Staff may:
 
 - view the Staff Dashboard;
 - view and manage the clinic calendar;
+- view active Doctors at `/staff/doctors` and manage one Doctor's working hours, booking dates, and time off at `/staff/doctors/:id/schedule`;
 - view operational appointment details;
 - confirm eligible appointments;
 - cancel eligible appointments when appropriate;

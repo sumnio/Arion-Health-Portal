@@ -1,0 +1,42 @@
+.staff-doctors, .staff-schedule { max-width: 1120px; margin: 0 auto; }
+.staff-doctors-heading, .staff-schedule > header { margin-bottom: 22px; }
+.staff-doctors-heading h1, .staff-schedule > header h1 { color: #102f4f; margin-bottom: 6px; }
+.staff-doctor-list, .working-day ul, .schedule-records { list-style: none; padding: 0; margin: 0; }
+.staff-doctor-list { display: grid; gap: 14px; }
+.staff-doctor-card { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(260px, 1fr) auto; align-items: center; gap: 24px; background: white; border: 1px solid #dbe5ed; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgb(18 44 73 / 5%); }
+.staff-doctor-card h2, .working-day h3 { color: #163d62; margin: 0 0 5px; }
+.staff-doctor-card p { margin: 0; color: #52657b; }
+.staff-doctor-card dl { display: grid; grid-template-columns: repeat(2, minmax(110px, 1fr)); gap: 12px; margin: 0; }
+.staff-doctor-card dl div { background: #f5f8fb; border-radius: 7px; padding: 10px; }
+.staff-doctor-card dt { color: #617387; font-size: 12px; }
+.staff-doctor-card dd { color: #173a5c; font-weight: 700; margin: 4px 0 0; }
+.staff-doctors-empty, .staff-schedule-section { background: white; border: 1px solid #dbe5ed; border-radius: 10px; padding: 22px; }
+.schedule-back { display: inline-block; margin-bottom: 18px; color: #176d55; font-weight: 700; }
+.staff-schedule > header h2 { margin: 8px 0 2px; color: #176d55; }
+.staff-schedule > header p { margin: 0; color: #52657b; }
+.staff-schedule-section { margin-bottom: 20px; }
+.staff-schedule-section > h2 { color: #173a5c; margin-top: 0; }
+.staff-schedule-section > p { color: #52657b; }
+.working-days { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.working-day { border: 1px solid #e0e8ef; border-radius: 8px; padding: 16px; }
+.working-day li, .schedule-records > li { border-top: 1px solid #e7edf2; padding: 12px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.working-day li > span { color: #233f5d; }
+.row-actions, .compact-form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.compact-form { margin: 14px 0; }
+.compact-form label { display: flex; flex-direction: column; gap: 5px; color: #405970; font-size: 12px; font-weight: 700; }
+.compact-form input { min-height: 40px; border: 1px solid #b9c8d5; border-radius: 6px; padding: 7px 9px; color: #122c49; }
+.compact-form .inline-check { flex-direction: row; align-items: center; min-height: 40px; }
+.compact-form .inline-check input { min-height: auto; }
+.compact-form .reason-input { flex: 1 1 210px; }
+.staff-schedule button { border: 0; border-radius: 6px; background: #176d55; color: white; padding: 10px 13px; font-weight: 700; cursor: pointer; }
+.staff-schedule button:disabled { cursor: not-allowed; opacity: .55; }
+.staff-schedule .secondary-button { background: #e8eef3; color: #29445f; }
+.staff-schedule .danger-button { background: #fff0f0; color: #a53737; border: 1px solid #e8bcbc; }
+.schedule-records { margin-top: 16px; }
+.schedule-records li div { display: grid; gap: 3px; }
+.schedule-records span, .schedule-records small { color: #52657b; }
+.schedule-success, .schedule-error { padding: 11px 13px; border-radius: 7px; margin-bottom: 16px; }
+.schedule-success { background: #ddf4e9; color: #166447; }
+.schedule-error { background: #ffe4e7; color: #9b2f38; }
+@media (max-width: 850px) { .staff-doctor-card { grid-template-columns: 1fr; gap: 14px; } .working-days { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .staff-doctor-card dl { grid-template-columns: 1fr; } .working-day li, .schedule-records > li { align-items: flex-start; flex-direction: column; } .row-actions { width: 100%; } }
