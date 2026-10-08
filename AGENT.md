@@ -38,7 +38,7 @@ Always read:
 - Implement only the requested milestone.
 - Legacy frontend mock repositories and services are deterministic test fixtures only. Production pages, components, layouts, and authentication must not import them or fall back to their data.
 - Patient self-service APIs must derive Patient ownership from the authenticated UserProfile; never trust a client-supplied `patient_id`.
-- Doctor scheduling APIs must derive Doctor ownership from the authenticated UserProfile; never trust a client-supplied `doctor_id` for own-schedule mutations.
+- Doctor scheduling reads derive Doctor ownership from the authenticated UserProfile and are read-only. Active Staff owns schedule mutations through Staff-only routes whose validated path target must resolve to an active Doctor; never trust a request-body `doctor_id`.
 - Keep scheduling time conversion centralized. The current development timezone is `Asia/Manila`; clinic opening and closing times remain optional until approved values are configured.
 - Clinical APIs must derive Patient and Doctor ownership from authenticated profiles and linked Appointments. Saved MedicalRecords, Prescriptions, and issued MedicalCertificates are read-only; consultation completion belongs only to the assigned Doctor after check-in and MedicalRecord creation.
 - Patient cancellation is allowed only for a future pending or confirmed Appointment before check-in and before a MedicalRecord exists. Checked-in, recorded, completed, cancelled, and no-show Appointments must reject Patient cancellation in both UI and API enforcement.

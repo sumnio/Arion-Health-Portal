@@ -100,18 +100,22 @@ The Staff lifecycle action `PATCH /api/staff/appointments/:appointmentId/confirm
 
 Server-side booking requires date-specific DoctorPublishedAvailability, removes DoctorBlockedTime overlaps and active occupied slots, and applies configured clinic hours when present. The existing MongoDB partial unique index remains the final concurrency guard against same-Doctor active slot collisions. Patient booking, Doctor scheduling, Staff operations, and Admin account management use live APIs.
 
-## Doctor scheduling and bookability backend API
+## Staff-managed Doctor scheduling and bookability backend API
 
-Authenticated Doctors manage only their own schedule through:
+Authenticated Doctors read only their own schedule through the first three routes below. Active Staff manages schedules for active Doctors through the remaining routes:
 
-- `GET`, `POST /api/doctor/availability`
-- `PATCH`, `DELETE /api/doctor/availability/:id`
-- `GET`, `POST /api/doctor/published-availability`
-- `DELETE /api/doctor/published-availability/:id`
-- `GET`, `POST /api/doctor/blocked-times`
-- `DELETE /api/doctor/blocked-times/:id`
+- `GET /api/doctor/availability`
+- `GET /api/doctor/published-availability`
+- `GET /api/doctor/blocked-times`
+- `GET /api/staff/doctors/:doctorId/schedule`
+- `POST /api/staff/doctors/:doctorId/availability`
+- `PATCH`, `DELETE /api/staff/doctors/:doctorId/availability/:availabilityId`
+- `POST /api/staff/doctors/:doctorId/published-availability`
+- `DELETE /api/staff/doctors/:doctorId/published-availability/:publishedId`
+- `POST /api/staff/doctors/:doctorId/blocked-times`
+- `DELETE /api/staff/doctors/:doctorId/blocked-times/:blockedTimeId`
 
-The API resolves Doctor ownership from the authenticated UserProfile and never accepts `doctor_id` for an own-schedule mutation. Multiple non-overlapping recurring ranges on one weekday are supported. Date-specific publication must be today through 30 days ahead, align to 30-minute boundaries, remain within one active recurring range, and not overlap another published range for that Doctor/date.
+Doctor reads resolve ownership from the authenticated UserProfile. Staff mutations take the target Doctor only from the validated path and reject inactive or missing Doctors; request bodies cannot set Doctor identity or other protected fields. Multiple non-overlapping recurring ranges on one weekday are supported. Date-specific publication must be today through 30 days ahead, align to 30-minute boundaries, remain within one active recurring range, and not overlap another published range for that Doctor/date. Active schedule lists hide past published dates, current-day publications after their clinic-local end time, and blocked periods whose `end_at` is not later than server time without deleting the stored records. Successful Staff mutations emit redacted structured operational events with actor, target Doctor, action, record, outcome, and timestamp; blocked reasons and request bodies are not logged.
 
 Patients retrieve bookable times through `GET /api/patient/doctors/:doctorId/available-slots?date=YYYY-MM-DD`. Recurring availability alone never produces Patient slots. Slot generation starts from explicitly published ranges, removes past times and DoctorBlockedTime overlaps, and returns appointments in the blocking statuses `pending`, `confirmed`, and `completed` only as anonymous occupied slots with `available: false`; Patient booking and rescheduling display those times but disable selection. The Patient date must be within the 14-day horizon. `POST /api/patient/appointments` applies the same availability calculation before persistence, while the MongoDB partial unique index handles concurrent same-Doctor slot attempts.
 
@@ -200,7 +204,7 @@ Authorization probe routes used by automated and live validation are disabled by
 
 ### Doctor
 - View schedule
-- Manage own recurring availability and blocked time through the existing Doctor schedule workflow
+- View own recurring availability, active publications, and current/future blocked time read-only
 - View patient information
 - Create medical records
 - Mark an assigned eligible consultation completed after its MedicalRecord has been saved
@@ -292,7 +296,7 @@ Future backend authorization and database access controls must enforce this acco
 - Doctor license and PTR numbers will later be displayed on issued medical certificates.
 - `signature_path` references the doctor's signature image, which must be stored in protected object/file storage, such as Supabase Storage when that provider is selected. Do not store image binary in Doctor.
 - Saved medical records and issued medical certificates remain read-only.
-- Doctors manage their own availability and blocked time under the scheduling rules below. Availability management remains associated with the approved Doctor schedule workflow; no separate route is approved.
+- Active Staff manages schedules for active Doctors under the scheduling rules below. Doctors retain read-only visibility of their own schedule.
 
 ## Medical certificate rules
 
@@ -321,7 +325,7 @@ DoctorBlockedTime stores `id`, `doctor_id`, `start_at`, `end_at`, and `reason` f
 ### Scheduling and publication rules
 
 - Appointment slots are fixed at 30 minutes.
-- Doctors manage their own recurring availability and blocked time within the existing `/doctor/schedule` workflow; no separate availability route is added.
+- Staff manages recurring availability, date-specific publication, and blocked time through Staff-only APIs. `/doctor/schedule` is read-only.
 - A doctor may publish multiple DoctorAvailability ranges for the same day. Gaps between ranges represent regular recurring breaks.
 - A doctor may publish availability up to 30 days ahead and is not required to publish all 30 days. Patients may see and book only dates/times actually published by the doctor; a recurring weekly row alone does not publish every matching future date.
 - Exact clinic operating hours are TBD and must be configurable. Do not hardcode clinic-hour values. Once configured, DoctorAvailability and every bookable 30-minute slot must remain within those hours.

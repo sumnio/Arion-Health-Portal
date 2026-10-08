@@ -14,14 +14,7 @@ export function createDoctorAvailabilityRouter({ authModule, schedulingModule })
     requirePermission(PERMISSIONS.DOCTOR_PORTAL_ACCESS),
   );
   router.get('/availability', controller.listRecurring);
-  router.post('/availability', controller.createRecurring);
-  router.patch('/availability/:id', controller.updateRecurring);
-  router.delete('/availability/:id', controller.deleteRecurring);
   router.get('/published-availability', controller.listPublished);
-  router.post('/published-availability', controller.createPublished);
-  router.delete('/published-availability/:id', controller.deletePublished);
   router.get('/blocked-times', controller.listBlocked);
-  router.post('/blocked-times', controller.createBlocked);
-  router.delete('/blocked-times/:id', controller.deleteBlocked);
   return router;
 }

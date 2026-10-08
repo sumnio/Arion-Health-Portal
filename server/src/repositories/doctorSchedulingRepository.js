@@ -13,6 +13,13 @@ export const doctorSchedulingRepository = {
     return Doctor.findOne({ user_profile_id: userProfileId }).lean();
   },
 
+  async findActiveDoctorById(doctorId) {
+    const doctor = await Doctor.findById(doctorId)
+      .populate({ path: 'user_profile_id', match: { role: 'doctor', status: 'active' }, select: '_id' })
+      .lean();
+    return doctor?.user_profile_id ? doctor : null;
+  },
+
   async doctorExists(doctorId) {
     return Boolean(await Doctor.exists({ _id: doctorId }));
   },
@@ -49,6 +56,11 @@ export const doctorSchedulingRepository = {
       .sort({ availability_date: 1, start_time: 1 })
       .lean();
   },
+  async listPublishedActive(doctorId, earliestDate) {
+    return DoctorPublishedAvailability.find({ doctor_id: doctorId, availability_date: { $gte: earliestDate } })
+      .sort({ availability_date: 1, start_time: 1 })
+      .lean();
+  },
   async publishedOverlaps(doctorId, date, start, end) {
     return Boolean(await DoctorPublishedAvailability.exists({
       doctor_id: doctorId,
@@ -69,6 +81,9 @@ export const doctorSchedulingRepository = {
 
   async listBlocked(doctorId) {
     return DoctorBlockedTime.find({ doctor_id: doctorId }).sort({ start_at: 1 }).lean();
+  },
+  async listBlockedActive(doctorId, current) {
+    return DoctorBlockedTime.find({ doctor_id: doctorId, end_at: { $gt: current } }).sort({ start_at: 1 }).lean();
   },
   async createBlocked(data) { return (await DoctorBlockedTime.create(data)).toObject(); },
   async deleteBlockedOwned(id, doctorId) {

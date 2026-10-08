@@ -150,7 +150,7 @@ Doctor contains only the fields above. `display_name`, `contact_number`, and acc
 
 The signature image must be stored in protected object/file storage. Supabase Storage is one option when that provider is selected. `signature_path` stores only its reference; the actual image binary must not be stored in Doctor.
 
-Doctors manage their own availability through the existing `/doctor/schedule` workflow under the scheduling rules below. Saved medical records and issued medical certificates remain read-only; these profile fields do not authorize editing historical clinical documents.
+Active Staff manages availability for active Doctors through Staff-only scheduling APIs. Doctors view their own schedule read-only through `/doctor/schedule`. Saved medical records and issued medical certificates remain read-only; these profile fields do not authorize editing historical clinical documents.
 
 ---
 
@@ -169,7 +169,7 @@ Authentication remains outside the Staff model. Staff has no username or authent
 
 ## DoctorAvailability
 
-Represents the doctor's regular recurring weekly working schedule, managed by that doctor. A doctor may have multiple availability ranges for the same `day_of_week`. For example, 09:00-12:00 and 13:00-17:00 leaves a recurring lunch break between the ranges. This is the preferred representation for a regular lunch break or other recurring break and does not require DoctorBlockedTime. These example ranges are illustrative DoctorAvailability values, not fixed clinic operating hours.
+Represents the doctor's regular recurring weekly working schedule, managed by active Staff. A doctor may have multiple availability ranges for the same `day_of_week`. For example, 09:00-12:00 and 13:00-17:00 leaves a recurring lunch break between the ranges. This is the preferred representation for a regular lunch break or other recurring break and does not require DoctorBlockedTime. These example ranges are illustrative DoctorAvailability values, not fixed clinic operating hours.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -228,7 +228,7 @@ Represents one-time or temporary exceptions to the regular schedule. A block can
 ### Scheduling and publication rules
 
 - Appointment slots are fixed at 30 minutes.
-- Doctors manage their own recurring availability and blocked time within the existing `/doctor/schedule` workflow; no separate availability route is added.
+- Staff manages recurring availability, published availability, and blocked time for active Doctors. Doctor schedule views are read-only.
 - A doctor may publish multiple DoctorAvailability ranges for the same day. Gaps between ranges represent regular recurring breaks.
 - A doctor may publish availability up to 30 days ahead and is not required to publish all 30 days. Patients may see and book only dates/times actually published by the doctor; a recurring weekly row alone does not publish every matching future date.
 - Exact clinic operating hours are TBD and must be configurable. Do not hardcode clinic-hour values. Once configured, DoctorAvailability and every bookable 30-minute slot must remain within those hours.
@@ -606,7 +606,7 @@ Can access:
 - permitted medical records
 - certificates they issue
 
-Doctors manage their own recurring availability and blocked time through the existing `/doctor/schedule` workflow under the scheduling rules above. The assigned Doctor may mark an eligible consultation completed only after its linked MedicalRecord has been saved. Saved medical records and issued medical certificates are read-only.
+Staff manages recurring availability and blocked time for active Doctors; Doctors retain read-only own-schedule access under the scheduling rules above. The assigned Doctor may mark an eligible consultation completed only after its linked MedicalRecord has been saved. Saved medical records and issued medical certificates are read-only.
 
 ## Staff
 

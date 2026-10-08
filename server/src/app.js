@@ -15,6 +15,7 @@ import { createClinicalModule } from './services/clinicalModule.js';
 import { createDoctorClinicalRouter } from './routes/doctorClinicalRoutes.js';
 import { createPatientClinicalRouter } from './routes/patientClinicalRoutes.js';
 import { createStaffOperationsRouter } from './routes/staffOperationsRoutes.js';
+import { createStaffSchedulingRouter } from './routes/staffSchedulingRoutes.js';
 import { createStaffOperationsModule } from './services/staffOperationsModule.js';
 import { createAdminAccountModule } from './services/adminAccountModule.js';
 import { createAdminAccountRouter } from './routes/adminAccountRoutes.js';
@@ -127,6 +128,7 @@ export function createApp(
     createStaffAppointmentRouter({ authModule, patientAppointmentModule }),
   );
   app.use('/api/staff', createStaffOperationsRouter({ authModule, staffOperationsModule }));
+  app.use('/api/staff', createStaffSchedulingRouter({ authModule, schedulingModule }));
   app.use('/api/admin', createAdminAccountRouter({ authModule, adminAccountModule, rateLimiters }));
   if (enableAuthorizationProbes) {
     app.use('/api/authz-test', createAuthorizationProbeRouter(authModule));

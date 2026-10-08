@@ -2,11 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { doctorApiErrorMessage, doctorApiService, doctorWeekDays } from '../../services/doctorApiService.js';
 import { formatBookingDate, formatSlot } from '../../services/dateTimeService.js';
 
-const blankRange = { start_time: '09:00', end_time: '12:00' };
 const timeLabel = item => `${formatSlot(item.start_time)}–${formatSlot(item.end_time)}`;
 function blockParts(item) {
-  const format = (value) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(value));
-  const value = (parts, type) => parts.find((part) => part.type === type)?.value;
+  const format = value => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(value));
+  const value = (parts, type) => parts.find(part => part.type === type)?.value;
   const start = format(item.start_at); const end = format(item.end_at);
   const date = `${value(start, 'year')}-${value(start, 'month')}-${value(start, 'day')}`;
   const startTime = `${value(start, 'hour')}:${value(start, 'minute')}`; const endTime = `${value(end, 'hour')}:${value(end, 'minute')}`;
@@ -15,25 +14,28 @@ function blockParts(item) {
 }
 
 export default function DoctorAvailabilityManager() {
-  const window = doctorApiService.publicationWindow();
-  const [data, setData] = useState({ recurring: [], published: [], blocked: [] }); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
-  const [rangeDrafts, setRangeDrafts] = useState(() => Object.fromEntries(doctorWeekDays.map((_, day) => [day, { ...blankRange }])));
-  const [published, setPublished] = useState({ date: window.start, ...blankRange }); const [blocked, setBlocked] = useState({ date: window.start, whole_day: false, start_time: '12:00', end_time: '13:00', reason: '' });
-  const [message, setMessage] = useState(''); const [error, setError] = useState('');
-  const load = useCallback(async () => { setLoading(true); try { setData(await doctorApiService.getAvailability()); setError(''); } catch (reason) { setError(doctorApiErrorMessage(reason, 'Unable to load availability.')); } finally { setLoading(false); } }, []);
+  const [data, setData] = useState({ recurring: [], published: [], blocked: [] });
+  const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setData(await doctorApiService.getAvailability()); setError(''); }
+    catch (reason) { setError(doctorApiErrorMessage(reason, 'Unable to load availability.')); }
+    finally { setLoading(false); }
+  }, []);
   useEffect(() => { load(); }, [load]);
-  const update = (setter, name, value) => setter(previous => ({ ...previous, [name]: value }));
-  async function run(action, success) { setBusy(true); setError(''); setMessage(''); try { await action(); await load(); setMessage(success); } catch (reason) { setError(doctorApiErrorMessage(reason, 'The scheduling change could not be saved.')); } finally { setBusy(false); } }
-  function recurringFor(day) { return data.recurring.filter(item => item.day_of_week === day); }
+  const recurringFor = day => data.recurring.filter(item => item.day_of_week === day);
   if (loading && !data.recurring.length && !data.published.length && !data.blocked.length) return <div className="availability-manager"><p role="status">Loading availability…</p></div>;
-  return <div className="availability-manager"><p className="schedule-note">Live scheduling · Appointment slots remain 30 minutes. Clinic operating hours are configurable and still TBD.</p><p className="availability-explainer"><strong>Recurring templates</strong> describe the usual week. <strong>Published availability</strong> confirms specific dates patients may book. One-time blocked periods override both.</p>
-    {message && <p className="availability-message" role="status">{message}</p>}{error && <p className="availability-error" role="alert">{error}</p>}
-    <section className="schedule-panel availability-section" aria-labelledby="weekly-availability-title"><h2 id="weekly-availability-title">Weekly Recurring Availability</h2><p>Use separate ranges to leave a regular lunch or recurring break.</p><div className="weekly-availability">{doctorWeekDays.map((name, day) => { const ranges = recurringFor(day); const enabled = ranges.some(item => item.is_active); return <article className="availability-day" key={name}><header><div><h3>{name}</h3><span>{enabled ? 'Enabled' : 'Disabled'}</span></div><label className="availability-toggle"><input type="checkbox" checked={enabled} disabled={!ranges.length || busy} onChange={event => run(() => Promise.all(ranges.map(item => doctorApiService.updateRecurring(item.id, { is_active: event.target.checked }))), `${name} ${event.target.checked ? 'enabled' : 'disabled'}.`)} /> Day enabled</label></header>
-      {ranges.length ? <ul>{ranges.map(item => <li key={item.id}><span>{timeLabel(item)} · {item.is_active ? 'Active' : 'Inactive'}</span><button disabled={busy} type="button" onClick={() => run(() => doctorApiService.removeRecurring(item.id), `${name} range removed.`)}>Remove</button></li>)}</ul> : <p>No recurring ranges.</p>}
-      <div className="range-form"><label>Start<input type="time" step="1800" value={rangeDrafts[day].start_time} onChange={event => setRangeDrafts(previous => ({ ...previous, [day]: { ...previous[day], start_time: event.target.value } }))} /></label><label>End<input type="time" step="1800" value={rangeDrafts[day].end_time} onChange={event => setRangeDrafts(previous => ({ ...previous, [day]: { ...previous[day], end_time: event.target.value } }))} /></label><button disabled={busy} type="button" onClick={() => run(() => doctorApiService.createRecurring({ day_of_week: day, ...rangeDrafts[day] }), `${name} recurring range added.`)}>Add Range</button></div></article>; })}</div></section>
-    <div className="availability-columns"><section className="schedule-panel availability-section"><h2>Published Availability</h2><p>Publish specific dates patients may book, from today through {formatBookingDate(window.end)}.</p><div className="availability-form"><label>Date<input type="date" min={window.start} max={window.end} value={published.date} onChange={event => update(setPublished, 'date', event.target.value)} /></label><label>Start<input type="time" step="1800" value={published.start_time} onChange={event => update(setPublished, 'start_time', event.target.value)} /></label><label>End<input type="time" step="1800" value={published.end_time} onChange={event => update(setPublished, 'end_time', event.target.value)} /></label><button disabled={busy} type="button" onClick={() => run(() => doctorApiService.publish(published), `Availability published for ${formatBookingDate(published.date)}.`)}>Publish Range</button></div>
-      {data.published.length ? <ul className="availability-list">{data.published.map(item => <li key={item.id}><div><strong>{formatBookingDate(item.date)}</strong><span>{timeLabel(item)}</span><small>Patients see eligible 30-minute slots after blocked and booked times are excluded.</small></div><button disabled={busy} type="button" onClick={() => run(() => doctorApiService.removePublished(item.id), 'Published range removed. Existing appointments were preserved.')}>Remove</button></li>)}</ul> : <p>No published availability yet.</p>}</section>
-      <section className="schedule-panel availability-section"><h2>Blocked Time</h2><p>Add a one-time whole-day or partial-day exception. A block never creates availability.</p><div className="availability-form"><label>Date<input type="date" min={window.start} max={window.end} value={blocked.date} onChange={event => update(setBlocked, 'date', event.target.value)} /></label><label className="whole-day"><input type="checkbox" checked={blocked.whole_day} onChange={event => update(setBlocked, 'whole_day', event.target.checked)} /> Whole day</label>{!blocked.whole_day && <><label>Start<input type="time" step="1800" value={blocked.start_time} onChange={event => update(setBlocked, 'start_time', event.target.value)} /></label><label>End<input type="time" step="1800" value={blocked.end_time} onChange={event => update(setBlocked, 'end_time', event.target.value)} /></label></>}<label className="reason-field">Reason<input value={blocked.reason} onChange={event => update(setBlocked, 'reason', event.target.value)} placeholder="Meeting, leave, personal break…" /></label><button disabled={busy} type="button" onClick={() => run(() => doctorApiService.addBlocked(blocked), `Blocked time added for ${formatBookingDate(blocked.date)}.`)}>Add Block</button></div>
-      {data.blocked.length ? <ul className="availability-list">{data.blocked.map(item => { const parts = blockParts(item); return <li key={item.id}><div><strong>{formatBookingDate(parts.date)}</strong><span>{parts.wholeDay ? 'Whole day' : `${formatSlot(parts.startTime)}–${formatSlot(parts.endTime)}`}</span><small>{item.reason}</small></div><button disabled={busy} type="button" onClick={() => run(() => doctorApiService.removeBlocked(item.id), 'Blocked time removed.')}>Remove</button></li>; })}</ul> : <p>No blocked times.</p>}</section></div>
+  return <div className="availability-manager">
+    <p className="schedule-note">Read-only schedule · Staff manages Doctor availability and blocked time.</p>
+    <p className="availability-explainer">Your recurring templates, active published availability, and current or future blocked periods are shown below.</p>
+    {error && <p className="availability-error" role="alert">{error} <button type="button" onClick={load}>Try again</button></p>}
+    <section className="schedule-panel availability-section" aria-labelledby="weekly-availability-title">
+      <h2 id="weekly-availability-title">Weekly Recurring Availability</h2>
+      <div className="weekly-availability">{doctorWeekDays.map((name, day) => { const ranges = recurringFor(day); return <article className="availability-day" key={name}><header><div><h3>{name}</h3><span>{ranges.some(item => item.is_active) ? 'Enabled' : 'Disabled'}</span></div></header>{ranges.length ? <ul>{ranges.map(item => <li key={item.id}><span>{timeLabel(item)} · {item.is_active ? 'Active' : 'Inactive'}</span></li>)}</ul> : <p>No recurring ranges.</p>}</article>; })}</div>
+    </section>
+    <div className="availability-columns">
+      <section className="schedule-panel availability-section"><h2>Published Availability</h2><p>Only active published ranges are shown.</p>{data.published.length ? <ul className="availability-list">{data.published.map(item => <li key={item.id}><div><strong>{formatBookingDate(item.date)}</strong><span>{timeLabel(item)}</span></div></li>)}</ul> : <p>No active published availability.</p>}</section>
+      <section className="schedule-panel availability-section"><h2>Blocked Time</h2><p>Only current or future blocked periods are shown.</p>{data.blocked.length ? <ul className="availability-list">{data.blocked.map(item => { const parts = blockParts(item); return <li key={item.id}><div><strong>{formatBookingDate(parts.date)}</strong><span>{parts.wholeDay ? 'Whole day' : `${formatSlot(parts.startTime)}–${formatSlot(parts.endTime)}`}</span><small>{item.reason}</small></div></li>; })}</ul> : <p>No current or future blocked times.</p>}</section>
+    </div>
   </div>;
 }

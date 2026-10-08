@@ -58,20 +58,6 @@ export function createDoctorApiService(repository = doctorApiRepository) {
       const [recurring, published, blocked] = await Promise.all([repository.getRecurringAvailability(), repository.getPublishedAvailability(), repository.getBlockedTimes()]);
       return { recurring, published: published.map((item) => ({ ...item, date: item.availability_date })), blocked };
     },
-    createRecurring: (payload) => repository.createRecurringAvailability(payload),
-    updateRecurring: (id, payload) => repository.updateRecurringAvailability(id, payload),
-    removeRecurring: (id) => repository.deleteRecurringAvailability(id),
-    publish: (payload) => repository.createPublishedAvailability({ availability_date: payload.date, start_time: payload.start_time, end_time: payload.end_time }),
-    removePublished: (id) => repository.deletePublishedAvailability(id),
-    addBlocked(payload) {
-      const next = new Date(`${payload.date}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
-      return repository.createBlockedTime({
-        start_at: payload.whole_day ? `${payload.date}T00:00:00+08:00` : `${payload.date}T${payload.start_time}:00+08:00`,
-        end_at: payload.whole_day ? `${next.toISOString().slice(0, 10)}T00:00:00+08:00` : `${payload.date}T${payload.end_time}:00+08:00`,
-        reason: payload.reason,
-      });
-    },
-    removeBlocked: (id) => repository.deleteBlockedTime(id),
     async getPatientContext(patientId, selection = {}) {
       const [appointments, history] = await Promise.all([service.getAppointments({ patientId }), repository.getPatientHistory(patientId)]);
       const appointment = (selection.appointmentId && appointments.find((item) => item.id === selection.appointmentId))
