@@ -27,6 +27,7 @@ PATIENT
 DOCTOR
 /doctor/dashboard
 /doctor/schedule
+/doctor/patients
 /doctor/patients/:id
 /doctor/patients/:id/add-record
 /doctor/records/:id/certificate/new

@@ -49,6 +49,22 @@ export function createDoctorApiService(repository = doctorApiRepository) {
       return { start, end: date.toISOString().slice(0, 10) };
     },
     async getAppointments(filters) { return (await repository.getAppointments(filters)).map(normalizeDoctorAppointment); },
+    async getRelatedPatients(now = new Date()) {
+      const appointments = await service.getAppointments({});
+      const related = new Map();
+      for (const appointment of appointments) {
+        if (!appointment.patient?.id) continue;
+        const current = related.get(appointment.patient.id) ?? { patient: appointment.patient, appointments: [] };
+        current.appointments.push(appointment);
+        related.set(appointment.patient.id, current);
+      }
+      return [...related.values()].map((entry) => {
+        const ordered = [...entry.appointments].sort((left, right) => new Date(left.appointment_at) - new Date(right.appointment_at));
+        const past = ordered.filter((item) => new Date(item.appointment_at) <= now);
+        const upcoming = ordered.find((item) => ['pending', 'confirmed'].includes(item.status) && new Date(item.appointment_at) > now) ?? null;
+        return { patient: entry.patient, mostRecentAppointment: past.at(-1) ?? null, upcomingAppointment: upcoming, relatedAppointment: upcoming ?? past.at(-1) ?? ordered.at(-1) };
+      }).sort((left, right) => (left.patient.full_name ?? '').localeCompare(right.patient.full_name ?? ''));
+    },
     async getDashboard() {
       const date = clinicToday(); const appointments = await service.getAppointments({ date });
       const upcoming = appointments.filter((item) => ['pending', 'confirmed'].includes(item.status) && new Date(item.appointment_at) >= new Date());

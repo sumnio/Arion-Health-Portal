@@ -1,0 +1,19 @@
+.doctor-patients-page { max-width: 1280px; margin: auto; }
+.doctor-patients-page > header { margin-bottom: 24px; }
+.doctor-patients-page p { color: #52657b; line-height: 1.6; }
+.doctor-patients-page .patients-table-wrap { overflow-x: auto; background: white; border: 1px solid #dfe7ee; border-radius: 10px; }
+.doctor-patients-page table { width: 100%; min-width: 760px; border-collapse: collapse; }
+.doctor-patients-page caption { padding: 18px 22px; text-align: left; color: #52657b; font-size: 14px; }
+.doctor-patients-page th, .doctor-patients-page td { padding: 16px 22px; text-align: left; vertical-align: middle; border-top: 1px solid #e3eaf0; }
+.doctor-patients-page th { color: #52657b; font-size: 13px; }
+.doctor-patients-page td > strong, .doctor-patients-page td > span { display: block; }
+.doctor-patients-page td > span, .doctor-patients-page .patient-list-empty { margin-top: 5px; color: #52657b; font-size: 13px; }
+.doctor-patients-page .patient-appointment-summary { display: grid; gap: 7px; justify-items: start; }
+.doctor-patients-page .patients-empty, .doctor-patients-page .patients-error { background: white; border: 1px solid #dfe7ee; border-radius: 10px; padding: 28px; }
+.doctor-patients-page .patients-empty h2 { margin-top: 0; font-size: 19px; }
+.doctor-patients-page .status-confirmed { background: #ddf4e9; color: #166447; }
+.doctor-patients-page .status-completed { background: #e2edff; color: #165ec0; }
+.doctor-patients-page .status-pending { background: #fff3d9; color: #825400; }
+.doctor-patients-page .status-cancelled { background: #ffe4e7; color: #a33434; }
+.doctor-patients-page .status-no_show { background: #e7ebf0; color: #44536a; }
+@media (max-width: 700px) { .doctor-patients-page .patients-table-wrap { border: 0; background: transparent; overflow: visible; } .doctor-patients-page table, .doctor-patients-page tbody, .doctor-patients-page tr, .doctor-patients-page td { display: block; min-width: 0; } .doctor-patients-page thead { display: none; } .doctor-patients-page caption { padding: 0 0 12px; } .doctor-patients-page tr { margin-bottom: 14px; padding: 18px; background: white; border: 1px solid #dfe7ee; border-radius: 10px; } .doctor-patients-page td { padding: 10px 0; border: 0; } }

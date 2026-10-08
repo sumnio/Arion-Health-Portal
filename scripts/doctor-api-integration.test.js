@@ -33,12 +33,32 @@ test('Doctor service normalizes consultation context and submits prescriptions w
 
 test('Doctor API errors expose safe backend business messages', () => { assert.equal(doctorApiErrorMessage(new ApiError('Blocked time overlaps an existing active appointment.', { status: 409, code: 'BLOCK_OVERLAPS_APPOINTMENT' })), 'Blocked time overlaps an existing active appointment.'); });
 
+test('Doctor service derives a unique related-Patient list only from assigned appointments', async () => {
+  const future = { ...appointment, id: 'a2', appointment_at: '2026-09-26T02:00:00.000Z', status: 'pending' };
+  const otherPatient = { ...patient, id: 'p2', full_name: 'Bea Patient' };
+  const repository = { async getAppointments() { return [appointment, future, { ...appointment, id: 'a3', patient: otherPatient, appointment_at: '2026-09-23T02:00:00.000Z', status: 'completed' }]; } };
+  const patients = await createDoctorApiService(repository).getRelatedPatients(new Date('2026-09-25T03:00:00.000Z'));
+  assert.deepEqual(patients.map((item) => item.patient.id), ['p1', 'p2']);
+  assert.equal(patients[0].mostRecentAppointment.id, 'a1');
+  assert.equal(patients[0].upcomingAppointment.id, 'a2');
+  assert.equal(patients[0].relatedAppointment.id, 'a2');
+  assert.equal(patients[1].upcomingAppointment, null);
+});
+
 test('Doctor pages use the live Doctor API service and contain no feature mock fallback', async () => {
-  for (const file of ['DoctorDashboard.jsx', 'DoctorSchedule.jsx', 'DoctorPatientDetail.jsx', 'DoctorAddRecord.jsx', 'DoctorIssueCertificate.jsx']) {
+  for (const file of ['DoctorDashboard.jsx', 'DoctorSchedule.jsx', 'DoctorPatients.jsx', 'DoctorPatientDetail.jsx', 'DoctorAddRecord.jsx', 'DoctorIssueCertificate.jsx']) {
     const source = await readFile(new URL(`../src/pages/doctor/${file}`, import.meta.url), 'utf8');
     assert.match(source, /doctorApiService/); assert.doesNotMatch(source, /doctorDashboardService|doctorPatientService|doctorRecordService|doctorCertificateService|Mock snapshot|mock preview/i);
   }
   const availability = await readFile(new URL('../src/components/scheduling/DoctorAvailabilityManager.jsx', import.meta.url), 'utf8');
   assert.match(availability, /Read-only schedule/);
+  assert.match(availability, /Working Hours/);
+  assert.match(availability, /Available Booking Dates/);
+  assert.match(availability, /Time Off \/ Unavailable/);
   assert.doesNotMatch(availability, /createRecurring|updateRecurring|removeRecurring|Publish Range|Add Block/);
+  const detail = await readFile(new URL('../src/pages/doctor/DoctorPatientDetail.jsx', import.meta.url), 'utf8');
+  for (const tab of ['Overview', 'Consultation', 'Medical Records', 'Certificates']) assert.match(detail, new RegExp(tab));
+  const patients = await readFile(new URL('../src/pages/doctor/DoctorPatients.jsx', import.meta.url), 'utf8');
+  assert.match(patients, /getRelatedPatients/);
+  assert.match(patients, /No related patients found/);
 });

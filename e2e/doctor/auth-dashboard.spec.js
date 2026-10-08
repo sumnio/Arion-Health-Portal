@@ -47,7 +47,9 @@ test('Doctor sees real empty schedule and empty clinical history states', async 
   await page.goto('/doctor/schedule');
   await expect(page.getByRole('heading', { name: 'No appointments for this day' })).toBeVisible();
   await page.goto(`/doctor/patients/${patient.patientId}`);
-  await expect(page.getByText('No medical records available.')).toBeVisible();
-  await expect(page.getByText('No issued certificates linked to this patient’s records.')).toBeVisible();
+  await page.getByRole('tab', { name: 'Medical Records' }).click();
+  await expect(page.getByText('No medical records found.')).toBeVisible();
+  await page.getByRole('tab', { name: 'Certificates' }).click();
+  await expect(page.getByText('No medical certificates found.')).toBeVisible();
   assertBrowserClean();
 });

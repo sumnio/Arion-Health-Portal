@@ -34,6 +34,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.goto(`/doctor/patients/${patient.patientId}`);
   await expect(page.getByRole('heading', { name: patient.full_name })).toBeVisible();
   await expect(page.getByText('Persistent cough')).toBeVisible();
+  await page.getByRole('tab', { name: 'Consultation' }).click();
   await expect(page.getByRole('link', { name: 'Add Medical Record' })).toBeVisible();
   await page.getByRole('link', { name: 'Add Medical Record' }).click();
 
@@ -80,14 +81,17 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   expect(Buffer.concat(chunks).subarray(0, 4).toString()).toBe('%PDF');
 
   await page.getByRole('link', { name: 'Back to Patient Details' }).click();
+  await page.getByRole('tab', { name: 'Medical Records' }).click();
   await expect(page.getByText('E2E acute bronchitis').first()).toBeVisible();
   await page.getByText('View record').click();
   await expect(page.getByText('E2E Salbutamol')).toBeVisible();
   await expect(page.getByRole('button', { name: /edit|delete/i })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Certificates' }).click();
   await page.getByText('View certificate').click();
   await expect(page.getByText(`Certificate No. ${certificate.medical_certificate_number}`, { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /edit|delete|reissue/i })).toHaveCount(0);
 
+  await page.getByRole('tab', { name: 'Consultation' }).click();
   await page.getByRole('button', { name: 'Mark Consultation Completed' }).click();
   await page.getByRole('button', { name: 'Confirm Completion' }).click();
   await expect(page.getByText(/Consultation marked completed\./)).toBeVisible();

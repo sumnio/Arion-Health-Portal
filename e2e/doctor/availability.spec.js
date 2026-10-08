@@ -9,7 +9,7 @@ async function openAvailability(page, doctor) {
   await loginAsDoctor(page, doctor);
   await page.goto('/doctor/schedule');
   await page.getByRole('tab', { name: 'Availability' }).click();
-  await expect(page.getByRole('heading', { name: 'Weekly Recurring Availability' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Working Hours' })).toBeVisible();
 }
 
 async function browserApi(page, path, options = {}) {

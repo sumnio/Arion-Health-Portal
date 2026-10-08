@@ -66,6 +66,10 @@ export const routeGroups = {
       "title": "My Schedule"
     },
     {
+      "path": "/doctor/patients",
+      "title": "Patients"
+    },
+    {
       "path": "/doctor/patients/:id",
       "title": "Patient Details"
     },

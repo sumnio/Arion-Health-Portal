@@ -27,15 +27,15 @@ export default function DoctorAvailabilityManager() {
   if (loading && !data.recurring.length && !data.published.length && !data.blocked.length) return <div className="availability-manager"><p role="status">Loading availability…</p></div>;
   return <div className="availability-manager">
     <p className="schedule-note">Read-only schedule · Staff manages Doctor availability and blocked time.</p>
-    <p className="availability-explainer">Your recurring templates, active published availability, and current or future blocked periods are shown below.</p>
+    <p className="availability-explainer">Your working hours, available booking dates, and current or future time off are shown below.</p>
     {error && <p className="availability-error" role="alert">{error} <button type="button" onClick={load}>Try again</button></p>}
     <section className="schedule-panel availability-section" aria-labelledby="weekly-availability-title">
-      <h2 id="weekly-availability-title">Weekly Recurring Availability</h2>
+      <h2 id="weekly-availability-title">Working Hours</h2>
       <div className="weekly-availability">{doctorWeekDays.map((name, day) => { const ranges = recurringFor(day); return <article className="availability-day" key={name}><header><div><h3>{name}</h3><span>{ranges.some(item => item.is_active) ? 'Enabled' : 'Disabled'}</span></div></header>{ranges.length ? <ul>{ranges.map(item => <li key={item.id}><span>{timeLabel(item)} · {item.is_active ? 'Active' : 'Inactive'}</span></li>)}</ul> : <p>No recurring ranges.</p>}</article>; })}</div>
     </section>
     <div className="availability-columns">
-      <section className="schedule-panel availability-section"><h2>Published Availability</h2><p>Only active published ranges are shown.</p>{data.published.length ? <ul className="availability-list">{data.published.map(item => <li key={item.id}><div><strong>{formatBookingDate(item.date)}</strong><span>{timeLabel(item)}</span></div></li>)}</ul> : <p>No active published availability.</p>}</section>
-      <section className="schedule-panel availability-section"><h2>Blocked Time</h2><p>Only current or future blocked periods are shown.</p>{data.blocked.length ? <ul className="availability-list">{data.blocked.map(item => { const parts = blockParts(item); return <li key={item.id}><div><strong>{formatBookingDate(parts.date)}</strong><span>{parts.wholeDay ? 'Whole day' : `${formatSlot(parts.startTime)}–${formatSlot(parts.endTime)}`}</span><small>{item.reason}</small></div></li>; })}</ul> : <p>No current or future blocked times.</p>}</section>
+      <section className="schedule-panel availability-section"><h2>Available Booking Dates</h2><p>Only active dates available for booking are shown.</p>{data.published.length ? <ul className="availability-list">{data.published.map(item => <li key={item.id}><div><strong>{formatBookingDate(item.date)}</strong><span>{timeLabel(item)}</span></div></li>)}</ul> : <p>No active booking dates.</p>}</section>
+      <section className="schedule-panel availability-section"><h2>Time Off / Unavailable</h2><p>Only current or future unavailable periods are shown.</p>{data.blocked.length ? <ul className="availability-list">{data.blocked.map(item => { const parts = blockParts(item); return <li key={item.id}><div><strong>{formatBookingDate(parts.date)}</strong><span>{parts.wholeDay ? 'Whole day' : `${formatSlot(parts.startTime)}–${formatSlot(parts.endTime)}`}</span><small>{item.reason}</small></div></li>; })}</ul> : <p>No current or future unavailable times.</p>}</section>
     </div>
   </div>;
 }
