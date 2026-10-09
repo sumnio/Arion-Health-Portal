@@ -621,6 +621,22 @@ Detailed clinical APIs allow Doctors to read only records and certificates match
 
 ---
 
+# UserProfile and Notification
+
+Each Notification belongs to exactly one authenticated UserProfile recipient. A separate document is required for every recipient; there is no shared broadcast notification.
+
+```text
+UserProfile 1 ─── 0..* Notification
+```
+
+Notification stores immutable `recipient_user_profile_id`, recipient-role snapshot, allowlisted type, bounded plain-text title/message, optional paired allowlisted related-resource type and ID, read state, and server timestamps. The related-resource reference is navigation metadata only and never proves authorization to the referenced Appointment, Patient, or Doctor.
+
+Recipient ownership is authoritative for every list and update query. Patient, Staff, Doctor, and fully MFA-authenticated Admin accounts may access only their own inbox; Admin cannot browse another account's notifications. New notifications begin with `is_read = false` and `read_at = null`; recipient-only mark-read operations set the server timestamp and are idempotent. Creation is internal-only, with no public POST route, arbitrary metadata, HTML, clinical content, workflow triggers, delivery channels, UI, TTL, or automatic deletion in this foundation.
+
+The collection indexes `(recipient_user_profile_id, created_at DESC)` and `(recipient_user_profile_id, is_read, created_at DESC)` support newest-first inbox and unread queries without over-indexing.
+
+---
+
 # Complete Relationship Summary
 
 The Patient branch below is optional in both directions: a Patient can exist independently with `user_profile_id = null`, and a UserProfile can have zero or one linked Patient. Doctor and Staff retain their required UserProfile link. The AuthAccount/UserProfile 1:1 relationship describes provisioned portal accounts.
@@ -673,6 +689,7 @@ UserProfile 1 -> 0..1 Doctor
 UserProfile 1 -> 0..1 Staff
 UserProfile 1 -> 0..many Appointment (via nullable Appointment.created_by)
 UserProfile 1 -> 0..many AppointmentPriorityAudit (via Staff actor)
+UserProfile 1 -> 0..many Notification (private recipient inbox)
 
 Patient 1 -> many Appointment
 Doctor 1 -> many Appointment

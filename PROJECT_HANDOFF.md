@@ -64,6 +64,10 @@ Backend authentication, active-account checks, role authorization, and resource 
 
 Clinic Analytics is computed on demand from existing source data and is never written back. Today, Monday-based week, and month boundaries use Asia/Manila. “Patients served” and Senior/PWD counts mean unique Patients with completed appointments; appointment volume and unique Patients are labelled separately. Raw Patient names, raw free-text visit reasons, urgency explanations, and clinical content are excluded. New-versus-returning analysis is deferred.
 
+The v1.1 notification backend foundation adds one recipient-private `Notification` collection and shared authenticated inbox APIs for active Patient, Staff, Doctor, and fully MFA-authenticated Admin accounts. Every record belongs to one exact UserProfile recipient; Admin has no global inbox access. Listing is newest first with validated unread filtering and bounded pagination, and recipient-only mark-one/mark-all operations are idempotent and use server timestamps. Responses omit recipient identity and authentication data.
+
+Notification creation is internal-only through a strict service allowlist; users have no POST creation route. The model accepts only bounded plain operational text, fixed event types, and optional allowlisted Appointment/Patient/Doctor navigation references. It has no arbitrary metadata and must never contain clinical details, urgent explanations, private notes, secrets, MFA material, tokens, or environment values. No existing workflow creates notifications yet, and there is no notification frontend, reminder job, email/SMS/push delivery, TTL, archival process, deployment, or environment change in this foundation.
+
 ## Authentication and security model
 
 - One `/login` route serves all roles; `/register` is Patient-only.

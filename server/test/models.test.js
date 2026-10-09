@@ -12,6 +12,7 @@ import {
   DoctorPublishedAvailability,
   MedicalCertificate,
   MedicalRecord,
+  Notification,
   Patient,
   Prescription,
   Staff,
@@ -40,6 +41,7 @@ test('all domain models load with their intended collection names', () => {
       MedicalRecord,
       Prescription,
       MedicalCertificate,
+      Notification,
     ].map((model) => model.collection.collectionName),
     [
       'user_profiles',
@@ -55,6 +57,7 @@ test('all domain models load with their intended collection names', () => {
       'medical_records',
       'prescriptions',
       'medical_certificates',
+      'notifications',
     ],
   );
 });
@@ -136,6 +139,13 @@ test('a complete set of valid related documents passes model validation', async 
       purpose: 'Work clearance',
       diagnosis_summary: 'Fit to return to work',
       status: 'issued',
+    }),
+    new Notification({
+      recipient_user_profile_id: userProfileId,
+      recipient_role: 'doctor',
+      type: 'security_notice',
+      title: 'Account security notice',
+      message: 'A security-related account update is available.',
     }),
   ];
 
@@ -380,4 +390,6 @@ test('relationship and scheduling lookup indexes are declared', () => {
   assert.ok(indexByName(Prescription, 'medical_record_prescription_lookup'));
   assert.ok(indexByName(AppointmentPriorityAudit, 'appointment_priority_audit_history'));
   assert.ok(indexByName(AppointmentPriorityAudit, 'staff_priority_audit_activity'));
+  assert.ok(indexByName(Notification, 'notification_recipient_history'));
+  assert.ok(indexByName(Notification, 'notification_recipient_unread'));
 });

@@ -86,7 +86,7 @@ export function createDoctorApiService(repository = doctorApiRepository) {
       const canAddRecord = appointment.status === 'confirmed' && !existingRecord;
       const canComplete = appointment.status === 'confirmed' && Boolean(appointment.check_in_at) && Boolean(existingRecord);
       const consultationMessage = existingRecord && appointment.status === 'completed' ? 'Consultation completed. The saved medical record is read-only.'
-        : existingRecord ? 'Medical record saved. Confirm completion when the consultation is finished.'
+        : existingRecord ? 'Medical record saved. Mark the consultation completed when it is finished.'
           : appointment.status === 'cancelled' ? 'This appointment was cancelled. Medical record creation is unavailable.'
             : appointment.status === 'no_show' ? 'The patient did not attend this appointment. Medical record creation is unavailable.'
               : appointment.status === 'pending' ? 'This appointment is awaiting confirmation.'

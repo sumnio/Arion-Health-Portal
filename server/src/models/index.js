@@ -17,3 +17,11 @@ export { DoctorBlockedTime } from './DoctorBlockedTime.js';
 export { MedicalRecord } from './MedicalRecord.js';
 export { Prescription } from './Prescription.js';
 export { MedicalCertificate } from './MedicalCertificate.js';
+export {
+  Notification,
+  NOTIFICATION_MESSAGE_MAX,
+  NOTIFICATION_RECIPIENT_ROLES,
+  NOTIFICATION_RESOURCE_TYPES,
+  NOTIFICATION_TITLE_MAX,
+  NOTIFICATION_TYPES,
+} from './Notification.js';

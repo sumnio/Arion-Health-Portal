@@ -93,7 +93,6 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
 
   await page.getByRole('tab', { name: 'Consultation' }).click();
   await page.getByRole('button', { name: 'Mark Consultation Completed' }).click();
-  await page.getByRole('button', { name: 'Confirm Completion' }).click();
   await expect(page.getByText(/Consultation marked completed\./)).toBeVisible();
   expect((await Appointment.findById(appointment.appointmentId).lean()).status).toBe('completed');
   await page.reload();

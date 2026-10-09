@@ -42,10 +42,13 @@
 .doctor-schedule-page .weekly-availability { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
 .doctor-schedule-page .availability-day { border: 1px solid #dfe7ee; border-radius: 8px; padding: 16px; }
 .doctor-schedule-page .availability-day > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.doctor-schedule-page .availability-day > header span { font-size: 12px; color: #52657b; }
+.doctor-schedule-page .availability-state { display: inline-flex; align-items: center; width: fit-content; min-height: 26px; border: 1px solid transparent; border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 800; line-height: 1.2; }
+.doctor-schedule-page .availability-state.is-enabled { border-color: #9dcfba; background: #dcf4e9; color: #0d6248; }
+.doctor-schedule-page .availability-state.is-disabled { border-color: #e4b4b8; background: #ffeaec; color: #a02f38; }
 .doctor-schedule-page .availability-toggle, .doctor-schedule-page .whole-day { display: flex !important; flex-direction: row !important; align-items: center; gap: 7px; }
 .doctor-schedule-page .availability-day ul, .doctor-schedule-page .availability-list { list-style: none; padding: 0; }
 .doctor-schedule-page .availability-day li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #edf1f5; }
+.doctor-schedule-page .availability-range-time { color: #173a5c; font-weight: 700; }
 .doctor-schedule-page .availability-manager button { border: 1px solid #9eb5a9; border-radius: 6px; background: white; color: #165b45; padding: 9px 12px; }
 .doctor-schedule-page .range-form, .doctor-schedule-page .availability-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 14px; }
 .doctor-schedule-page .availability-manager label { display: flex; flex-direction: column; gap: 5px; color: #344b63; font-size: 12px; font-weight: 700; }

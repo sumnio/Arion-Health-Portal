@@ -55,9 +55,17 @@ test('Doctor pages use the live Doctor API service and contain no feature mock f
   assert.match(availability, /Working Hours/);
   assert.match(availability, /Available Booking Dates/);
   assert.match(availability, /Time Off \/ Unavailable/);
+  assert.match(availability, /availability-state/);
+  assert.match(availability, /is-enabled/);
+  assert.match(availability, /is-disabled/);
   assert.doesNotMatch(availability, /createRecurring|updateRecurring|removeRecurring|Publish Range|Add Block/);
   const detail = await readFile(new URL('../src/pages/doctor/DoctorPatientDetail.jsx', import.meta.url), 'utf8');
   for (const tab of ['Overview', 'Consultation', 'Medical Records', 'Certificates']) assert.match(detail, new RegExp(tab));
+  assert.match(detail, /onClick=\{completeConsultation\}/);
+  assert.doesNotMatch(detail, /Confirm Completion|Keep Confirmed|completion-confirm/);
+  const apiService = await readFile(new URL('../src/services/doctorApiService.js', import.meta.url), 'utf8');
+  assert.match(apiService, /Mark the consultation completed when it is finished/);
+  assert.doesNotMatch(apiService, /Confirm completion when the consultation is finished/);
   const patients = await readFile(new URL('../src/pages/doctor/DoctorPatients.jsx', import.meta.url), 'utf8');
   assert.match(patients, /getRelatedPatients/);
   assert.match(patients, /No related patients found/);

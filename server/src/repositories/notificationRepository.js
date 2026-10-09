@@ -1,0 +1,53 @@
+import { Notification, UserProfile } from '../models/index.js';
+
+function recipientScope(recipient) {
+  return {
+    recipient_user_profile_id: recipient.user_profile_id,
+    recipient_role: recipient.role,
+  };
+}
+
+export const notificationRepository = {
+  async findRecipientProfile(userProfileId) {
+    return UserProfile.findById(userProfileId).select('role status').lean();
+  },
+
+  async create(input) {
+    const item = await Notification.create(input);
+    return item.toObject();
+  },
+
+  async listForRecipient(recipient, { unread_only: unreadOnly, page, limit }) {
+    const scope = recipientScope(recipient);
+    const filter = unreadOnly ? { ...scope, is_read: false } : scope;
+    const [items, total, unreadCount] = await Promise.all([
+      Notification.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      Notification.countDocuments(filter),
+      Notification.countDocuments({ ...scope, is_read: false }),
+    ]);
+    return { items, total, unread_count: unreadCount };
+  },
+
+  async countUnreadForRecipient(recipient) {
+    return Notification.countDocuments({ ...recipientScope(recipient), is_read: false });
+  },
+
+  async markReadForRecipient(notificationId, recipient, readAt) {
+    const scope = { _id: notificationId, ...recipientScope(recipient) };
+    const updated = await Notification.findOneAndUpdate(
+      { ...scope, is_read: false },
+      { $set: { is_read: true, read_at: readAt } },
+      { new: true, runValidators: true },
+    ).lean();
+    return updated ?? Notification.findOne(scope).lean();
+  },
+
+  async markAllReadForRecipient(recipient, readAt) {
+    const result = await Notification.updateMany(
+      { ...recipientScope(recipient), is_read: false },
+      { $set: { is_read: true, read_at: readAt } },
+      { runValidators: true },
+    );
+    return result.modifiedCount;
+  },
+};
