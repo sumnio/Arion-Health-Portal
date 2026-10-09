@@ -2,6 +2,10 @@ import { test, expect } from '../fixtures/test.js';
 import { loginThroughUi } from '../helpers/auth.js';
 import { browserApi } from '../helpers/browserApi.js';
 
+// Keep every MFA-focused test in the same artifact-safe worker group so this
+// intentionally exhausting case remains last and cannot affect Admin journeys.
+test.use({ trace: 'off', screenshot: 'off' });
+
 test('repeated invalid Admin MFA codes are safely rate limited without creating a session', async ({ page, adminScenario, seededAdmin }) => {
   await loginThroughUi(page, seededAdmin);
   await expect(page.getByRole('heading', { name: 'Admin Verification' })).toBeVisible();
