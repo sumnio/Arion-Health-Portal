@@ -9,6 +9,7 @@ import StaffRegisterWalkIn from './StaffRegisterWalkIn.jsx';
 import StaffWalkInAppointment from './StaffWalkInAppointment.jsx';
 import PlaceholderPage from '../../components/PlaceholderPage.jsx';
 import AnalyticsRoute from '../analytics/AnalyticsRoute.jsx';
+import NotificationsPage from '../notifications/NotificationsPage.jsx';
 export default function StaffPage({ route }) {
   if (route.path === '/staff/dashboard') return <StaffDashboard />;
   if (route.path === '/staff/analytics') return <AnalyticsRoute />;
@@ -20,6 +21,7 @@ export default function StaffPage({ route }) {
   if (route.path === '/staff/doctors/:id/schedule') return <StaffDoctorSchedule />;
   if (route.path === '/staff/patients/new') return <StaffRegisterWalkIn />;
   if (route.path === '/staff/patients/:id/walk-in') return <StaffWalkInAppointment />;
+  if (route.path === '/staff/notifications') return <NotificationsPage />;
   return <PlaceholderPage title={route.title} />;
 }
 

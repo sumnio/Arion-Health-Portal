@@ -23,6 +23,7 @@ PATIENT
 /patient/records/:id
 /patient/certificates
 /patient/certificates/:id
+/patient/notifications
 
 DOCTOR
 /doctor/dashboard
@@ -31,6 +32,7 @@ DOCTOR
 /doctor/patients/:id
 /doctor/patients/:id/add-record
 /doctor/records/:id/certificate/new
+/doctor/notifications
 
 STAFF
 /staff/dashboard
@@ -43,6 +45,7 @@ STAFF
 /staff/doctors/:id/schedule
 /staff/patients/new
 /staff/patients/:id/walk-in
+/staff/notifications
 
 ADMIN
 /admin/dashboard
@@ -50,6 +53,7 @@ ADMIN
 /admin/patients
 /admin/doctors
 /admin/staff
+/admin/notifications
 
 Protected route groups:
 - `/patient/*` requires an authenticated, active UserProfile with role `patient`.

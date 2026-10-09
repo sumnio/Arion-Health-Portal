@@ -8,6 +8,7 @@ import PatientRecordDetail from './PatientRecordDetail.jsx';
 import PatientCertificates from './PatientCertificates.jsx';
 import PatientCertificateDetail from './PatientCertificateDetail.jsx';
 import PatientProfile from './PatientProfile.jsx';
+import NotificationsPage from '../notifications/NotificationsPage.jsx';
 export default function PatientPage({ route }) {
   if (route.path === '/patient/dashboard') return <PatientDashboard />;
   if (route.path === '/patient/profile') return <PatientProfile />;
@@ -18,6 +19,7 @@ export default function PatientPage({ route }) {
   if (route.path === '/patient/records/:id') return <PatientRecordDetail />;
   if (route.path === '/patient/certificates') return <PatientCertificates />;
   if (route.path === '/patient/certificates/:id') return <PatientCertificateDetail />;
+  if (route.path === '/patient/notifications') return <NotificationsPage />;
   return <PlaceholderPage title={route.title} />;
 }
 

@@ -9,6 +9,7 @@ import {
   DoctorPublishedAvailability,
   MedicalCertificate,
   MedicalRecord,
+  Notification,
   Patient,
   Prescription,
   Staff,
@@ -35,6 +36,7 @@ export class PatientScenario {
     this.profileIds = [];
     this.patientIds = [];
     this.doctorIds = [];
+    this.notificationIds = [];
   }
 
   today() {
@@ -173,6 +175,23 @@ export class PatientScenario {
     return { appointmentId: String(appointment._id), ...appointment.toObject() };
   }
 
+  async createNotification({ recipient, title, message, type = 'appointment_created', isRead = false }) {
+    const notification = await Notification.create({
+      recipient_user_profile_id: recipient.profileId,
+      recipient_role: recipient.role,
+      type,
+      title,
+      message,
+      related_resource_type: null,
+      related_resource_id: null,
+      is_read: isRead,
+      read_at: isRead ? new Date() : null,
+      created_at: new Date(Date.now() + this.notificationIds.length),
+    });
+    this.notificationIds.push(String(notification._id));
+    return { notificationId: String(notification._id), ...notification.toObject() };
+  }
+
   async createRecord({ patient, doctor, appointment, diagnosis = 'E2E seasonal allergy', prescriptions = true }) {
     const record = await MedicalRecord.create({
       patient_id: patient.patientId,
@@ -214,6 +233,14 @@ export class PatientScenario {
     const patientIds = this.patientIds;
     const doctorIds = this.doctorIds;
     const profileIds = this.profileIds;
+    if (this.notificationIds.length || profileIds.length) {
+      await Notification.deleteMany({
+        $or: [
+          ...(this.notificationIds.length ? [{ _id: { $in: this.notificationIds } }] : []),
+          ...(profileIds.length ? [{ recipient_user_profile_id: { $in: profileIds } }] : []),
+        ],
+      });
+    }
     const appointmentQuery = {
       $or: [
         ...(patientIds.length ? [{ patient_id: { $in: patientIds } }] : []),

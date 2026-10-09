@@ -54,6 +54,10 @@ export const routeGroups = {
     {
       "path": "/patient/certificates/:id",
       "title": "Certificate Details"
+    },
+    {
+      "path": "/patient/notifications",
+      "title": "Notifications"
     }
   ],
   "doctor": [
@@ -80,6 +84,10 @@ export const routeGroups = {
     {
       "path": "/doctor/records/:id/certificate/new",
       "title": "Issue Medical Certificate"
+    },
+    {
+      "path": "/doctor/notifications",
+      "title": "Notifications"
     }
   ],
   "staff": [
@@ -122,6 +130,10 @@ export const routeGroups = {
     {
       "path": "/staff/patients/:id/walk-in",
       "title": "Register Existing Patient Walk-in"
+    },
+    {
+      "path": "/staff/notifications",
+      "title": "Notifications"
     }
   ],
   "admin": [
@@ -144,6 +156,10 @@ export const routeGroups = {
     {
       "path": "/admin/staff",
       "title": "Manage Staff"
+    },
+    {
+      "path": "/admin/notifications",
+      "title": "Notifications"
     }
   ]
 };
