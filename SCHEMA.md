@@ -490,13 +490,13 @@ Recipient-private, non-clinical operational messages are stored in the `notifica
 | created_at | timestamp | Server-generated creation time |
 | updated_at | timestamp | Server-maintained update time |
 
-The fixed type contract is: `appointment_created`, `appointment_confirmed`, `appointment_rescheduled`, `appointment_cancelled`, `appointment_completed`, `appointment_reminder`, `patient_booking_created`, `patient_arrived`, `appointment_marked_urgent`, `assigned_appointment_created`, `security_notice`, and `account_status_notice`. These values are reserved for internal workflow integration; this foundation does not generate any of them from existing workflows.
+The fixed type contract is: `appointment_created`, `appointment_confirmed`, `appointment_rescheduled`, `appointment_cancelled`, `appointment_completed`, `appointment_reminder`, `patient_booking_created`, `patient_arrived`, `appointment_marked_urgent`, `assigned_appointment_created`, `security_notice`, and `account_status_notice`. Current internal triggers generate only confirmation, reschedule, cancellation, completion, Patient booking, arrival, urgency, and assigned-appointment events after their source mutation succeeds. Appointment-created self-notices, reminders, security notices, and account-status notices remain reserved and are not generated.
 
 Creation is available only to trusted backend code through the notification service. There is no user-facing notification creation endpoint and no arbitrary metadata field. Text must contain only short operational wording and must never include diagnosis, MedicalRecord notes, Prescription or certificate clinical details, urgent explanations, private notes, credentials, MFA material, tokens, or environment values. A related-resource reference is navigation metadata only and does not grant resource access.
 
 All inbox reads and read-state updates are scoped by authenticated `recipient_user_profile_id` and matching role. Admin has no override to browse another recipient's notifications, and Admin access requires a full MFA-authenticated session. Newest-first listing supports `unread_only`, page numbers from 1, a default limit of 20, and a maximum limit of 50. Marking one or all notifications read is idempotent; there is no mark-unread operation.
 
-Indexes are `recipient_user_profile_id + created_at` descending and `recipient_user_profile_id + is_read + created_at` descending. No TTL or automatic deletion is configured. No frontend notification UI, delivery channel, workflow trigger, reminder scheduler, or retention/archive process is part of this foundation.
+Indexes are `recipient_user_profile_id + created_at` descending and `recipient_user_profile_id + is_read + created_at` descending. No TTL or automatic deletion is configured. Workflow integration changes no schema: it creates one Notification per derived active recipient after successful guarded transitions, skips unlinked/inactive recipients, and treats delivery failure as a safely logged non-transactional side effect. No frontend notification UI, action path, delivery channel, reminder scheduler, or retention/archive process is implemented.
 
 ---
 

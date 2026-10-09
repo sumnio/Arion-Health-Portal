@@ -14,7 +14,7 @@ const ids = {
 };
 function clone(value) { return value == null ? value : structuredClone(value); }
 
-function createContext({ now = NOW } = {}) {
+function createContext({ now = NOW, notificationTriggers } = {}) {
   const profiles = new Map([
     [ids.staffProfile, { user_profile_id: ids.staffProfile, display_name: 'Demo Staff', role: 'staff', status: 'active' }],
     [ids.inactiveStaffProfile, { user_profile_id: ids.inactiveStaffProfile, display_name: 'Inactive Staff', role: 'staff', status: 'inactive' }],
@@ -75,7 +75,7 @@ function createContext({ now = NOW } = {}) {
   };
   const tokens = createTokenService(SECRET);
   const authModule = { tokens, service: { async getAuthenticatedUser(id) { const found = profiles.get(String(id)); if (!found) throw Object.assign(new Error('Authentication required'), { status: 401, code: 'UNAUTHENTICATED' }); return clone(found); } } };
-  const staffOperationsModule = createStaffOperationsModule({ repository, clinic: { timeZone: 'Asia/Manila' }, now: () => new Date(now) });
+  const staffOperationsModule = createStaffOperationsModule({ repository, clinic: { timeZone: 'Asia/Manila' }, notificationTriggers, now: () => new Date(now) });
   const patientAppointmentModule = { patientService: {}, appointmentService: { async confirmForStaff(id) { const item = appointments.get(String(id)); if (!item) throw Object.assign(new Error('Not found'), { status: 404, code: 'APPOINTMENT_NOT_FOUND' }); if (item.status !== 'pending') throw Object.assign(new Error('Only pending'), { status: 409, code: 'INVALID_STATUS_TRANSITION' }); item.status = 'confirmed'; return { id: item._id, status: item.status }; } } };
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, staffOperationsModule, patientAppointmentModule });
   return { app, patients, appointments, records, priorityAudits, repository, cookie: (profile) => `arion_auth=${tokens.sign(profile, { mfaVerified: profiles.get(String(profile))?.role === 'admin' })}` };
@@ -84,6 +84,51 @@ async function withServer(app, callback) { const server = app.listen(0, '127.0.0
 function request(base, path, { method = 'GET', cookie, body } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }); }
 const walkInBody = { full_name: 'New Walk-in', contact_number: '09998887777', dob: '1985-04-12', sex: 'female', address: null, emergency_contact_name: 'Family Contact', emergency_contact_number: '09112223333', emergency_contact_relationship: 'Sibling', is_pwd: false };
 const walkInAppointment = { doctor_id: ids.doctor, appointment_at: '2026-09-25T03:00:00.000Z', visit_type: 'general_consultation', reason: 'Walk-in concern', priority: 'normal' };
+
+test('successful Staff workflow transitions invoke only their approved notification triggers', async () => {
+  const calls = [];
+  const c = createContext({
+    notificationTriggers: {
+      async staffAppointmentCreated(value) { calls.push(['assigned', clone(value)]); },
+      async appointmentConfirmed(value) { calls.push(['confirmed', clone(value)]); },
+      async patientArrived(value) { calls.push(['arrived', clone(value)]); },
+      async appointmentMarkedUrgent(value) { calls.push(['urgent', clone(value)]); },
+    },
+  });
+  await withServer(c.app, async (base) => {
+    assert.equal((await request(base, `/api/staff/patients/${ids.patient}/walk-in-appointments`, {
+      method: 'POST', cookie: c.cookie(ids.staffProfile), body: walkInAppointment,
+    })).status, 201);
+    assert.equal((await request(base, `/api/staff/patients/${ids.patient}/walk-in-appointments`, {
+      method: 'POST', cookie: c.cookie(ids.staffProfile), body: walkInAppointment,
+    })).status, 409);
+
+    assert.equal((await request(base, `/api/staff/appointments/${ids.pending}/check-in`, {
+      method: 'PATCH', cookie: c.cookie(ids.staffProfile), body: {},
+    })).status, 200);
+    assert.equal((await request(base, `/api/staff/appointments/${ids.pending}/check-in`, {
+      method: 'PATCH', cookie: c.cookie(ids.staffProfile), body: {},
+    })).status, 409);
+    assert.equal((await request(base, `/api/staff/appointments/${ids.previous}/check-in`, {
+      method: 'PATCH', cookie: c.cookie(ids.staffProfile), body: {},
+    })).status, 409);
+
+    assert.equal((await request(base, `/api/staff/appointments/${ids.normal}/priority`, {
+      method: 'PATCH', cookie: c.cookie(ids.staffProfile),
+      body: { priority: 'urgent', urgency_reason: 'Other urgent concern', explanation: 'Sensitive custom explanation.' },
+    })).status, 200);
+    assert.equal((await request(base, `/api/staff/appointments/${ids.normal}/priority`, {
+      method: 'PATCH', cookie: c.cookie(ids.staffProfile),
+      body: { priority: 'urgent', urgency_reason: 'Severe pain or discomfort' },
+    })).status, 409);
+    assert.equal((await request(base, `/api/staff/appointments/${ids.normal}/priority`, {
+      method: 'PATCH', cookie: c.cookie(ids.staffProfile),
+      body: { priority: 'normal', correction_reason: 'Corrected operational priority.' },
+    })).status, 200);
+  });
+  assert.deepEqual(calls.map(([event]) => event), ['assigned', 'confirmed', 'arrived', 'urgent']);
+  assert.equal(JSON.stringify(calls).includes('Sensitive custom explanation.'), false);
+});
 
 test('Staff searches Patients by name and contact with basic projection', async () => { const c = createContext(); await withServer(c.app, async (base) => { for (const query of ['Alex', '1234567']) { const response = await request(base, `/api/staff/patients?search=${query}`, { cookie: c.cookie(ids.staffProfile) }); const body = await response.json(); assert.equal(response.status, 200); assert.equal(body.patients[0].full_name, 'Alex Patient'); assert.equal('allergies' in body.patients[0], false); } }); });
 test('Staff reads a date-filtered operational calendar and active Doctor directory', async () => { const c = createContext(); await withServer(c.app, async (base) => { const appointmentsResponse = await request(base, '/api/staff/appointments?date=2026-09-25', { cookie: c.cookie(ids.staffProfile) }); const body = await appointmentsResponse.json(); assert.equal(appointmentsResponse.status, 200); assert.equal(body.appointments.length, 10); assert.deepEqual(Object.keys(body.appointments[0]).sort(), ['appointment_at','check_in_at','doctor','id','patient','priority','reason','status','visit_type']); assert.equal(JSON.stringify(body).includes('allergies'), false); const doctors = await (await request(base, '/api/staff/doctors', { cookie: c.cookie(ids.staffProfile) })).json(); assert.deepEqual(doctors.doctors, [{ id: ids.doctor, display_name: 'Dr. Maria Santos', specialty: 'General Medicine' }]); }); });

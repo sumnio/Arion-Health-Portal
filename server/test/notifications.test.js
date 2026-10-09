@@ -111,6 +111,7 @@ test('internal creation validates recipient, type, fields, plain text, and size 
   assert.deepEqual(created.related_resource, { type: 'appointment', id: ids.appointment });
   for (const invalid of [
     input({ recipient_role: 'staff' }),
+    input({ recipient_user_profile_id: ids.inactive, recipient_role: 'staff' }),
     input({ recipient_role: 'owner' }),
     input({ type: 'diagnosis_ready' }),
     input({ metadata: { diagnosis: 'Private' } }),

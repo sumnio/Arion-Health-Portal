@@ -21,7 +21,7 @@ const ids = {
   otherAppointment: '100000000000000000000005',
 };
 
-function createContext({ currentTime = NOW } = {}) {
+function createContext({ currentTime = NOW, notificationTriggers } = {}) {
   const recordedAppointments = new Set();
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
@@ -151,6 +151,7 @@ function createContext({ currentTime = NOW } = {}) {
     patients: patientRepository,
     appointments: appointmentRepository,
     bookingAvailabilityService,
+    notificationTriggers,
     now: () => new Date(currentTime),
   });
   const app = createApp(
@@ -450,6 +451,74 @@ for (const [label, appointmentAt] of [
     });
   });
 }
+
+test('successful Patient workflow transitions invoke notification triggers once after mutation', async () => {
+  const calls = [];
+  const notificationTriggers = {
+    async patientBooked(value) { calls.push(['booked', structuredClone(value)]); },
+    async patientRescheduled(value) { calls.push(['rescheduled', structuredClone(value)]); },
+    async patientCancelled(value) { calls.push(['cancelled', structuredClone(value)]); },
+    async appointmentConfirmed(value) { calls.push(['confirmed', structuredClone(value)]); },
+  };
+  const context = createContext({ notificationTriggers });
+  await withServer(context.app, async (base) => {
+    const booking = await request(base, '/api/patient/appointments', {
+      method: 'POST', cookie: context.cookie(ids.patientProfile), body: validBooking,
+    });
+    assert.equal(booking.status, 201);
+    assert.equal((await request(base, '/api/patient/appointments', {
+      method: 'POST', cookie: context.cookie(ids.patientProfile), body: validBooking,
+    })).status, 409);
+
+    assert.equal((await request(base, `/api/patient/appointments/${ids.pending}/reschedule`, {
+      method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule,
+    })).status, 200);
+    assert.equal((await request(base, `/api/patient/appointments/${ids.pending}/reschedule`, {
+      method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule,
+    })).status, 409);
+
+    assert.equal((await request(base, `/api/patient/appointments/${ids.pending}/cancel`, {
+      method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: {},
+    })).status, 200);
+    assert.equal((await request(base, `/api/patient/appointments/${ids.pending}/cancel`, {
+      method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: {},
+    })).status, 409);
+  });
+  assert.deepEqual(calls.map(([event]) => event), ['booked', 'rescheduled', 'cancelled']);
+
+  const confirmationCalls = [];
+  const confirmation = createContext({
+    notificationTriggers: {
+      async appointmentConfirmed(value) { confirmationCalls.push(structuredClone(value)); },
+    },
+  });
+  await withServer(confirmation.app, async (base) => {
+    assert.equal((await request(base, `/api/staff/appointments/${ids.pending}/confirm`, {
+      method: 'PATCH', cookie: confirmation.cookie(ids.staffProfile), body: {},
+    })).status, 200);
+    assert.equal((await request(base, `/api/staff/appointments/${ids.pending}/confirm`, {
+      method: 'PATCH', cookie: confirmation.cookie(ids.staffProfile), body: {},
+    })).status, 409);
+  });
+  assert.equal(confirmationCalls.length, 1);
+  assert.equal(confirmationCalls[0].patientId, ids.patient);
+});
+
+test('notification trigger failure does not roll back a successful Patient booking', async () => {
+  const context = createContext({
+    notificationTriggers: {
+      async patientBooked() { throw Object.assign(new Error('notification unavailable'), { code: 11000 }); },
+    },
+  });
+  await withServer(context.app, async (base) => {
+    const response = await request(base, '/api/patient/appointments', {
+      method: 'POST', cookie: context.cookie(ids.patientProfile), body: validBooking,
+    });
+    assert.equal(response.status, 201);
+    const appointment = (await response.json()).appointment;
+    assert.equal(context.appointments.get(appointment.id).status, 'pending');
+  });
+});
 
 test('atomic cancellation rejects stale appointment time state', async () => {
   const { app, cookie, appointments, appointmentRepository } = createContext();

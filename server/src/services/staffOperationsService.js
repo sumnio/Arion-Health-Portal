@@ -2,6 +2,7 @@ import { httpError } from '../utils/httpError.js';
 import { appointmentLocalParts, clinicDate, addDays, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
 import { validateObjectId } from '../validation/appointmentValidation.js';
 import { validatePriority, validateWalkInAppointment, validateWalkInPatient } from '../validation/staffOperationsValidation.js';
+import { invokeNotificationTrigger } from './notificationTriggerService.js';
 
 export const NO_SHOW_GRACE_PERIOD_MS = 5 * 60 * 1000;
 
@@ -55,7 +56,7 @@ function appointmentHighlights(items, current) {
   return { latest_appointment: past.at(-1) ?? null, upcoming_appointment: upcoming };
 }
 
-export function createStaffOperationsService({ repository, clinic, now = () => new Date() }) {
+export function createStaffOperationsService({ repository, clinic, notificationTriggers, now = () => new Date() }) {
   return {
     async appointments(dateValue) {
       const date = dateValue || clinicDate(now(), clinic.timeZone);
@@ -100,6 +101,10 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
       if (!(await repository.doctorExists(input.doctor_id))) throw httpError(404, 'DOCTOR_NOT_FOUND', 'Doctor was not found.');
       try {
         const created = await repository.createAppointment({ ...input, patient_id: patientId, created_by: staffProfileId, status: 'confirmed', check_in_at: null });
+        await invokeNotificationTrigger(notificationTriggers, 'staffAppointmentCreated', {
+          appointmentId: created._id ?? created.id,
+          doctorId: created.doctor_id?._id ?? created.doctor_id,
+        });
         return { id: id(created), patient_id: id(created.patient_id), doctor_id: id(created.doctor_id), appointment_at: iso(created.appointment_at), visit_type: created.visit_type, reason: created.reason, priority: created.priority, status: created.status, check_in_at: null };
       } catch (error) {
         if (duplicateKey(error)) throw httpError(409, 'APPOINTMENT_SLOT_CONFLICT', 'That Doctor and time slot is no longer available.');
@@ -117,6 +122,16 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
       if (appointmentLocalParts(existing.appointment_at, clinic.timeZone).date !== date || !['pending', 'confirmed'].includes(existing.status) || existing.check_in_at) throw httpError(409, 'CHECK_IN_NOT_ALLOWED', 'Only an unchecked pending or confirmed appointment for the current clinic day can confirm arrival.');
       const updated = await repository.confirmArrivalEligible(appointmentId, current, start, end, existing.appointment_at);
       if (!updated) throw httpError(409, 'CHECK_IN_NOT_ALLOWED', 'Arrival can no longer be confirmed for this appointment.');
+      if (existing.status === 'pending') {
+        await invokeNotificationTrigger(notificationTriggers, 'appointmentConfirmed', {
+          appointmentId: updated._id ?? updated.id,
+          patientId: updated.patient_id?._id ?? updated.patient_id,
+        });
+      }
+      await invokeNotificationTrigger(notificationTriggers, 'patientArrived', {
+        appointmentId: updated._id ?? updated.id,
+        doctorId: updated.doctor_id?._id ?? updated.doctor_id,
+      });
       return queueView(updated, date);
     },
     async updatePriority(staffProfileId, appointmentId, body) {
@@ -132,6 +147,12 @@ export function createStaffOperationsService({ repository, clinic, now = () => n
       }
       const changed = await repository.changePriorityWithAudit(appointmentId, existing.priority, input, staffProfileId);
       if (!changed) throw httpError(409, 'PRIORITY_NOT_ALLOWED', 'Priority can no longer be changed for this appointment.');
+      if (existing.priority === 'normal' && input.priority === 'urgent') {
+        await invokeNotificationTrigger(notificationTriggers, 'appointmentMarkedUrgent', {
+          appointmentId: changed.appointment._id ?? changed.appointment.id,
+          doctorId: changed.appointment.doctor_id?._id ?? changed.appointment.doctor_id,
+        });
+      }
       return { id: id(changed.appointment), priority: changed.appointment.priority, audit_event: priorityAuditView(changed.audit) };
     },
     async priorityHistory(appointmentId) {

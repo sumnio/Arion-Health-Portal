@@ -4,6 +4,7 @@ import {
   validateAppointmentReschedule,
   validateObjectId,
 } from '../validation/appointmentValidation.js';
+import { invokeNotificationTrigger } from './notificationTriggerService.js';
 
 const RESCHEDULE_CUTOFF_MS = 60 * 60 * 1000;
 
@@ -53,6 +54,7 @@ export function createAppointmentService({
   repository,
   patientService,
   bookingAvailabilityService,
+  notificationTriggers,
   now = () => new Date(),
 }) {
   async function ownPatient(userProfileId) {
@@ -108,7 +110,12 @@ export function createAppointmentService({
           created._id ?? created.id,
           patient._id ?? patient.id,
         );
-        return presentAppointment(result ?? created, false, userProfileId);
+        const appointment = result ?? created;
+        await invokeNotificationTrigger(notificationTriggers, 'patientBooked', {
+          appointmentId: appointment._id ?? appointment.id,
+          doctorId: appointment.doctor_id?._id ?? appointment.doctor_id,
+        });
+        return presentAppointment(appointment, false, userProfileId);
       } catch (error) {
         if (duplicateKey(error)) {
           throw httpError(409, 'APPOINTMENT_SLOT_CONFLICT', 'That doctor and time slot is no longer available.');
@@ -165,6 +172,11 @@ export function createAppointmentService({
       if (!updated) {
         throw httpError(409, 'INVALID_STATUS_TRANSITION', 'This appointment can no longer be cancelled.');
       }
+      await invokeNotificationTrigger(notificationTriggers, 'patientCancelled', {
+        appointmentId: updated._id ?? updated.id,
+        patientId: updated.patient_id?._id ?? updated.patient_id,
+        doctorId: updated.doctor_id?._id ?? updated.doctor_id,
+      });
       return presentAppointment(updated, false, userProfileId);
     },
 
@@ -219,6 +231,11 @@ export function createAppointmentService({
         if (!updated) {
           throw httpError(409, 'RESCHEDULE_CONFLICT', 'This appointment changed and can no longer be rescheduled with that request.');
         }
+        await invokeNotificationTrigger(notificationTriggers, 'patientRescheduled', {
+          appointmentId: updated._id ?? updated.id,
+          patientId: updated.patient_id?._id ?? updated.patient_id,
+          doctorId: updated.doctor_id?._id ?? updated.doctor_id,
+        });
         return presentAppointment(updated, false, userProfileId);
       } catch (error) {
         if (duplicateKey(error)) {
@@ -241,6 +258,10 @@ export function createAppointmentService({
       if (!updated) {
         throw httpError(409, 'INVALID_STATUS_TRANSITION', 'This appointment can no longer be confirmed.');
       }
+      await invokeNotificationTrigger(notificationTriggers, 'appointmentConfirmed', {
+        appointmentId: updated._id ?? updated.id,
+        patientId: updated.patient_id?._id ?? updated.patient_id,
+      });
       return presentAppointment(updated);
     },
   };

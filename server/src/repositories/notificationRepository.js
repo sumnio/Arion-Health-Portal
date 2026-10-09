@@ -1,4 +1,4 @@
-import { Notification, UserProfile } from '../models/index.js';
+import { Doctor, Notification, Patient, UserProfile } from '../models/index.js';
 
 function recipientScope(recipient) {
   return {
@@ -10,6 +10,37 @@ function recipientScope(recipient) {
 export const notificationRepository = {
   async findRecipientProfile(userProfileId) {
     return UserProfile.findById(userProfileId).select('role status').lean();
+  },
+
+  async listActiveStaffProfiles() {
+    return UserProfile.find({ role: 'staff', status: 'active' })
+      .select('_id role status')
+      .sort({ _id: 1 })
+      .lean();
+  },
+
+  async findActiveDoctorProfileByDoctorId(doctorId) {
+    const doctor = await Doctor.findById(doctorId)
+      .select('user_profile_id')
+      .populate({
+        path: 'user_profile_id',
+        match: { role: 'doctor', status: 'active' },
+        select: 'role status',
+      })
+      .lean();
+    return doctor?.user_profile_id ?? null;
+  },
+
+  async findActivePatientProfileByPatientId(patientId) {
+    const patient = await Patient.findById(patientId)
+      .select('user_profile_id')
+      .populate({
+        path: 'user_profile_id',
+        match: { role: 'patient', status: 'active' },
+        select: 'role status',
+      })
+      .lean();
+    return patient?.user_profile_id ?? null;
   },
 
   async create(input) {

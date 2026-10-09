@@ -108,18 +108,21 @@ export function createApp(
       location: clinicLocation,
     },
   });
+  const notificationModule = dependencies.notificationModule ?? createNotificationModule({ logger: securityLogger });
+  const notificationTriggers = dependencies.notificationTriggers ?? notificationModule.notificationTriggerService;
   const patientAppointmentModule =
     dependencies.patientAppointmentModule ?? createPatientAppointmentModule({
       bookingAvailabilityService: schedulingModule.bookingAvailabilityService,
+      notificationTriggers,
     });
   const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({
     clinic: schedulingModule.clinic,
+    notificationTriggers,
     certificateIssuanceEnabled,
   });
-  const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic });
+  const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic, notificationTriggers });
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   const analyticsModule = dependencies.analyticsModule ?? createAnalyticsModule({ clinic: schedulingModule.clinic });
-  const notificationModule = dependencies.notificationModule ?? createNotificationModule();
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv, rateLimiters }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));

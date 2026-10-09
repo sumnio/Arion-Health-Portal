@@ -31,7 +31,7 @@ export function createNotificationService({ repository, now = () => new Date() }
     async createNotification(value) {
       const input = validateNotificationCreate(value);
       const profile = await repository.findRecipientProfile(input.recipient_user_profile_id);
-      if (!profile || profile.role !== input.recipient_role) {
+      if (!profile || profile.role !== input.recipient_role || profile.status !== 'active') {
         throw httpError(400, 'INVALID_NOTIFICATION_RECIPIENT', 'Notification recipient is invalid.');
       }
       return notificationView(await repository.create({

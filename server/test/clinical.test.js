@@ -18,7 +18,7 @@ const ids = {
 
 function clone(value) { return value == null ? value : structuredClone(value); }
 
-function createContext({ certificateIssuanceEnabled = true } = {}) {
+function createContext({ certificateIssuanceEnabled = true, notificationTriggers } = {}) {
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
     [ids.otherPatientProfile, { user_profile_id: ids.otherPatientProfile, display_name: 'Other Patient', role: 'patient', status: 'active' }],
@@ -101,7 +101,7 @@ function createContext({ certificateIssuanceEnabled = true } = {}) {
   };
   const tokens = createTokenService(SECRET);
   const authModule = { tokens, service: { async getAuthenticatedUser(profileId) { const found = profiles.get(String(profileId)); if (!found) throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); return clone(found); } } };
-  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City' }, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => 'AHC-20260925-ABCDEF12', certificateIssuanceEnabled });
+  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City' }, notificationTriggers, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => 'AHC-20260925-ABCDEF12', certificateIssuanceEnabled });
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, clinicalModule });
   return { app, appointments, records, prescriptions, certificates, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
 }
@@ -174,6 +174,28 @@ test('Patient reads own issued certificates and cannot read another Patient cert
 test('issued certificates expose no edit or delete route', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const issued = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody }); const cert = (await issued.json()).medical_certificate; for (const method of ['PATCH', 'DELETE']) assert.equal((await request(base, `/api/doctor/certificates/${cert.id}`, { method, cookie: context.cookie(ids.doctorProfile), body: method === 'PATCH' ? { status: 'draft' } : undefined })).status, 404); }); });
 
 test('Doctor completes checked-in confirmed appointment only after record exists', async () => { const context = createContext(); await withServer(context.app, async (base) => { assert.equal((await request(base, `/api/doctor/appointments/${ids.confirmed}/complete`, { method: 'PATCH', cookie: context.cookie(ids.doctorProfile) })).status, 409); const created = await createRecord(context, base); const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/complete`, { method: 'PATCH', cookie: context.cookie(ids.doctorProfile) }); assert.equal(response.status, 200); assert.equal((await response.json()).appointment.status, 'completed'); assert.ok(context.records.has(created.body.medical_record.id)); assert.equal((await request(base, `/api/doctor/appointments/${ids.confirmed}/complete`, { method: 'PATCH', cookie: context.cookie(ids.doctorProfile) })).status, 409); }); });
+
+test('Doctor completion invokes the Patient notification trigger only after the successful transition', async () => {
+  const calls = [];
+  const context = createContext({
+    notificationTriggers: {
+      async appointmentCompleted(value) { calls.push(structuredClone(value)); },
+    },
+  });
+  await withServer(context.app, async (base) => {
+    assert.equal((await request(base, `/api/doctor/appointments/${ids.confirmed}/complete`, {
+      method: 'PATCH', cookie: context.cookie(ids.doctorProfile),
+    })).status, 409);
+    await createRecord(context, base);
+    assert.equal((await request(base, `/api/doctor/appointments/${ids.confirmed}/complete`, {
+      method: 'PATCH', cookie: context.cookie(ids.doctorProfile),
+    })).status, 200);
+    assert.equal((await request(base, `/api/doctor/appointments/${ids.confirmed}/complete`, {
+      method: 'PATCH', cookie: context.cookie(ids.doctorProfile),
+    })).status, 409);
+  });
+  assert.deepEqual(calls, [{ appointmentId: ids.confirmed, patientId: ids.patient }]);
+});
 
 test('unchecked consultation cannot be completed even after record save', async () => { const context = createContext(); await withServer(context.app, async (base) => { assert.equal((await createRecord(context, base, ids.unchecked)).response.status, 201); const response = await request(base, `/api/doctor/appointments/${ids.unchecked}/complete`, { method: 'PATCH', cookie: context.cookie(ids.doctorProfile) }); assert.equal(response.status, 409); assert.equal((await response.json()).error.code, 'PATIENT_NOT_CHECKED_IN'); }); });
 for (const [role, profile] of [['Patient', ids.patientProfile], ['Staff', ids.staffProfile], ['Admin', ids.adminProfile]]) test(`${role} cannot complete consultation`, async () => { const context = createContext(); await withServer(context.app, async (base) => assert.equal((await request(base, `/api/doctor/appointments/${ids.confirmed}/complete`, { method: 'PATCH', cookie: context.cookie(profile) })).status, 403)); });
