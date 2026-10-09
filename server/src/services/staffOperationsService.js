@@ -180,6 +180,11 @@ export function createStaffOperationsService({ repository, clinic, notificationT
       if (!['pending', 'confirmed'].includes(existing.status) || existing.check_in_at) throw httpError(409, 'CANCEL_NOT_ALLOWED', 'Only an unchecked pending or confirmed appointment can be cancelled.');
       const updated = await repository.cancelEligible(appointmentId);
       if (!updated) throw httpError(409, 'CANCEL_NOT_ALLOWED', 'This appointment can no longer be cancelled.');
+      await invokeNotificationTrigger(notificationTriggers, 'staffCancelled', {
+        appointmentId: updated._id ?? updated.id,
+        patientId: updated.patient_id?._id ?? updated.patient_id,
+        doctorId: updated.doctor_id?._id ?? updated.doctor_id,
+      });
       return appointmentView(updated, appointmentLocalParts(updated.appointment_at, clinic.timeZone).date);
     },
     async queue() {

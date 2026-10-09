@@ -47,7 +47,8 @@ test('Staff manages working hours, booking dates, and time off through the simpl
   await addRange.getByLabel('End').fill('12:00');
   await addRange.getByRole('button', { name: 'Add Time Range' }).click();
   await expect(page.getByRole('status')).toContainText(`${weekday} time range added.`);
-  await expect(day.getByText(/9:00 AM – 12:00 PM · Enabled/)).toBeVisible();
+  await expect(day.locator('.schedule-time-value').filter({ hasText: '9:00 AM – 12:00 PM' })).toBeVisible();
+  await expect(day.locator('.schedule-status', { hasText: 'Enabled' })).toBeVisible();
 
   const range = day.locator('li').first();
   await range.getByRole('button', { name: 'Edit' }).click();

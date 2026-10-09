@@ -97,6 +97,27 @@ test('Patient reschedule and cancellation fan out to Patient, active Staff, and 
   assert.equal(created.some(item => item.recipient_role === 'admin'), false);
 });
 
+test('Staff cancellation notifies only the linked active Patient and assigned active Doctor', async () => {
+  const { created, triggers } = context();
+  await triggers.staffCancelled({ appointmentId: ids.appointment, patientId: ids.patient, doctorId: ids.doctor });
+  assert.deepEqual(recipients(created), [
+    `doctor:${ids.doctorProfile}`,
+    `patient:${ids.patientProfile}`,
+  ]);
+  assert.ok(created.every(item => item.type === 'appointment_cancelled'));
+  assert.equal(created.some(item => item.recipient_role === 'staff' || item.recipient_role === 'admin'), false);
+});
+
+test('Staff cancellation skips unlinked or inactive recipients', async () => {
+  const { created, triggers } = context();
+  await triggers.staffCancelled({
+    appointmentId: ids.appointment,
+    patientId: ids.unlinkedPatient,
+    doctorId: ids.inactiveDoctor,
+  });
+  assert.equal(created.length, 0);
+});
+
 test('arrival and Normal-to-Urgent notify only the assigned active Doctor', async () => {
   const { created, triggers } = context();
   await triggers.patientArrived({ appointmentId: ids.appointment, doctorId: ids.doctor });
@@ -135,6 +156,7 @@ test('generated notifications contain only fixed operational text and appointmen
   await triggers.appointmentConfirmed(payload);
   await triggers.patientRescheduled(payload);
   await triggers.patientCancelled(payload);
+  await triggers.staffCancelled(payload);
   await triggers.patientArrived(payload);
   await triggers.appointmentMarkedUrgent(payload);
   await triggers.appointmentCompleted(payload);

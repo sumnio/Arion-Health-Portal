@@ -93,6 +93,7 @@ test('successful Staff workflow transitions invoke only their approved notificat
       async appointmentConfirmed(value) { calls.push(['confirmed', clone(value)]); },
       async patientArrived(value) { calls.push(['arrived', clone(value)]); },
       async appointmentMarkedUrgent(value) { calls.push(['urgent', clone(value)]); },
+      async staffCancelled(value) { calls.push(['cancelled', clone(value)]); },
     },
   });
   await withServer(c.app, async (base) => {
@@ -125,8 +126,20 @@ test('successful Staff workflow transitions invoke only their approved notificat
       method: 'PATCH', cookie: c.cookie(ids.staffProfile),
       body: { priority: 'normal', correction_reason: 'Corrected operational priority.' },
     })).status, 200);
+
+    assert.equal((await request(base, `/api/staff/appointments/${ids.confirmed}/cancel`, {
+      method: 'PATCH', cookie: c.cookie(ids.staffProfile), body: {},
+    })).status, 200);
+    assert.equal((await request(base, `/api/staff/appointments/${ids.confirmed}/cancel`, {
+      method: 'PATCH', cookie: c.cookie(ids.staffProfile), body: {},
+    })).status, 409);
   });
-  assert.deepEqual(calls.map(([event]) => event), ['assigned', 'confirmed', 'arrived', 'urgent']);
+  assert.deepEqual(calls.map(([event]) => event), ['assigned', 'confirmed', 'arrived', 'urgent', 'cancelled']);
+  assert.deepEqual(calls.at(-1), ['cancelled', {
+    appointmentId: ids.confirmed,
+    patientId: ids.patient,
+    doctorId: ids.doctor,
+  }]);
   assert.equal(JSON.stringify(calls).includes('Sensitive custom explanation.'), false);
 });
 

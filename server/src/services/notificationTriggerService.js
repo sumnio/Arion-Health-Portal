@@ -144,6 +144,13 @@ export function createNotificationTriggerService({ repository, notificationServi
       }, 'patient', 'appointment_cancelled', appointmentId);
     },
 
+    async staffCancelled({ appointmentId, patientId, doctorId }) {
+      await run(async () => {
+        await notifyPatient(patientId, 'appointment_cancelled', appointmentId);
+        await notifyDoctor(doctorId, 'appointment_cancelled', appointmentId);
+      }, 'patient', 'appointment_cancelled', appointmentId);
+    },
+
     async patientArrived({ appointmentId, doctorId }) {
       await notifyDoctor(doctorId, 'patient_arrived', appointmentId);
     },
