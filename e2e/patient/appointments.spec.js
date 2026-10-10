@@ -83,6 +83,45 @@ test('Patient reschedule refreshes stale availability after a target-slot confli
   assertBrowserClean();
 });
 
+test('Patient appointment tabs show five appointments per page', async ({ page, patientScenario, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const doctor = await patientScenario.createDoctor();
+  const date = patientScenario.futureDate(3);
+
+  for (let index = 0; index < 6; index += 1) {
+    await patientScenario.createAppointment({
+      patient: seededPatient,
+      doctor,
+      slot: patientScenario.slotFor(date, `${String(8 + index).padStart(2, '0')}:00`),
+      reason: `Upcoming pagination appointment ${index + 1}`,
+    });
+    await patientScenario.createAppointment({
+      patient: seededPatient,
+      doctor,
+      slot: patientScenario.slotFor(date, `${String(14 + index).padStart(2, '0')}:00`),
+      status: 'cancelled',
+      reason: `Cancelled pagination appointment ${index + 1}`,
+    });
+  }
+
+  await loginAsPatient(page, seededPatient);
+  await page.goto('/patient/appointments');
+
+  await expect(page.locator('.appointment-row')).toHaveCount(5);
+  await expect(page.getByText('Page 1 of 3')).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText('Page 2 of 3')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Upcoming', exact: true }).click();
+  await expect(page.locator('.appointment-row')).toHaveCount(5);
+  await expect(page.getByText('Page 1 of 2')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Past & Cancelled', exact: true }).click();
+  await expect(page.locator('.appointment-row')).toHaveCount(5);
+  await expect(page.getByText('Page 1 of 2')).toBeVisible();
+  assertBrowserClean();
+});
+
 test('checked-in, recorded, and completed appointments cannot be cancelled', async ({ page, patientScenario, seededPatient }) => {
   const assertBrowserClean = observeBrowser(page);
   const doctor = await patientScenario.createDoctor();

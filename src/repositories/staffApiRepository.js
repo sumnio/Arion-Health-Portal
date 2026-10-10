@@ -5,6 +5,7 @@ export function createStaffApiRepository(client = apiClient) {
   return {
     async getAppointments(date) { return (await request(`/api/staff/appointments?date=${encodeURIComponent(date)}`)).appointments; },
     async getDoctors() { return (await request('/api/staff/doctors')).doctors; },
+    async getAvailableSlots(id, date) { return request(`/api/staff/doctors/${encodeURIComponent(id)}/available-slots?date=${encodeURIComponent(date)}`); },
     async getDoctorSchedule(id) { return (await request(`/api/staff/doctors/${encodeURIComponent(id)}/schedule`)).schedule; },
     async createDoctorAvailability(id, payload) { return (await request(`/api/staff/doctors/${encodeURIComponent(id)}/availability`, { method: 'POST', body: payload })).availability; },
     async updateDoctorAvailability(id, availabilityId, payload) { return (await request(`/api/staff/doctors/${encodeURIComponent(id)}/availability/${encodeURIComponent(availabilityId)}`, { method: 'PATCH', body: payload })).availability; },

@@ -11,6 +11,9 @@
 .staff-patient-detail dt { color: #52657b; font-size: 13px; }
 .staff-patient-detail dd { margin: 0; overflow-wrap: anywhere; }
 .staff-patient-detail .appointment-history ol { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 14px; }
+.staff-patient-detail .patient-history-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; font-size: 13px; }
+.staff-patient-detail .patient-history-pagination button { min-height: 40px; border: 1px solid #c6d4e1; border-radius: 6px; background: white; color: #165ec0; padding: 8px 12px; cursor: pointer; }
+.staff-patient-detail .patient-history-pagination button:disabled { color: #8997a8; cursor: not-allowed; }
 .staff-patient-detail .appointment-history li { border: 1px solid #dfe7ee; border-radius: 8px; padding: 18px; }
 .staff-patient-detail .appointment-history li > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .staff-patient-detail .appointment-history time, .staff-patient-detail .appointment-history strong { display: block; margin-bottom: 6px; }

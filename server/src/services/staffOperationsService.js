@@ -56,7 +56,7 @@ function appointmentHighlights(items, current) {
   return { latest_appointment: past.at(-1) ?? null, upcoming_appointment: upcoming };
 }
 
-export function createStaffOperationsService({ repository, clinic, notificationTriggers, now = () => new Date() }) {
+export function createStaffOperationsService({ repository, clinic, bookingAvailabilityService, notificationTriggers, now = () => new Date() }) {
   return {
     async appointments(dateValue) {
       const date = dateValue || clinicDate(now(), clinic.timeZone);
@@ -99,6 +99,8 @@ export function createStaffOperationsService({ repository, clinic, notificationT
       const input = validateWalkInAppointment(body, current, clinic.timeZone);
       if (!(await repository.findPatientById(patientId))) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
       if (!(await repository.doctorExists(input.doctor_id))) throw httpError(404, 'DOCTOR_NOT_FOUND', 'Doctor was not found.');
+      if (!bookingAvailabilityService) throw new Error('Staff booking availability service is not configured.');
+      await bookingAvailabilityService.assertBookable(input.doctor_id, input.appointment_at);
       try {
         const created = await repository.createAppointment({ ...input, patient_id: patientId, created_by: staffProfileId, status: 'confirmed', check_in_at: null });
         await invokeNotificationTrigger(notificationTriggers, 'staffAppointmentCreated', {

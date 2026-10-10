@@ -78,9 +78,13 @@ export function staffQueueActions(item, now = new Date()) {
   const priorityEligible = Boolean(active && item.status === 'confirmed' && item.check_in_at);
   return { confirmArrival: unchecked, noShow: Boolean(unchecked && noShowAvailableAt <= now.getTime()), noShowGracePending: Boolean(unchecked && noShowAvailableAt > now.getTime()), noShowAvailableAt, markUrgent: priorityEligible && item.priority !== 'urgent', setNormal: priorityEligible && item.priority === 'urgent' };
 }
+export const STAFF_LIST_PAGE_SIZE = 5;
+export function staffListPage(items, page = 1) {
+  const pageCount = Math.max(1, Math.ceil(items.length / STAFF_LIST_PAGE_SIZE)); const current = Math.min(pageCount, Math.max(1, page));
+  return { items: items.slice((current - 1) * STAFF_LIST_PAGE_SIZE, current * STAFF_LIST_PAGE_SIZE), total: items.length, page: current, pageCount };
+}
 export function patientListPage(patients, page = 1) {
-  const pageCount = Math.max(1, Math.ceil(patients.length / 5)); const current = Math.min(pageCount, Math.max(1, page));
-  return { items: patients.slice((current - 1) * 5, current * 5), total: patients.length, page: current, pageCount };
+  return staffListPage(patients, page);
 }
 export function createStaffApiService(repository = staffApiRepository) {
   const service = {
@@ -101,6 +105,10 @@ export function createStaffApiService(repository = staffApiRepository) {
     },
     async getPatientContext(id) { const [patient, records] = await Promise.all([repository.getPatient(id), repository.getRecordSummary(id)]); return { patient: normalizeStaffPatient(patient), records }; },
     getDoctors: () => repository.getDoctors(),
+    async getAvailableSlots(doctorId, date = clinicToday()) {
+      const result = await repository.getAvailableSlots(doctorId, date);
+      return (result.slots ?? []).map(slot => ({ time: slot.start_time, appointment_at: slot.appointment_at, available: slot.available === true, occupied: slot.occupied === true }));
+    },
     async getDoctorDirectory() {
       const date = clinicToday();
       const [doctors, appointments] = await Promise.all([repository.getDoctors(), repository.getAppointments(date)]);

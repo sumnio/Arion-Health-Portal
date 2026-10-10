@@ -3,7 +3,7 @@
 .staff-walkin h2 { margin:0 0 18px; font-size:20px; }
 .staff-walkin h3 { font-weight:700; }
 .staff-walkin p { color:#52657b; font-size:14px; line-height:1.6; margin:12px 0; }
-.staff-walkin .walkin-layout { display:grid; grid-template-columns:minmax(0,1.8fr) minmax(250px,1fr); gap:22px; align-items:start; margin-top:24px; }
+.staff-walkin .walkin-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:22px; align-items:start; margin-top:24px; max-width:900px; }
 .staff-walkin .walkin-panel, .staff-walkin.walkin-panel { padding:24px; border:1px solid #dfe7ee; border-radius:9px; background:white; margin-bottom:20px; min-width:0; }
 .staff-walkin .walkin-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
 .staff-walkin .form-field label, .staff-walkin .walkin-reason { display:block; font-size:14px; font-weight:600; margin:10px 0; }
@@ -15,6 +15,7 @@
 .staff-walkin button { background:#165ec0; color:white; padding:12px 18px; border-radius:6px; cursor:pointer; font-size:14px; min-height:44px; }
 .staff-walkin button:disabled { opacity:.5; cursor:default; }
 .staff-walkin .walkin-error { color:#a33434; font-size:14px; }
+.staff-walkin .walkin-slot-note { grid-column:1 / -1; margin-top:0; font-size:12px; }
 .staff-walkin [aria-invalid=true] { border-color:#a33434; }
 .staff-walkin .walkin-results, .staff-walkin .walkin-queue { list-style:none; padding:0; }
 .staff-walkin .walkin-results li { display:flex; gap:12px; justify-content:space-between; align-items:center; padding:14px 0; border-bottom:1px solid #dfe7ee; }

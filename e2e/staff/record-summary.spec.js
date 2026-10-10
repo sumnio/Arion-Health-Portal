@@ -17,6 +17,10 @@ test('Staff sees only non-clinical record metadata, cannot perform clinical acti
     reason: 'E2E restricted consultation',
   });
   const record = await staffScenario.createRecord({ patient, doctor, appointment, diagnosis: 'E2E limited diagnosis' });
+  for (let offset = -2; offset >= -6; offset -= 1) {
+    const historicalAppointment = await staffScenario.createAppointment({ patient, doctor, slot: staffScenario.slotFor(staffScenario.futureDate(offset), '09:00'), status: 'completed', check_in_at: new Date(), reason: `E2E record summary ${Math.abs(offset)}` });
+    await staffScenario.createRecord({ patient, doctor, appointment: historicalAppointment, diagnosis: `E2E hidden diagnosis ${Math.abs(offset)}`, prescriptions: false });
+  }
   await staffScenario.createCertificate({ patient, doctor, record, purpose: 'E2E private certificate purpose' });
   const emptyPatient = await staffScenario.createGuestPatient({ full_name: `E2E Empty History ${staffScenario.marker.slice(0, 6)}` });
 
@@ -29,6 +33,7 @@ test('Staff sees only non-clinical record metadata, cannot perform clinical acti
   await expect(page.getByText('E2E Cetirizine')).toHaveCount(0);
   await expect(page.getByText('E2E private certificate purpose')).toHaveCount(0);
   await expect(page.getByText('Diagnoses, clinical notes, prescriptions, and certificates are not available to Staff.')).toBeVisible();
+  await expect(page.locator('.walkin-queue > li')).toHaveCount(5);
   await expect(page.getByRole('button', { name: /Add Medical Record|Issue Certificate|Complete Consultation|Mark Consultation Completed/i })).toHaveCount(0);
 
   const createRecord = await browserApi(page, `/api/doctor/appointments/${appointment.appointmentId}/medical-record`, {
@@ -56,7 +61,7 @@ test('Staff sees only non-clinical record metadata, cannot perform clinical acti
   expect(await MedicalRecord.exists({ _id: record.recordId })).not.toBeNull();
 
   await page.goto('/staff/queue');
-  const waiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Waiting queue/ }) });
+  const waiting = page.locator('section').filter({ has: page.getByRole('heading', { name: /Active Queue/ }) });
   await expect(waiting.getByText(patient.full_name)).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Complete|Mark as Completed/i })).toHaveCount(0);
   assertBrowserClean();

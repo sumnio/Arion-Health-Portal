@@ -62,6 +62,51 @@ test('Patient views an issued certificate and downloads its generated PDF', asyn
   assertBrowserClean();
 });
 
+test('Patient records and certificates show five items per page', async ({ page, patientScenario, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const doctor = await patientScenario.createDoctor();
+  const date = patientScenario.futureDate(2);
+
+  for (let index = 0; index < 6; index += 1) {
+    const appointment = await patientScenario.createAppointment({
+      patient: seededPatient,
+      doctor,
+      slot: patientScenario.slotFor(date, `${String(8 + index).padStart(2, '0')}:00`),
+      status: 'completed',
+      check_in_at: new Date(),
+    });
+    const record = await patientScenario.createRecord({
+      patient: seededPatient,
+      doctor,
+      appointment,
+      diagnosis: `Pagination diagnosis ${index + 1}`,
+      prescriptions: false,
+    });
+    await patientScenario.createCertificate({
+      patient: seededPatient,
+      doctor,
+      record,
+      purpose: `Pagination certificate ${index + 1}`,
+    });
+  }
+
+  await loginAsPatient(page, seededPatient);
+  await page.goto('/patient/records');
+  await expect(page.locator('.record-list-item')).toHaveCount(5);
+  await expect(page.getByText('Page 1 of 2')).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.locator('.record-list-item')).toHaveCount(1);
+  await expect(page.getByText('Page 2 of 2')).toBeVisible();
+
+  await page.goto('/patient/certificates');
+  await expect(page.locator('.certificate-list-item')).toHaveCount(5);
+  await expect(page.getByText('Page 1 of 2')).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.locator('.certificate-list-item')).toHaveCount(1);
+  await expect(page.getByText('Page 2 of 2')).toBeVisible();
+  assertBrowserClean();
+});
+
 test('Patient sees real empty appointment, record, and certificate states', async ({ page, seededPatient }) => {
   const assertBrowserClean = observeBrowser(page);
   await loginAsPatient(page, seededPatient);

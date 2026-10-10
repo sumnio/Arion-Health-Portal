@@ -16,25 +16,45 @@ async function expectSharedNotificationJourney(page, { role, title }) {
   await expect(page).toHaveURL(`/${role}/notifications`);
   await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
   await expect(page.getByText(title, { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: `Mark ${title} as read` }).click();
+  await page.getByRole('button', { name: 'Mark as read' }).click();
   await expect(page.getByText('1 notification · Newest first')).toBeVisible();
-  await expect(page.getByRole('button', { name: `Mark ${title} as read` })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Mark as read' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Notification filters' }).getByRole('button', { name: /^Unread/ }).click();
   await expect(page.getByRole('heading', { name: 'You have no unread notifications.' })).toBeVisible();
 }
 
-test('Patient notification bell, page, read action, and unread filter use the real API', async ({ page, patientScenario, seededPatient }) => {
+test('Patient notification bell stays compact while the page shows rich details and read actions', async ({ page, patientScenario, seededPatient }) => {
   const assertBrowserClean = observeBrowser(page);
-  await patientScenario.createNotification({ recipient: { ...seededPatient, role: 'patient' }, title: 'Patient schedule update', message: 'Your appointment schedule was updated.' });
+  await patientScenario.createNotification({
+    recipient: { ...seededPatient, role: 'patient' },
+    title: 'Appointment rescheduled',
+    message: 'Your appointment with Sample Doctor has been rescheduled.',
+    type: 'appointment_rescheduled',
+    doctorDisplayName: 'Sample Doctor',
+    appointmentAt: new Date('2026-10-12T06:00:00.000Z'),
+  });
   await page.goto('/login');
   await expect(page.getByRole('button', { name: /Notifications/ })).toHaveCount(0);
   await loginAsPatient(page, seededPatient);
-  await expectSharedNotificationJourney(page, { role: 'patient', title: 'Patient schedule update' });
+  const bell = page.getByRole('button', { name: 'Notifications, 1 unread' });
+  await bell.click();
+  const panel = page.getByRole('dialog', { name: 'Notifications' });
+  await expect(panel.getByText('Appointment rescheduled', { exact: true })).toBeVisible();
+  await expect(panel.locator('.notification-detail-grid')).toHaveCount(0);
+  await panel.getByRole('link', { name: 'View All Notifications' }).click();
+  await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
+  await expect(page.getByText('Appointment', { exact: true })).toBeVisible();
+  await expect(page.getByText('Rescheduled', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Oct 12, 2026 · 2:00 PM/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark as read' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mark as read' }).click();
+  await expect(page.getByRole('button', { name: 'Mark as read' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Mark all as read' })).toBeDisabled();
   assertBrowserClean();
 });
 
-test('Patient notification page paginates 20 items and marks all unread items read', async ({ page, patientScenario, seededPatient }) => {
+test('Patient notification page paginates five items and marks all unread items read', async ({ page, patientScenario, seededPatient }) => {
   const assertBrowserClean = observeBrowser(page);
   for (let index = 1; index <= 21; index += 1) {
     await patientScenario.createNotification({
@@ -46,10 +66,11 @@ test('Patient notification page paginates 20 items and marks all unread items re
   await loginAsPatient(page, seededPatient);
   await expect(page.getByRole('button', { name: 'Notifications, 21 unread' })).toBeVisible();
   await page.goto('/patient/notifications');
-  await expect(page.getByText('Page 1 of 2')).toBeVisible();
+  await expect(page.getByText('Page 1 of 5')).toBeVisible();
+  await expect(page.locator('.notification-page-list .notification-item')).toHaveCount(5);
   await expect(page.locator('.notification-item').first()).toContainText('Patient notification 21');
   await page.getByRole('button', { name: 'Next' }).click();
-  await expect(page.getByText('Page 2 of 2')).toBeVisible();
+  await expect(page.getByText('Page 2 of 5')).toBeVisible();
   await page.getByRole('button', { name: 'Mark all as read' }).click();
   await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Notification filters' }).getByRole('button', { name: /^Unread/ }).click();

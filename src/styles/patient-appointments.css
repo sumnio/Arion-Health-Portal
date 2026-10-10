@@ -28,6 +28,9 @@
 .patient-appointments .appointment-row small { font-size: 11px; color: #607087; }
 .patient-appointments .appointment-reason { overflow-wrap: anywhere; white-space: pre-wrap; }
 .patient-appointments .appointment-detail-link, .patient-appointments .appointment-back { color: #165ec0; text-decoration: underline; font-size: 13px; display: inline-block; margin-bottom: 14px; }
+.patient-appointments .appointment-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding-top: 18px; }
+.patient-appointments .appointment-pagination span { color: #52657b; font-size: 13px; }
+.patient-appointments .appointment-pagination button:disabled { opacity: .5; cursor: not-allowed; }
 .patient-appointments .appointment-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .patient-appointments .action-link { display: inline-block; font-size: 12px; background: white; text-align: center; }
 .patient-appointments .primary-action { background: #284764; color: white; border-color: #284764; }

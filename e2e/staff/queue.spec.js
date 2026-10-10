@@ -20,6 +20,7 @@ test('Staff confirms arrival once and the waiting queue persists without duplica
   });
   await loginAsStaff(page, seededStaff);
   await page.goto('/staff/queue');
+  await page.getByRole('button', { name: /^Scheduled/ }).click();
   await page.getByRole('button', { name: new RegExp(patient.full_name) }).click();
   await page.getByRole('button', { name: 'Confirm Arrival' }).click();
   await expect(page.getByText(`${patient.full_name} arrival confirmed.`)).toBeVisible();
@@ -135,12 +136,14 @@ test('Staff marks an eligible appointment no-show and terminal states reject rep
   }
   await loginAsStaff(page, seededStaff);
   await page.goto('/staff/queue');
+  await page.getByRole('button', { name: /^Scheduled/ }).click();
   await page.getByRole('button', { name: new RegExp(patients[0].full_name) }).click();
   await page.getByRole('button', { name: 'Mark No-show' }).click();
   await page.getByRole('button', { name: 'Confirm no-show' }).click();
   await expect(page.getByText(`${patients[0].full_name} marked no-show.`)).toBeVisible();
   expect((await Appointment.findById(appointments[0].appointmentId).lean()).status).toBe('no_show');
   await page.reload();
+  await page.getByRole('button', { name: /^Completed \/ Cancelled \/ No-show/ }).click();
   await expect(page.getByText(patients[0].full_name)).toBeVisible();
 
   for (const appointment of appointments.slice(1)) {

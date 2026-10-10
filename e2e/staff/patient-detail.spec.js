@@ -9,6 +9,7 @@ test('Staff Patients shows linked and walk-in operational details without clinic
   const doctor = await staffScenario.createDoctor();
   const latest = await staffScenario.createAppointment({ patient: portalPatient, doctor, slot: staffScenario.slotFor(staffScenario.futureDate(-1), '09:00'), status: 'completed', check_in_at: new Date(), reason: 'E2E completed operational visit' });
   await staffScenario.createAppointment({ patient: portalPatient, doctor, slot: staffScenario.slotFor(staffScenario.futureDate(1), '10:00'), status: 'confirmed', reason: 'E2E upcoming operational visit', priority: 'urgent' });
+  for (let offset = -2; offset >= -5; offset -= 1) await staffScenario.createAppointment({ patient: portalPatient, doctor, slot: staffScenario.slotFor(staffScenario.futureDate(offset), '09:00'), status: 'completed', reason: `E2E historical visit ${Math.abs(offset)}` });
   await staffScenario.createRecord({ patient: portalPatient, doctor, appointment: latest, diagnosis: 'E2E private diagnosis' });
 
   await loginAsStaff(page, seededStaff);
@@ -30,6 +31,12 @@ test('Staff Patients shows linked and walk-in operational details without clinic
   await expect(page.locator('.badge', { hasText: 'Urgent' })).toHaveCount(0);
   await expect(page.getByText('E2E private diagnosis')).toHaveCount(0);
   await expect(page.getByText(/prescription|clinical note/i)).toHaveCount(0);
+  const history = page.locator('.appointment-history');
+  await expect(history.locator('ol > li')).toHaveCount(5);
+  await expect(history.getByText('Page 1 of 2')).toBeVisible();
+  await history.getByRole('button', { name: 'Next' }).click();
+  await expect(history.locator('ol > li')).toHaveCount(1);
+  await expect(history.getByText('Page 2 of 2')).toBeVisible();
 
   await page.goto(`/staff/patients/${walkInPatient.patientId}`);
   await expect(page.getByRole('heading', { name: walkInPatient.full_name })).toBeVisible();

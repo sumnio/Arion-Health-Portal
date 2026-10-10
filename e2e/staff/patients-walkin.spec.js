@@ -22,6 +22,12 @@ function nextSameDayHalfHour(now = new Date()) {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
+function addMinutes(time, amount) {
+  const [hour, minute] = time.split(':').map(Number);
+  const total = hour * 60 + minute + amount;
+  return total >= 24 * 60 ? null : `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
 test('Staff searches existing Patients by name and contact with a real empty result', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const patient = await staffScenario.createPatient({ full_name: `E2E Search ${staffScenario.marker.slice(0, 8)}` });
@@ -73,28 +79,24 @@ test('Staff registers a persistent no-account walk-in and duplicate matching is 
 test('Staff creates a same-day walk-in Appointment with its own creator and non-current dates are rejected', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const patient = await staffScenario.createGuestPatient();
+  const occupiedPatient = await staffScenario.createGuestPatient({ full_name: `E2E Occupied Slot ${staffScenario.marker.slice(0, 8)}` });
   const doctor = await staffScenario.createDoctor();
+  const occupiedTime = nextSameDayHalfHour();
+  const availableTime = occupiedTime && addMinutes(occupiedTime, 30);
+  const endTime = occupiedTime && addMinutes(occupiedTime, 60);
+  test.skip(!occupiedTime || !availableTime || !endTime, 'No two future same-day slots remain in Asia/Manila.');
+  await staffScenario.createBookableSlot({ doctor, offset: 0, startTime: occupiedTime, endTime });
+  await staffScenario.createAppointment({ patient: occupiedPatient, doctor, slot: staffScenario.slotFor(staffScenario.today(), occupiedTime), status: 'confirmed' });
   await loginAsStaff(page, seededStaff);
   await page.goto(`/staff/patients/${patient.patientId}/walk-in`);
   await page.getByLabel('Doctor').selectOption(doctor.doctorId);
   await page.getByLabel('Visit type / service').selectOption('general_consultation');
   const slot = page.getByLabel('Available same-day time');
-  const options = await slot.locator('option').evaluateAll(items => items.map(item => item.value).filter(Boolean));
-  // The real same-day picker is intentionally empty after clinic hours. Keep
-  // this persistence journey deterministic by injecting only the next valid
-  // same-day half-hour into the test DOM when the suite runs after closing.
-  if (!options.length) {
-    const fallback = nextSameDayHalfHour();
-    expect(fallback).not.toBeNull();
-    await slot.evaluate((select, value) => {
-      select.append(new Option(value, value));
-      select.value = value;
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    }, fallback);
-    options.push(fallback);
-  }
-  expect(options.length).toBeGreaterThan(0);
-  await slot.selectOption(options[0]);
+  const occupiedOption = slot.locator(`option[value="${occupiedTime}"]`);
+  await expect(occupiedOption).toContainText('Occupied');
+  await expect(occupiedOption).toBeDisabled();
+  await expect(slot.locator(`option[value="${availableTime}"]`)).toBeEnabled();
+  await slot.selectOption(availableTime);
   await page.getByLabel('Reason for visit').fill('E2E same-day walk-in');
   await page.getByRole('button', { name: 'Create Walk-in Appointment' }).click();
   await expect(page.getByRole('heading', { name: 'Walk-in appointment created' })).toBeVisible();

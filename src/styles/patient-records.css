@@ -11,6 +11,8 @@
 .patient-records .record-search input { width: 100%; min-width: 0; border: 1px solid #c6d4e1; border-radius: 6px; padding: 12px; font: inherit; font-size: 14px; }
 .patient-records .record-count { font-size: 12px; margin: 14px 0; }
 .patient-records .record-list, .patient-records .record-detail-sections { display: grid; gap: 14px; }
+.patient-records .record-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; font-size: 13px; }
+.patient-records .record-pagination .action-link:disabled { color: #8997a8; cursor: not-allowed; text-decoration: none; }
 .patient-records .record-list-item { display: flex; gap: 18px; align-items: center; padding: 20px; }
 .patient-records .record-list-copy { flex: 1; min-width: 0; }
 .patient-records .record-list-copy p { font-size: 13px; }

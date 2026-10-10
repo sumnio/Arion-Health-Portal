@@ -40,9 +40,8 @@ test('Staff Dashboard shows accurate operational counts and preserves active-que
   const upcoming = page.locator('.dashboard-card').filter({ has: page.getByRole('heading', { name: 'Upcoming Appointments' }) });
   await expect(upcoming).toContainText(scheduled.full_name);
   await expect(upcoming).toContainText('Scheduled / Pending');
-  await expect(page.getByRole('link', { name: 'Appointment Queue →' })).toHaveAttribute('href', '/staff/queue');
-  await expect(page.getByRole('link', { name: 'Register Walk-in →' })).toHaveAttribute('href', '/staff/patients/new');
-  await expect(page.getByRole('link', { name: 'Full Calendar →' })).toHaveAttribute('href', '/staff/calendar');
+  await expect(page.getByRole('heading', { name: 'Quick Staff Tasks' })).toHaveCount(0);
+  await expect(upcoming.getByRole('link', { name: 'View Full Calendar' })).toHaveAttribute('href', '/staff/calendar');
   assertBrowserClean();
 });
 

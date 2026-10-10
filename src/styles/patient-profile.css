@@ -1,5 +1,6 @@
 .patient-profile { max-width: 1280px; margin: auto; }
 .patient-profile .profile-heading { margin-bottom: 24px; }
+.patient-profile .profile-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .patient-profile p { font-size: 14px; color: #52657b; line-height: 1.6; margin: 8px 0; }
 .patient-profile h2 { font-size: 18px; margin: 0 0 10px; }
 .patient-profile h2 small { font-weight: 400; font-size: 14px; }
@@ -12,6 +13,7 @@
 .patient-profile label, .patient-profile legend { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
 .patient-profile .form-field { margin: 0; }
 .patient-profile :is(input:not([type="radio"]), select, textarea) { width: 100%; min-width: 0; padding: 12px; border: 1px solid #c6d4e1; border-radius: 6px; font: inherit; font-size: 14px; color: #152d4b; background: white; }
+.patient-profile :is(input, select, textarea):disabled { background: #f1f5f9; color: #52657b; cursor: default; opacity: 1; }
 .patient-profile input[readonly] { background: #f1f5f9; color: #607087; }
 .patient-profile textarea { min-height: 95px; resize: vertical; }
 .patient-profile fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -23,11 +25,14 @@
 .patient-profile .profile-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
 .patient-profile button { cursor: pointer; }
 .patient-profile .profile-save { background: #165ec0; color: white; border-color: #165ec0; }
+.patient-profile .profile-edit { flex: 0 0 auto; background: #165ec0; color: white; border-color: #165ec0; }
 .patient-profile .profile-message:not(:empty) { padding: 14px; background: #ddf4e9; color: #166447; border-radius: 6px; margin-bottom: 18px; }
+.patient-profile .profile-message-error:not(:empty) { background: #fff0ef; color: #a33434; }
+.patient-profile .profile-message-info:not(:empty) { background: #edf4fb; color: #284764; }
 .patient-profile .profile-errors { padding: 16px; background: #fff0ef; border-radius: 6px; color: #a33434; font-size: 14px; }
 .patient-profile .profile-errors ul { padding-left: 20px; list-style: disc; }
 .patient-profile .profile-error { font-size: 12px; color: #a33434; }
 .patient-profile [aria-invalid="true"] { border-color: #a33434; }
 .patient-profile :is(input, select, textarea, button):focus-visible { outline: 3px solid #86b5f4; outline-offset: 2px; }
 @media (max-width: 1200px) { .patient-profile .profile-layout { grid-template-columns: 1fr; } }
-@media (max-width: 650px) { .patient-profile .profile-fields { grid-template-columns: 1fr; } .patient-profile .profile-card { padding: 18px; } }
+@media (max-width: 650px) { .patient-profile .profile-heading-row { display: grid; } .patient-profile .profile-fields { grid-template-columns: 1fr; } .patient-profile .profile-card { padding: 18px; } }

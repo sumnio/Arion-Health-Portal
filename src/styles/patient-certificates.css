@@ -8,6 +8,8 @@
 .patient-certificates .certificate-count, .patient-certificates .certificate-note { font-size: 12px; }
 .patient-certificates .certificate-count { margin: 0 0 14px; }
 .patient-certificates .certificate-list, .patient-certificates .certificate-sections { display: grid; gap: 16px; }
+.patient-certificates .certificate-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; font-size: 13px; }
+.patient-certificates .certificate-pagination .action-link:disabled { color: #8997a8; cursor: not-allowed; text-decoration: none; }
 .patient-certificates .certificate-list-item { display: flex; align-items: center; gap: 20px; }
 .patient-certificates .certificate-list-copy { min-width: 0; flex: 1; }
 .patient-certificates .certificate-list-copy p { font-size: 13px; }

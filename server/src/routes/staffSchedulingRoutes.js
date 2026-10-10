@@ -13,6 +13,7 @@ export function createStaffSchedulingRouter({ authModule, schedulingModule }) {
     requireRole('staff'),
     requirePermission(PERMISSIONS.STAFF_OPERATIONS),
   );
+  router.get('/doctors/:doctorId/available-slots', controller.availableSlots);
   router.get('/doctors/:doctorId/schedule', controller.schedule);
   router.post('/doctors/:doctorId/availability', controller.createRecurring);
   router.patch('/doctors/:doctorId/availability/:availabilityId', controller.updateRecurring);

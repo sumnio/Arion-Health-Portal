@@ -16,6 +16,9 @@ function notificationView(item) {
     related_resource: item.related_resource_type && item.related_resource_id
       ? { type: item.related_resource_type, id: id(item.related_resource_id) }
       : null,
+    patient_display_name: item.patient_display_name ?? null,
+    doctor_display_name: item.doctor_display_name ?? null,
+    appointment_at: item.appointment_at ? new Date(item.appointment_at).toISOString() : null,
     is_read: item.is_read === true,
     read_at: item.read_at ? new Date(item.read_at).toISOString() : null,
     created_at: new Date(item.created_at).toISOString(),

@@ -14,6 +14,7 @@ const ids = Object.freeze({
   staffTwo: '500000000000000000000002',
   appointment: '600000000000000000000001',
 });
+const APPOINTMENT_AT = new Date('2026-10-12T06:00:00.000Z');
 
 function context({ failedRecipient, loggerThrows = false } = {}) {
   const created = [];
@@ -28,6 +29,13 @@ function context({ failedRecipient, loggerThrows = false } = {}) {
     async listActiveStaffProfiles() {
       return [{ _id: ids.staffOne }, { _id: ids.staffTwo }];
     },
+    async findAppointmentNotificationContext(appointmentId) {
+      return String(appointmentId) === ids.appointment ? {
+        patient_display_name: 'Sample Patient',
+        doctor_display_name: 'Sample Doctor',
+        appointment_at: APPOINTMENT_AT,
+      } : null;
+    },
   };
   const notificationService = {
     async createNotification(input) {
@@ -39,6 +47,7 @@ function context({ failedRecipient, loggerThrows = false } = {}) {
   return {
     created,
     logs,
+    repository,
     triggers: createNotificationTriggerService({ repository, notificationService, logger }),
   };
 }
@@ -61,6 +70,13 @@ test('Patient booking notifies every active Staff and only the assigned active D
     'patient_booking_created',
   ]);
   assert.equal(created.some(item => item.recipient_role === 'patient' || item.recipient_role === 'admin'), false);
+  const staff = created.find(item => item.recipient_role === 'staff');
+  assert.equal(staff.patient_display_name, 'Sample Patient');
+  assert.equal(staff.doctor_display_name, 'Sample Doctor');
+  assert.equal(staff.appointment_at.toISOString(), APPOINTMENT_AT.toISOString());
+  const doctor = created.find(item => item.recipient_role === 'doctor');
+  assert.equal(doctor.patient_display_name, 'Sample Patient');
+  assert.equal('doctor_display_name' in doctor, false);
 });
 
 test('Staff-created appointment notifies only its assigned active Doctor', async () => {
@@ -78,6 +94,9 @@ test('confirmation and completion notify only a portal-linked active Patient', a
   await triggers.appointmentCompleted({ appointmentId: ids.appointment, patientId: ids.inactivePatient });
   assert.deepEqual(created.map(item => item.type), ['appointment_confirmed', 'appointment_completed']);
   assert.ok(created.every(item => item.recipient_user_profile_id === ids.patientProfile));
+  assert.ok(created.every(item => item.doctor_display_name === 'Sample Doctor'));
+  assert.ok(created.every(item => item.appointment_at.toISOString() === APPOINTMENT_AT.toISOString()));
+  assert.ok(created.every(item => !('patient_display_name' in item)));
 });
 
 test('Patient reschedule and cancellation fan out to Patient, active Staff, and assigned Doctor', async () => {
@@ -95,6 +114,19 @@ test('Patient reschedule and cancellation fan out to Patient, active Staff, and 
     ]);
   }
   assert.equal(created.some(item => item.recipient_role === 'admin'), false);
+  for (const item of created) {
+    assert.equal(item.appointment_at.toISOString(), APPOINTMENT_AT.toISOString());
+    if (item.recipient_role === 'patient') {
+      assert.equal(item.doctor_display_name, 'Sample Doctor');
+      assert.equal('patient_display_name' in item, false);
+    } else if (item.recipient_role === 'staff') {
+      assert.equal(item.patient_display_name, 'Sample Patient');
+      assert.equal(item.doctor_display_name, 'Sample Doctor');
+    } else {
+      assert.equal(item.patient_display_name, 'Sample Patient');
+      assert.equal('doctor_display_name' in item, false);
+    }
+  }
 });
 
 test('Staff cancellation notifies only the linked active Patient and assigned active Doctor', async () => {
@@ -124,6 +156,9 @@ test('arrival and Normal-to-Urgent notify only the assigned active Doctor', asyn
   await triggers.appointmentMarkedUrgent({ appointmentId: ids.appointment, doctorId: ids.doctor });
   assert.deepEqual(created.map(item => item.type), ['patient_arrived', 'appointment_marked_urgent']);
   assert.ok(created.every(item => item.recipient_user_profile_id === ids.doctorProfile));
+  assert.ok(created.every(item => item.patient_display_name === 'Sample Patient'));
+  assert.ok(created.every(item => item.appointment_at.toISOString() === APPOINTMENT_AT.toISOString()));
+  assert.equal(JSON.stringify(created).includes('urgency_reason'), false);
 });
 
 test('inactive or unlinked Doctor is skipped and logged without fabricating a recipient', async () => {
@@ -149,7 +184,18 @@ test('notification and telemetry failures cannot fail the completed business act
   await assert.doesNotReject(triggers.patientBooked({ appointmentId: ids.appointment, doctorId: ids.inactiveDoctor }));
 });
 
-test('generated notifications contain only fixed operational text and appointment navigation metadata', async () => {
+test('missing rich context falls back to fixed generic content without blocking delivery', async () => {
+  const { created, repository, triggers } = context();
+  repository.findAppointmentNotificationContext = async () => null;
+  await triggers.appointmentConfirmed({ appointmentId: ids.appointment, patientId: ids.patient });
+  assert.equal(created.length, 1);
+  assert.equal(created[0].message, 'Your appointment has been confirmed.');
+  assert.equal('patient_display_name' in created[0], false);
+  assert.equal('doctor_display_name' in created[0], false);
+  assert.equal('appointment_at' in created[0], false);
+});
+
+test('generated notifications contain only approved role-specific operational context', async () => {
   const { created, triggers } = context();
   const payload = { appointmentId: ids.appointment, patientId: ids.patient, doctorId: ids.doctor };
   await triggers.patientBooked(payload);
@@ -163,13 +209,15 @@ test('generated notifications contain only fixed operational text and appointmen
   for (const item of created) {
     assert.equal(item.related_resource_type, 'appointment');
     assert.equal(item.related_resource_id, ids.appointment);
-    assert.deepEqual(Object.keys(item).sort(), [
-      'message', 'recipient_role', 'recipient_user_profile_id', 'related_resource_id',
+    const allowed = new Set([
+      'appointment_at', 'doctor_display_name', 'message', 'patient_display_name',
+      'recipient_role', 'recipient_user_profile_id', 'related_resource_id',
       'related_resource_type', 'title', 'type',
     ]);
+    assert.ok(Object.keys(item).every(key => allowed.has(key)));
   }
   const serialized = JSON.stringify(created).toLowerCase();
-  for (const forbidden of ['diagnosis', 'prescription', 'visit reason', 'urgency explanation', 'patient name', 'password', 'mfa', 'token']) {
+  for (const forbidden of ['diagnosis', 'prescription', 'visit reason', 'urgency explanation', 'contact', 'date of birth', 'address', 'password', 'mfa', 'token']) {
     assert.equal(serialized.includes(forbidden), false);
   }
 });

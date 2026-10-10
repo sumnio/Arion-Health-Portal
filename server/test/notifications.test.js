@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { createApp } from '../src/app.js';
 import {
   Notification,
+  NOTIFICATION_DISPLAY_NAME_MAX,
   NOTIFICATION_MESSAGE_MAX,
   NOTIFICATION_TITLE_MAX,
 } from '../src/models/index.js';
@@ -93,6 +94,9 @@ test('Notification model declares safe defaults, relationships, enums, and recip
   assert.equal(item.read_at, null);
   assert.equal(Notification.schema.path('recipient_user_profile_id').options.ref, 'UserProfile');
   assert.equal(Notification.schema.path('recipient_user_profile_id').options.immutable, true);
+  assert.equal(Notification.schema.path('patient_display_name').options.immutable, true);
+  assert.equal(Notification.schema.path('doctor_display_name').options.immutable, true);
+  assert.equal(Notification.schema.path('appointment_at').options.immutable, true);
   const names = Notification.schema.indexes().map(([, options]) => options.name);
   assert.ok(names.includes('notification_recipient_history'));
   assert.ok(names.includes('notification_recipient_unread'));
@@ -105,16 +109,26 @@ test('Notification model declares safe defaults, relationships, enums, and recip
 test('internal creation validates recipient, type, fields, plain text, and size limits', async () => {
   const repository = memoryRepository(profiles());
   const service = createNotificationModule({ repository, now: () => new Date('2026-10-09T04:00:00.000Z') }).notificationService;
-  const created = await service.createNotification(input());
+  const created = await service.createNotification(input({
+    doctor_display_name: 'Sample Doctor',
+    appointment_at: '2026-10-12T06:00:00.000Z',
+  }));
   assert.equal(created.is_read, false);
   assert.equal(created.read_at, null);
   assert.deepEqual(created.related_resource, { type: 'appointment', id: ids.appointment });
+  assert.equal(created.patient_display_name, null);
+  assert.equal(created.doctor_display_name, 'Sample Doctor');
+  assert.equal(created.appointment_at, '2026-10-12T06:00:00.000Z');
   for (const invalid of [
     input({ recipient_role: 'staff' }),
     input({ recipient_user_profile_id: ids.inactive, recipient_role: 'staff' }),
     input({ recipient_role: 'owner' }),
     input({ type: 'diagnosis_ready' }),
     input({ metadata: { diagnosis: 'Private' } }),
+    input({ diagnosis: 'Private' }),
+    input({ patient_display_name: 'x'.repeat(NOTIFICATION_DISPLAY_NAME_MAX + 1) }),
+    input({ doctor_display_name: 'x'.repeat(NOTIFICATION_DISPLAY_NAME_MAX + 1) }),
+    input({ appointment_at: 'not-a-timestamp' }),
     input({ title: 'x'.repeat(NOTIFICATION_TITLE_MAX + 1) }),
     input({ message: 'x'.repeat(NOTIFICATION_MESSAGE_MAX + 1) }),
     input({ title: '<strong>Unsafe</strong>' }),
@@ -139,6 +153,9 @@ test('listing is recipient-private, newest first, paginated, filtered, and safel
   assert.equal(firstPage.unread_count, 1);
   assert.equal('recipient_user_profile_id' in firstPage.items[0], false);
   assert.equal('recipient_role' in firstPage.items[0], false);
+  assert.equal(firstPage.items[0].patient_display_name, null);
+  assert.equal(firstPage.items[0].doctor_display_name, null);
+  assert.equal(firstPage.items[0].appointment_at, null);
   const unread = await service.listNotificationsForRecipient(ids.patient, 'patient', { unread_only: 'true' });
   assert.deepEqual(unread.items.map(item => item.title), ['Older']);
   const empty = await service.listNotificationsForRecipient(ids.doctor, 'doctor', {});
@@ -188,7 +205,15 @@ async function apiContext() {
   const repository = memoryRepository(profileMap);
   const notificationModule = createNotificationModule({ repository, now: () => new Date('2026-10-09T05:00:00.000Z') });
   for (const [role, profileId] of [['patient', ids.patient], ['staff', ids.staff], ['doctor', ids.doctor], ['admin', ids.admin]]) {
-    await notificationModule.notificationService.createNotification(input({ recipient_user_profile_id: profileId, recipient_role: role, title: `${role} notice` }));
+    await notificationModule.notificationService.createNotification(input({
+      recipient_user_profile_id: profileId,
+      recipient_role: role,
+      title: `${role} notice`,
+      ...(role === 'patient' ? {
+        doctor_display_name: 'Sample Doctor',
+        appointment_at: '2026-10-12T06:00:00.000Z',
+      } : {}),
+    }));
   }
   const tokens = createTokenService(SECRET);
   const service = { async getAuthenticatedUser(profileId) { const profile = profileMap.get(String(profileId)); if (!profile) throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); return { user_profile_id: String(profile._id), display_name: profile.role, role: profile.role, status: profile.status }; } };
@@ -218,6 +243,11 @@ test('notification API allows every active role only its own safely projected in
       assert.equal(response.status, 200);
       const body = await response.json();
       assert.deepEqual(body.notifications.items.map(item => item.title), [`${role} notice`]);
+      if (role === 'patient') {
+        assert.equal(body.notifications.items[0].doctor_display_name, 'Sample Doctor');
+        assert.equal(body.notifications.items[0].appointment_at, '2026-10-12T06:00:00.000Z');
+        assert.equal(body.notifications.items[0].patient_display_name, null);
+      }
       const serialized = JSON.stringify(body);
       for (const forbidden of ['recipient_user_profile_id', 'recipient_role', 'password', 'mfa_', 'diagnosis', 'prescription']) assert.equal(serialized.includes(forbidden), false);
     }

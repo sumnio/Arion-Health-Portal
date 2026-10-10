@@ -175,13 +175,16 @@ export class PatientScenario {
     return { appointmentId: String(appointment._id), ...appointment.toObject() };
   }
 
-  async createNotification({ recipient, title, message, type = 'appointment_created', isRead = false }) {
+  async createNotification({ recipient, title, message, type = 'appointment_created', isRead = false, patientDisplayName = null, doctorDisplayName = null, appointmentAt = null }) {
     const notification = await Notification.create({
       recipient_user_profile_id: recipient.profileId,
       recipient_role: recipient.role,
       type,
       title,
       message,
+      patient_display_name: patientDisplayName,
+      doctor_display_name: doctorDisplayName,
+      appointment_at: appointmentAt,
       related_resource_type: null,
       related_resource_id: null,
       is_read: isRead,

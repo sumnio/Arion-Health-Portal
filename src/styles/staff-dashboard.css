@@ -6,7 +6,7 @@
 .staff-dashboard .staff-welcome h2 { font-size: 22px; }
 .staff-dashboard .staff-note { font-size: 12px; }
 .staff-dashboard .staff-counts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; margin: 22px 0; }
-.staff-dashboard .staff-counts section, .staff-dashboard .staff-tasks { padding: 22px; background: white; border: 1px solid #dfe7ee; border-radius: 10px; }
+.staff-dashboard .staff-counts section { padding: 22px; background: white; border: 1px solid #dfe7ee; border-radius: 10px; }
 .staff-dashboard .staff-counts h2 { font-size: 14px; color: #52657b; }
 .staff-dashboard .staff-counts strong { font-size: 30px; }
 .staff-dashboard .staff-overview { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 22px; align-items: start; }
@@ -24,6 +24,5 @@
 .staff-dashboard .status-pending { background: #fff3d9; color: #825400; }
 .staff-dashboard .staff-upcoming { list-style: none; padding: 0; }
 .staff-dashboard .staff-upcoming li { padding: 14px 0; border-top: 1px solid #edf1f5; }
-.staff-dashboard .staff-tasks { margin-top: 22px; display: grid; gap: 12px; }
 @media(max-width: 1100px) { .staff-dashboard .staff-overview { grid-template-columns: 1fr; } .staff-dashboard .staff-counts { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width: 550px) { .staff-dashboard .staff-title { display: block; } .staff-dashboard .staff-counts { gap: 10px; } .staff-dashboard .staff-counts section { padding: 16px; } }

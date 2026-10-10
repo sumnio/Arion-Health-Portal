@@ -19,6 +19,7 @@ export const NOTIFICATION_TYPES = Object.freeze([
 export const NOTIFICATION_RESOURCE_TYPES = Object.freeze(['appointment', 'patient', 'doctor']);
 export const NOTIFICATION_TITLE_MAX = 120;
 export const NOTIFICATION_MESSAGE_MAX = 500;
+export const NOTIFICATION_DISPLAY_NAME_MAX = 160;
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -53,6 +54,9 @@ const notificationSchema = new mongoose.Schema(
       default: null,
       immutable: true,
     },
+    patient_display_name: { type: String, trim: true, maxlength: NOTIFICATION_DISPLAY_NAME_MAX, default: null, immutable: true },
+    doctor_display_name: { type: String, trim: true, maxlength: NOTIFICATION_DISPLAY_NAME_MAX, default: null, immutable: true },
+    appointment_at: { type: Date, default: null, immutable: true },
     is_read: { type: Boolean, required: true, default: false },
     read_at: { type: Date, default: null },
   },

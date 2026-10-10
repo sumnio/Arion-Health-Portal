@@ -1,5 +1,6 @@
 import { requestSecurityEvent } from '../services/securityLogger.js';
 import { validateEmptyBody } from '../validation/inputValidation.js';
+import { validateSlotQueryParameters } from '../validation/schedulingValidation.js';
 
 function logChange(request, action, recordId) {
   requestSecurityEvent(request, {
@@ -12,8 +13,12 @@ function logChange(request, action, recordId) {
   });
 }
 
-export function createStaffSchedulingController({ doctorAvailabilityService }) {
+export function createStaffSchedulingController({ doctorAvailabilityService, bookingAvailabilityService }) {
   return {
+    async availableSlots(request, response) {
+      const date = validateSlotQueryParameters(request.query);
+      response.json(await bookingAvailabilityService.getPatientSlots(request.params.doctorId, date));
+    },
     async schedule(request, response) {
       response.json({ schedule: await doctorAvailabilityService.getStaffSchedule(request.params.doctorId) });
     },

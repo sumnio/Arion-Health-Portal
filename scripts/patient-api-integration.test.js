@@ -8,6 +8,10 @@ import {
   createPatientApiService,
   formatPatientVisitReason,
   OTHER_CONCERN_PREFIX,
+  paginatePatientAppointments,
+  paginatePatientList,
+  PATIENT_APPOINTMENTS_PAGE_SIZE,
+  PATIENT_LIST_PAGE_SIZE,
   PATIENT_REASON_MAX_LENGTH,
   patientBookingDates,
   patientVisitReasons,
@@ -117,6 +121,41 @@ test('Patient reschedule form keeps Doctor, visit type, and reason read-only whi
   assert.doesNotMatch(source, /name="(?:doctor|visit_type|reason)"/);
   assert.match(source, /disabled=\{busy \|\| loading\}/);
   assert.match(source, /refreshDate/);
+});
+
+test('every Patient appointment tab paginates at five items', async () => {
+  assert.equal(PATIENT_APPOINTMENTS_PAGE_SIZE, 5);
+  const appointments = Array.from({ length: 12 }, (_, index) => ({ id: `a${index + 1}` }));
+  assert.deepEqual(paginatePatientAppointments(appointments, 1).items.map(item => item.id), ['a1', 'a2', 'a3', 'a4', 'a5']);
+  assert.deepEqual(paginatePatientAppointments(appointments, 3).items.map(item => item.id), ['a11', 'a12']);
+  assert.equal(paginatePatientAppointments(appointments, 3).pageCount, 3);
+  const source = await readFile(new URL('../src/pages/patient/PatientAppointments.jsx', import.meta.url), 'utf8');
+  for (const tab of ['All Appointments', 'Upcoming', 'Past & Cancelled']) assert.match(source, new RegExp(tab.replace(/[&]/g, '\\&')));
+  assert.match(source, /setPage\(1\)/);
+  assert.match(source, /aria-label="Appointment pages"/);
+});
+
+test('Patient records and certificates paginate at five items', async () => {
+  assert.equal(PATIENT_LIST_PAGE_SIZE, 5);
+  const items = Array.from({ length: 11 }, (_, index) => ({ id: `item-${index + 1}` }));
+  assert.deepEqual(paginatePatientList(items, 1).items.map(item => item.id), ['item-1', 'item-2', 'item-3', 'item-4', 'item-5']);
+  assert.deepEqual(paginatePatientList(items, 3).items.map(item => item.id), ['item-11']);
+  assert.equal(paginatePatientList(items, 3).pageCount, 3);
+  const recordsSource = await readFile(new URL('../src/pages/patient/PatientRecords.jsx', import.meta.url), 'utf8');
+  const certificatesSource = await readFile(new URL('../src/pages/patient/PatientCertificates.jsx', import.meta.url), 'utf8');
+  assert.match(recordsSource, /aria-label="Medical record pages"/);
+  assert.match(recordsSource, /setPage\(1\)/);
+  assert.match(certificatesSource, /aria-label="Medical certificate pages"/);
+});
+
+test('Patient profile starts read-only, requires Edit Profile, and shows save feedback near its actions', async () => {
+  const source = await readFile(new URL('../src/pages/patient/PatientProfile.jsx', import.meta.url), 'utf8');
+  assert.match(source, /useState\(false\)/);
+  assert.match(source, />Edit Profile</);
+  assert.match(source, /disabled=\{!editing\}/);
+  assert.match(source, /Changes saved successfully\./);
+  assert.match(source, /currently visible only in your Patient profile/);
+  assert.match(source, /visible to your related Doctor/);
 });
 
 test('Patient pages no longer import feature mock services or advertise mock clinical data', async () => {

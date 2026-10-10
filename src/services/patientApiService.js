@@ -23,6 +23,22 @@ export const patientVisitReasons = Object.freeze([
 
 export const OTHER_CONCERN_PREFIX = 'Other concern: ';
 export const PATIENT_REASON_MAX_LENGTH = 1000;
+export const PATIENT_LIST_PAGE_SIZE = 5;
+export const PATIENT_APPOINTMENTS_PAGE_SIZE = PATIENT_LIST_PAGE_SIZE;
+
+export function paginatePatientList(items, page) {
+  const pageCount = Math.max(1, Math.ceil(items.length / PATIENT_LIST_PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, page), pageCount);
+  return {
+    items: items.slice((currentPage - 1) * PATIENT_LIST_PAGE_SIZE, currentPage * PATIENT_LIST_PAGE_SIZE),
+    page: currentPage,
+    pageCount,
+  };
+}
+
+export function paginatePatientAppointments(items, page) {
+  return paginatePatientList(items, page);
+}
 
 export function formatPatientVisitReason(selection, customText = '') {
   if (!patientVisitReasons.includes(selection)) return '';

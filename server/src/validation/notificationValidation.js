@@ -8,6 +8,7 @@ import {
 } from './inputValidation.js';
 import {
   NOTIFICATION_MESSAGE_MAX,
+  NOTIFICATION_DISPLAY_NAME_MAX,
   NOTIFICATION_RECIPIENT_ROLES,
   NOTIFICATION_RESOURCE_TYPES,
   NOTIFICATION_TITLE_MAX,
@@ -17,7 +18,8 @@ import { httpError } from '../utils/httpError.js';
 
 const createFields = new Set([
   'recipient_user_profile_id', 'recipient_role', 'type', 'title', 'message',
-  'related_resource_type', 'related_resource_id',
+  'related_resource_type', 'related_resource_id', 'patient_display_name',
+  'doctor_display_name', 'appointment_at',
 ]);
 const listFields = new Set(['unread_only', 'page', 'limit']);
 
@@ -32,6 +34,18 @@ function plainText(value, field, max) {
   const result = boundedText(value, field, max);
   if (/[<>]/.test(result)) {
     throw httpError(400, 'VALIDATION_ERROR', `${field} must be plain text without HTML.`);
+  }
+  return result;
+}
+
+function optionalDateTime(value, field) {
+  if (value == null || value === '') return null;
+  if (!(value instanceof Date) && typeof value !== 'string') {
+    throw httpError(400, 'VALIDATION_ERROR', `${field} must be a valid timestamp.`);
+  }
+  const result = new Date(value);
+  if (!Number.isFinite(result.getTime())) {
+    throw httpError(400, 'VALIDATION_ERROR', `${field} must be a valid timestamp.`);
   }
   return result;
 }
@@ -56,6 +70,9 @@ export function validateNotificationCreate(value) {
     message: plainText(body.message, 'message', NOTIFICATION_MESSAGE_MAX),
     related_resource_type: relatedType,
     related_resource_id: relatedId,
+    patient_display_name: body.patient_display_name == null ? null : plainText(body.patient_display_name, 'patient_display_name', NOTIFICATION_DISPLAY_NAME_MAX),
+    doctor_display_name: body.doctor_display_name == null ? null : plainText(body.doctor_display_name, 'doctor_display_name', NOTIFICATION_DISPLAY_NAME_MAX),
+    appointment_at: optionalDateTime(body.appointment_at, 'appointment_at'),
   };
 }
 

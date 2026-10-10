@@ -14,7 +14,7 @@ const ids = {
 };
 function clone(value) { return value == null ? value : structuredClone(value); }
 
-function createContext({ now = NOW, notificationTriggers } = {}) {
+function createContext({ now = NOW, notificationTriggers, bookingError = null } = {}) {
   const profiles = new Map([
     [ids.staffProfile, { user_profile_id: ids.staffProfile, display_name: 'Demo Staff', role: 'staff', status: 'active' }],
     [ids.inactiveStaffProfile, { user_profile_id: ids.inactiveStaffProfile, display_name: 'Inactive Staff', role: 'staff', status: 'inactive' }],
@@ -75,10 +75,17 @@ function createContext({ now = NOW, notificationTriggers } = {}) {
   };
   const tokens = createTokenService(SECRET);
   const authModule = { tokens, service: { async getAuthenticatedUser(id) { const found = profiles.get(String(id)); if (!found) throw Object.assign(new Error('Authentication required'), { status: 401, code: 'UNAUTHENTICATED' }); return clone(found); } } };
-  const staffOperationsModule = createStaffOperationsModule({ repository, clinic: { timeZone: 'Asia/Manila' }, notificationTriggers, now: () => new Date(now) });
+  const bookingChecks = [];
+  const bookingAvailabilityService = {
+    async assertBookable(doctorId, appointmentAt) {
+      bookingChecks.push([String(doctorId), new Date(appointmentAt).toISOString()]);
+      if (bookingError) throw bookingError;
+    },
+  };
+  const staffOperationsModule = createStaffOperationsModule({ repository, clinic: { timeZone: 'Asia/Manila' }, bookingAvailabilityService, notificationTriggers, now: () => new Date(now) });
   const patientAppointmentModule = { patientService: {}, appointmentService: { async confirmForStaff(id) { const item = appointments.get(String(id)); if (!item) throw Object.assign(new Error('Not found'), { status: 404, code: 'APPOINTMENT_NOT_FOUND' }); if (item.status !== 'pending') throw Object.assign(new Error('Only pending'), { status: 409, code: 'INVALID_STATUS_TRANSITION' }); item.status = 'confirmed'; return { id: item._id, status: item.status }; } } };
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, staffOperationsModule, patientAppointmentModule });
-  return { app, patients, appointments, records, priorityAudits, repository, cookie: (profile) => `arion_auth=${tokens.sign(profile, { mfaVerified: profiles.get(String(profile))?.role === 'admin' })}` };
+  return { app, patients, appointments, records, priorityAudits, repository, bookingChecks, cookie: (profile) => `arion_auth=${tokens.sign(profile, { mfaVerified: profiles.get(String(profile))?.role === 'admin' })}` };
 }
 async function withServer(app, callback) { const server = app.listen(0, '127.0.0.1'); await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); }); try { await callback(`http://127.0.0.1:${server.address().port}`); } finally { await new Promise((resolve) => server.close(resolve)); } }
 function request(base, path, { method = 'GET', cookie, body } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }); }
@@ -141,6 +148,23 @@ test('successful Staff workflow transitions invoke only their approved notificat
     doctorId: ids.doctor,
   }]);
   assert.equal(JSON.stringify(calls).includes('Sensitive custom explanation.'), false);
+  assert.deepEqual(c.bookingChecks, [
+    [ids.doctor, walkInAppointment.appointment_at],
+    [ids.doctor, walkInAppointment.appointment_at],
+  ]);
+});
+
+test('Staff walk-in creation reuses authoritative Doctor slot availability', async () => {
+  const bookingError = Object.assign(new Error('That time is not available.'), { status: 409, code: 'APPOINTMENT_SLOT_UNAVAILABLE' });
+  const c = createContext({ bookingError });
+  await withServer(c.app, async (base) => {
+    const response = await request(base, `/api/staff/patients/${ids.patient}/walk-in-appointments`, {
+      method: 'POST', cookie: c.cookie(ids.staffProfile), body: walkInAppointment,
+    });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'APPOINTMENT_SLOT_UNAVAILABLE');
+  });
+  assert.deepEqual(c.bookingChecks, [[ids.doctor, walkInAppointment.appointment_at]]);
 });
 
 test('Staff searches Patients by name and contact with basic projection', async () => { const c = createContext(); await withServer(c.app, async (base) => { for (const query of ['Alex', '1234567']) { const response = await request(base, `/api/staff/patients?search=${query}`, { cookie: c.cookie(ids.staffProfile) }); const body = await response.json(); assert.equal(response.status, 200); assert.equal(body.patients[0].full_name, 'Alex Patient'); assert.equal('allergies' in body.patients[0], false); } }); });

@@ -28,6 +28,9 @@ test('Staff Doctors lists active Doctors with today schedule facts and dedicated
   await card.getByRole('link', { name: 'Manage Schedule' }).click();
   await expect(page).toHaveURL(`/staff/doctors/${doctor.doctorId}/schedule`);
   await expect(page.getByRole('heading', { name: doctor.display_name })).toBeVisible();
+  const clinicClock = page.getByLabel('Clinic date and time');
+  await expect(clinicClock).toContainText('Philippine time');
+  await expect(clinicClock.locator('time')).toBeVisible();
   await page.getByRole('link', { name: '← Back to Doctors' }).click();
   await expect(page).toHaveURL('/staff/doctors');
   assertBrowserClean();

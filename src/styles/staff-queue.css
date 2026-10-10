@@ -7,6 +7,10 @@
 .staff-queue .queue-counts strong { display:block; font-size:30px; margin-top:10px; }
 .staff-queue .queue-counts span { color:#52657b; font-size:14px; }
 .staff-queue .queue-layout { display:grid; grid-template-columns:minmax(0,2fr) minmax(260px,1fr); gap:20px; align-items:start; }
+.staff-queue .queue-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0; border-bottom:1px solid #cfdbe6; }
+.staff-queue .queue-tabs button { border:0; border-bottom:3px solid transparent; border-radius:7px 7px 0 0; background:transparent; color:#405970; font-weight:700; }
+.staff-queue .queue-tabs button[aria-pressed=true] { border-bottom-color:#165ec0; background:#e7f0ff; color:#124f9f; }
+.staff-queue .queue-tabs button span { font-weight:500; }
 .staff-queue .queue-sections { display:grid; gap:20px; }
 .staff-queue h2 { font-size:18px; margin:0 0 20px; }
 .staff-queue h2 span { color:#52657b; font-weight:400; }
@@ -37,6 +41,8 @@
 .staff-queue .priority-history time { color:#52657b; font-size:12px; }
 .staff-queue .queue-note { font-size:12px; }
 .staff-queue .queue-empty { padding:16px 0; }
+.staff-queue .queue-pagination { display:flex; justify-content:center; align-items:center; gap:14px; margin-top:18px; font-size:13px; }
+.staff-queue .queue-pagination button:disabled { color:#8997a8; cursor:not-allowed; }
 .staff-queue .priority-0, .staff-queue .status-cancelled { background:#ffe4e7; color:#a33434; }
 .staff-queue .priority-1 { background:#ede5ff; color:#6433a4; }
 .staff-queue .priority-2, .staff-queue .status-completed { background:#e2edff; color:#165ec0; }
@@ -45,4 +51,4 @@
 .staff-queue .status-no_show { background:#e7ebf0; color:#44536a; }
 @media(max-width:1100px) { .staff-queue .queue-layout { grid-template-columns:1fr; } .staff-queue .queue-details { grid-row:1; } }
 @media(max-width:900px) { .staff-queue .queue-counts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:550px) { .staff-queue .queue-heading { flex-direction:column; gap:0; } .staff-queue .queue-counts { grid-template-columns:1fr; gap:8px; } .staff-queue .queue-counts .queue-panel { display:flex; align-items:center; justify-content:space-between; padding:14px; } .staff-queue .queue-counts strong { margin:0; } .staff-queue .queue-patient { flex-direction:column; } .staff-queue .queue-panel { padding:16px; } }
+@media(max-width:550px) { .staff-queue .queue-heading { flex-direction:column; gap:0; } .staff-queue .queue-counts { grid-template-columns:1fr; gap:8px; } .staff-queue .queue-counts .queue-panel { display:flex; align-items:center; justify-content:space-between; padding:14px; } .staff-queue .queue-counts strong { margin:0; } .staff-queue .queue-tabs { display:grid; grid-template-columns:1fr; border-bottom:0; } .staff-queue .queue-tabs button { border:1px solid #c6d4e1; border-radius:6px; text-align:left; } .staff-queue .queue-tabs button[aria-pressed=true] { border-color:#165ec0; } .staff-queue .queue-patient { flex-direction:column; } .staff-queue .queue-panel { padding:16px; } }

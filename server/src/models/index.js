@@ -19,6 +19,7 @@ export { Prescription } from './Prescription.js';
 export { MedicalCertificate } from './MedicalCertificate.js';
 export {
   Notification,
+  NOTIFICATION_DISPLAY_NAME_MAX,
   NOTIFICATION_MESSAGE_MAX,
   NOTIFICATION_RECIPIENT_ROLES,
   NOTIFICATION_RESOURCE_TYPES,

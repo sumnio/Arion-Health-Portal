@@ -12,6 +12,12 @@ function blockParts(item) {
   const date = `${start.year}-${start.month}-${start.day}`; const endDate = `${end.year}-${end.month}-${end.day}`;
   return { date, start: `${start.hour}:${start.minute}`, end: `${end.hour}:${end.minute}`, wholeDay: start.hour === '00' && start.minute === '00' && end.hour === '00' && end.minute === '00' && date !== endDate };
 }
+function clinicClockParts(value) {
+  return {
+    date: new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(value),
+    time: new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(value),
+  };
+}
 
 export default function StaffDoctorSchedule() {
   const { id } = useParams(); const window = staffPublicationWindow();
@@ -19,6 +25,7 @@ export default function StaffDoctorSchedule() {
   const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [actionError, setActionError] = useState('');
   const [rangeDrafts, setRangeDrafts] = useState(() => Object.fromEntries(staffWeekDays.map((_, day) => [day, { ...blankRange }])));
   const [editing, setEditing] = useState(null);
+  const [clock, setClock] = useState(() => new Date());
   const [published, setPublished] = useState({ availability_date: window.start, ...blankRange });
   const [blocked, setBlocked] = useState({ date: window.start, whole_day: false, start_time: '12:00', end_time: '13:00', reason: '' });
   const load = useCallback(async () => {
@@ -27,6 +34,7 @@ export default function StaffDoctorSchedule() {
     catch (error) { setState(old => ({ ...old, loading: false, error: staffApiErrorMessage(error, 'Unable to load this Doctor schedule.') })); }
   }, [id]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { const timer = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(timer); }, []);
   async function run(action, success, afterSuccess) {
     if (busy) return;
     setBusy(true); setMessage(''); setActionError('');
@@ -38,9 +46,10 @@ export default function StaffDoctorSchedule() {
   if (state.loading && !state.doctor) return <div className="staff-schedule"><Link to="/staff/doctors">← Back to Doctors</Link><p role="status">Loading schedule…</p></div>;
   if (state.error || !state.doctor) return <div className="staff-schedule"><Link to="/staff/doctors">← Back to Doctors</Link><p role="alert" className="schedule-error">{state.error || 'Doctor not found.'}</p></div>;
   const recurringFor = day => state.schedule.recurring_availability.filter(item => item.day_of_week === day);
+  const clinicClock = clinicClockParts(clock);
   return <div className="staff-schedule">
     <Link className="schedule-back" to="/staff/doctors">← Back to Doctors</Link>
-    <header><h1>Manage Schedule</h1><h2>{state.doctor.display_name}</h2><p>{state.doctor.specialty}</p></header>
+    <header className="schedule-heading"><div><h1>Manage Schedule</h1><h2>{state.doctor.display_name}</h2><p>{state.doctor.specialty}</p></div><div className="schedule-clinic-clock" aria-label="Clinic date and time"><strong>{clinicClock.date}</strong><time dateTime={clock.toISOString()}>{clinicClock.time}</time><small>Philippine time</small></div></header>
     {message && <p role="status" className="schedule-success">{message}</p>}{actionError && <p role="alert" className="schedule-error">{actionError}</p>}
 
     <section className="staff-schedule-section"><h2>Regular Working Hours</h2><p>Set the Doctor’s usual weekly hours. Booking dates must fit within an enabled time range.</p>

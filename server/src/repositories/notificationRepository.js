@@ -1,4 +1,4 @@
-import { Doctor, Notification, Patient, UserProfile } from '../models/index.js';
+import { Appointment, Doctor, Notification, Patient, UserProfile } from '../models/index.js';
 
 function recipientScope(recipient) {
   return {
@@ -41,6 +41,24 @@ export const notificationRepository = {
       })
       .lean();
     return patient?.user_profile_id ?? null;
+  },
+
+  async findAppointmentNotificationContext(appointmentId) {
+    const appointment = await Appointment.findById(appointmentId)
+      .select('patient_id doctor_id appointment_at')
+      .populate({ path: 'patient_id', select: 'full_name' })
+      .populate({
+        path: 'doctor_id',
+        select: 'user_profile_id',
+        populate: { path: 'user_profile_id', select: 'display_name' },
+      })
+      .lean();
+    if (!appointment) return null;
+    return {
+      patient_display_name: appointment.patient_id?.full_name ?? null,
+      doctor_display_name: appointment.doctor_id?.user_profile_id?.display_name ?? null,
+      appointment_at: appointment.appointment_at ?? null,
+    };
   },
 
   async create(input) {
