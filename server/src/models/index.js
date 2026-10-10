@@ -1,5 +1,7 @@
 export { UserProfile } from './UserProfile.js';
 export { AuthAccount } from './AuthAccount.js';
+export { EmailVerificationChallenge, EMAIL_VERIFICATION_PURPOSES } from './EmailVerificationChallenge.js';
+export { PasswordResetToken } from './PasswordResetToken.js';
 export { Patient } from './Patient.js';
 export { Doctor } from './Doctor.js';
 export { Staff } from './Staff.js';

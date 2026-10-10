@@ -24,7 +24,7 @@ Main revisions:
 
 # 1. Authentication and User Profiles
 
-Authentication credentials and Admin MFA state are owned by the backend AuthAccount model. Email, `password_hash`, and MFA secrets are authentication data and are not fields in the approved UserProfile structure. Password recovery/reset and email verification remain future work.
+Authentication credentials, account-verification state, and Admin MFA state are owned by the backend AuthAccount model. Email, `password_hash`, verification state, and MFA secrets are authentication data and are not fields in the approved UserProfile structure. Milestone 1.25 adds storage and security primitives for future Patient email verification and password reset, but no routes, UI, or enforcement.
 
 Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, role, common contact information, and account status, not authentication credentials. Doctor and Staff must not contain username-based authentication fields.
 
@@ -48,6 +48,8 @@ Admin is represented by `UserProfile.role = admin`; there is no separate Admin e
 | user_profile_id | identifier, FK, unique | Required reference to `UserProfile.id`; one credential account per profile |
 | email | text, unique | Required; normalized to lowercase |
 | password_hash | text | Required bcrypt hash; excluded from normal query/API output |
+| email_verification_required | boolean | Defaults false so every existing account and current registration remains compatible; Milestone 1.26 may set true only for new Patient registrations |
+| email_verified_at | timestamp, nullable | Future server-owned verification completion time; null does not block login in Milestone 1.25 |
 | mfa_enabled | boolean | Defaults false; mandatory before an Admin receives full portal access |
 | mfa_secret_encrypted | text, nullable | Authenticated-encryption ciphertext for the enrolled TOTP secret; excluded from normal queries and all APIs |
 | mfa_pending_secret_encrypted | text, nullable | Temporary encrypted TOTP secret used only during Admin enrollment |
@@ -64,6 +66,43 @@ Admin accounts require TOTP MFA. Valid Admin credentials create only a separate 
 TOTP secrets are generated and verified by the maintained `otplib` library. Enrolled and pending secrets use AES-256-GCM authenticated encryption with a separately configured `MFA_ENCRYPTION_KEY`; plaintext secrets are returned only during the enrollment response and are never stored or logged. Verification accepts a six-digit code with one 30-second clock-skew step and is limited to five failed attempts per ten minutes. Recovery codes and self-service MFA reset are deferred; loss of the authenticator requires a controlled offline operator recovery process.
 
 Public Patient registration creates AuthAccount, UserProfile with role `patient`, and linked Patient records in one MongoDB transaction. A request body cannot assign Doctor, Staff, or Admin. If an unlinked walk-in candidate already has the same contact number and date of birth, registration stops for later verified account-linking review instead of automatically matching by name or creating a silent duplicate.
+
+## EmailVerificationChallenge
+
+The `email_verification_challenges` collection is an internal foundation for future Patient registration verification. It is not exposed through an API in Milestone 1.25.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | identifier, PK | MongoDB `_id` |
+| account_id | identifier, FK | Required immutable AuthAccount reference |
+| purpose | enum | `registration_verification` |
+| code_hash | text | Required keyed HMAC-SHA-256 digest; excluded from normal queries; plaintext OTP is never persisted |
+| expires_at | timestamp | Ten minutes after creation |
+| attempt_count | integer | Starts at zero |
+| max_attempts | integer | Five attempts per challenge |
+| resend_count | integer | Foundation metadata for future resend control |
+| last_sent_at | timestamp, nullable | Trusted server time for the most recent delivery attempt |
+| consumed_at | timestamp, nullable | Set once after successful verification |
+| invalidated_at | timestamp, nullable | Set when a newer replacement challenge invalidates this challenge |
+| created_at / updated_at | timestamp | Managed by Mongoose |
+
+Indexes support `(account_id, purpose, created_at DESC)` history and `expires_at` lookup. Expiration is enforced logically; no TTL deletion is configured so tests and later audit policy are not complicated. A code is exactly six numeric digits generated with cryptographic randomness, including possible leading zeroes. The digest uses the separate `ACCOUNT_TOKEN_HMAC_SECRET`, never `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, or database credentials.
+
+## PasswordResetToken
+
+The `password_reset_tokens` collection is an internal foundation for Milestone 1.27. No forgot-password or reset route exists yet.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | identifier, PK | MongoDB `_id` |
+| account_id | identifier, FK | Required immutable AuthAccount reference |
+| token_hash | text, unique | Keyed HMAC-SHA-256 digest of a 32-byte URL-safe random token; excluded from normal queries |
+| expires_at | timestamp | Thirty minutes after creation |
+| consumed_at | timestamp, nullable | Set by the single-use consume primitive |
+| invalidated_at | timestamp, nullable | Set when a newer token replaces outstanding tokens for the account |
+| created_at / updated_at | timestamp | Managed by Mongoose |
+
+Indexes support unique hash lookup, `(account_id, created_at DESC)` history, and expiry lookup. Plaintext reset tokens and complete reset links are never stored or logged. Expiration and consumption are logical, with no TTL deletion. Future forgot-password responses must be generic whether or not an account exists.
 
 ## UserProfile
 

@@ -2,7 +2,7 @@
 
 ## Final project status
 
-Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8.
+Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestone 1.25 adds a local backend-only email/account-token foundation; it has not been deployed.
 
 | Layer | Final technology |
 | --- | --- |
@@ -35,6 +35,7 @@ Milestones 13–23, 24.1–24.7, and 25.1–25.8 are complete. Any new feature w
 | Milestone 25.8 | Complete |
 | MVP development | **COMPLETE** |
 | MVP deployment | **COMPLETE** |
+| Post-MVP Milestone 1.25 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 
 ## Architecture
 
@@ -52,6 +53,12 @@ Vercel routes `/api/*` to Express before the React SPA fallback. React Router ow
 Production-mode request throttling uses the shared MongoDB-backed rate-limit store so counters remain consistent across serverless instances and fail closed if the store is unavailable.
 
 Production, Preview, development, and E2E data must remain isolated. Production and Preview use distinct Vercel environment scopes, Atlas resources, database names, authentication secrets, MFA encryption keys, and exact CORS origins.
+
+### Post-MVP email/account-token foundation
+
+The backend now contains a fixed-template transactional email service, an isolated native-fetch Resend adapter, and a silent fake provider for tests/local use. No public email endpoint exists. `AuthAccount.email_verification_required` defaults false and `email_verified_at` is nullable, so existing accounts and current registration/login remain unchanged. New hash-only email-verification challenges and password-reset-token records support replacement invalidation, logical expiry, attempt bounds, and single-use consumption. OTPs expire in ten minutes; reset tokens expire in thirty minutes. Domain-separated HMAC-SHA-256 uses a dedicated `ACCOUNT_TOKEN_HMAC_SECRET`.
+
+This is foundation only: there is no Verify Email, OTP, Resend, Forgot Password, or Reset Password route/UI, no registration redirect, and no login enforcement. Staff, Doctor, Admin, inactive-account handling, and Admin MFA are unchanged. Production/Preview environment variables, databases, and deployments were not modified. Before Milestone 1.26 deployment, configure and validate an approved sender/domain plus the new backend secrets in the correct isolated environment.
 
 ## Roles and permission boundaries
 
@@ -102,6 +109,8 @@ No reminder job, email/SMS/push delivery, preferences, delete/archive/mark-unrea
 
 This is a point-in-time baseline. Re-run the appropriate checks after application, dependency, configuration, or infrastructure changes.
 
+Milestone 1.25 local validation adds **371/371 backend tests passed**, **149/149 frontend tests passed** using sequential per-file execution required by the restricted Windows sandbox, and a successful Production frontend build. Playwright was not run because this milestone has no user-facing route or UI. No Preview or Production validation/deployment was performed.
+
 ## Production restrictions and data policy
 
 Production must contain synthetic/demo data only. Do not enter, import, retain, or process real patient information, diagnoses, notes, Prescriptions, certificates, or other clinical data.
@@ -146,8 +155,9 @@ Environment variable names, without values:
 
 | Scope | Names |
 | --- | --- |
-| Backend required | `MONGODB_URI`, `MONGODB_DB_NAME`, `NODE_ENV`, `CORS_ORIGIN`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, `CLINIC_NAME`, `CLINIC_LOCATION`, `CLINIC_TIME_ZONE` |
-| Backend optional/configured when approved | `CLINIC_OPEN_TIME`, `CLINIC_CLOSE_TIME`, `CERTIFICATE_ISSUANCE_ENABLED`, `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_RATE_LIMIT_MAX`, `AUTH_REGISTER_RATE_LIMIT_WINDOW_MS`, `AUTH_REGISTER_RATE_LIMIT_MAX`, `ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS`, `ADMIN_PROVISION_RATE_LIMIT_MAX`, `MFA_VERIFY_RATE_LIMIT_WINDOW_MS`, `MFA_VERIFY_RATE_LIMIT_MAX` |
+| Backend required before deploying the 1.25 foundation | `MONGODB_URI`, `MONGODB_DB_NAME`, `NODE_ENV`, `CORS_ORIGIN`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, `ACCOUNT_TOKEN_HMAC_SECRET`, `CLINIC_NAME`, `CLINIC_LOCATION`, `CLINIC_TIME_ZONE` |
+| Backend email provider when explicitly enabled | `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL` |
+| Backend optional/configured when approved | `CLINIC_OPEN_TIME`, `CLINIC_CLOSE_TIME`, `CERTIFICATE_ISSUANCE_ENABLED`, `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_RATE_LIMIT_MAX`, `AUTH_REGISTER_RATE_LIMIT_WINDOW_MS`, `AUTH_REGISTER_RATE_LIMIT_MAX`, `ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS`, `ADMIN_PROVISION_RATE_LIMIT_MAX`, `MFA_VERIFY_RATE_LIMIT_WINDOW_MS`, `MFA_VERIFY_RATE_LIMIT_MAX`, `EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_WINDOW_MS`, `EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_MAX`, `EMAIL_VERIFICATION_RESEND_RATE_LIMIT_WINDOW_MS`, `EMAIL_VERIFICATION_RESEND_RATE_LIMIT_MAX`, `FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS`, `FORGOT_PASSWORD_RATE_LIMIT_MAX`, `PASSWORD_RESET_RATE_LIMIT_WINDOW_MS`, `PASSWORD_RESET_RATE_LIMIT_MAX` |
 | Frontend public | `VITE_API_BASE_URL`, `VITE_CERTIFICATE_ISSUANCE_ENABLED` |
 | One-time bootstrap only | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_DISPLAY_NAME`, `ADMIN_CONTACT_NUMBER` |
 

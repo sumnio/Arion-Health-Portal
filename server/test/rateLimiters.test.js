@@ -171,3 +171,24 @@ test('Admin provisioning limiter is shared across Doctor and Staff creation and 
     assert.equal((await request(baseUrl, '/api/health')).status, 200);
   });
 });
+
+test('future account-security limiters use distinct shared-store namespaces', () => {
+  const namespaces = [];
+  createApp(
+    { nodeEnv: 'test', authSecret: SECRET },
+    {
+      authModule: authModule(),
+      rateLimitStoreFactory(namespace) {
+        namespaces.push(namespace);
+        return undefined;
+      },
+    },
+  );
+  for (const namespace of [
+    'email_verification_attempt',
+    'email_verification_resend',
+    'forgot_password',
+    'password_reset',
+  ]) assert.ok(namespaces.includes(namespace));
+  assert.equal(new Set(namespaces).size, namespaces.length);
+});

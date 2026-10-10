@@ -4,7 +4,7 @@ import express from 'express';
 import { createApp } from '../src/app.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 import { requireMongoUri } from '../src/config/database.js';
-import { loadConfig, parseCorsOrigins, requireMfaEncryptionKey, validateRuntimeConfig } from '../src/config/env.js';
+import { loadConfig, parseCorsOrigins, requireAccountTokenHmacSecret, requireMfaEncryptionKey, validateRuntimeConfig } from '../src/config/env.js';
 import { requireAuthSecret } from '../src/services/tokenService.js';
 
 async function withServer(app, check) {
@@ -80,6 +80,16 @@ test('Admin MFA configuration requires a base64-encoded 32-byte encryption key',
   assert.throws(() => requireMfaEncryptionKey('not-base64'), /base64-encoded 32-byte/);
 });
 
+test('account token hashing uses a separate strictly validated secret', () => {
+  assert.equal(requireAccountTokenHmacSecret('test-value', 'test'), 'test-value');
+  assert.throws(() => requireAccountTokenHmacSecret('', 'production'), /ACCOUNT_TOKEN_HMAC_SECRET/);
+  assert.throws(() => requireAccountTokenHmacSecret('too-short', 'production'), /at least 32/);
+  assert.equal(
+    requireAccountTokenHmacSecret('separate-account-token-secret-123456789', 'production'),
+    'separate-account-token-secret-123456789',
+  );
+});
+
 test('runtime configuration validates required values without exposing them', () => {
   const valid = loadConfig({
     NODE_ENV: 'production',
@@ -87,6 +97,7 @@ test('runtime configuration validates required values without exposing them', ()
     MONGODB_DB_NAME: 'arion_health_preview',
     AUTH_SECRET: 'strong-production-secret-1234567890',
     MFA_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
+    ACCOUNT_TOKEN_HMAC_SECRET: 'separate-production-token-secret-123456789',
     CORS_ORIGIN: 'https://portal.example.test',
     CLINIC_TIME_ZONE: 'Asia/Manila',
     CLINIC_NAME: 'Arion Health Clinic',
@@ -108,12 +119,42 @@ test('runtime configuration validates required values without exposing them', ()
     NODE_ENV: 'production', MONGODB_URI: 'mongodb://private-host/arion',
     AUTH_SECRET: 'strong-production-secret-1234567890',
     MFA_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
+    ACCOUNT_TOKEN_HMAC_SECRET: 'separate-production-token-secret-123456789',
     CORS_ORIGIN: 'https://portal.example.test',
   };
   assert.throws(() => validateRuntimeConfig(loadConfig(productionBase)), /MONGODB_DB_NAME/);
   assert.throws(() => validateRuntimeConfig(loadConfig({ ...productionBase, MONGODB_DB_NAME: 'arion_health_production' })), /CLINIC_TIME_ZONE/);
   assert.throws(() => validateRuntimeConfig(loadConfig({ ...productionBase, MONGODB_DB_NAME: 'arion_health_production', CLINIC_TIME_ZONE: 'Asia\/Manila' })), /CLINIC_NAME/);
   assert.throws(() => validateRuntimeConfig(loadConfig({ ...productionBase, MONGODB_DB_NAME: 'arion_health_production', CLINIC_TIME_ZONE: 'Asia\/Manila', CLINIC_NAME: 'Arion Health Clinic' })), /CLINIC_LOCATION/);
+});
+
+test('email configuration is safe by default and strict when Resend is enabled', () => {
+  const testConfig = loadConfig({ NODE_ENV: 'test' });
+  assert.equal(testConfig.emailProvider, 'fake');
+  assert.equal(testConfig.resendApiKey, '');
+  assert.equal(testConfig.appBaseUrl, 'http://127.0.0.1:5173');
+
+  const base = {
+    NODE_ENV: 'production',
+    MONGODB_URI: 'mongodb://private-host/arion',
+    MONGODB_DB_NAME: 'arion_health_production',
+    AUTH_SECRET: 'strong-production-secret-1234567890',
+    MFA_ENCRYPTION_KEY: Buffer.alloc(32, 4).toString('base64'),
+    ACCOUNT_TOKEN_HMAC_SECRET: 'separate-production-token-secret-123456789',
+    CORS_ORIGIN: 'https://portal.example.test',
+    CLINIC_TIME_ZONE: 'Asia/Manila',
+    CLINIC_NAME: 'Arion Health Clinic',
+    CLINIC_LOCATION: 'Approved production clinic location',
+    EMAIL_PROVIDER: 'resend',
+  };
+  assert.throws(() => validateRuntimeConfig(loadConfig(base)), /RESEND_API_KEY/);
+  assert.throws(() => validateRuntimeConfig(loadConfig({ ...base, RESEND_API_KEY: 'private-key' })), /EMAIL_FROM/);
+  assert.throws(() => validateRuntimeConfig(loadConfig({ ...base, RESEND_API_KEY: 'private-key', EMAIL_FROM: 'noreply@example.test' })), /APP_BASE_URL/);
+  assert.equal(validateRuntimeConfig(loadConfig({ ...base, RESEND_API_KEY: 'private-key', EMAIL_FROM: 'noreply@example.test', APP_BASE_URL: 'https://portal.example.test' })).emailProvider, 'resend');
+  assert.throws(() => validateRuntimeConfig(loadConfig({ ...base, RESEND_API_KEY: 'private-key', EMAIL_FROM: 'noreply@example.test', APP_BASE_URL: 'http://portal.example.test' })), /HTTPS/);
+  assert.throws(() => validateRuntimeConfig(loadConfig({ ...base, RESEND_API_KEY: 'private-key', EMAIL_FROM: "noreply@example.test\nBcc: attacker@example.test", APP_BASE_URL: 'https://portal.example.test' })), /EMAIL_FROM/);
+  assert.throws(() => loadConfig({ EMAIL_PROVIDER: 'smtp' }), /EMAIL_PROVIDER/);
+  assert.throws(() => loadConfig({ APP_BASE_URL: 'https://portal.example.test/path' }), /APP_BASE_URL/);
 });
 
 test('CORS configuration accepts normalized allowlists and rejects unsafe entries', () => {
@@ -143,6 +184,10 @@ test('rate-limit configuration has safe defaults and validates positive integers
   assert.equal(defaults.adminProvisionRateLimitMax, 20);
   assert.equal(defaults.mfaVerifyRateLimitWindowMs, 600_000);
   assert.equal(defaults.mfaVerifyRateLimitMax, 5);
+  assert.equal(defaults.verificationAttemptRateLimitMax, 10);
+  assert.equal(defaults.verificationResendRateLimitMax, 3);
+  assert.equal(defaults.forgotPasswordRateLimitMax, 5);
+  assert.equal(defaults.passwordResetRateLimitMax, 5);
 
   const configured = loadConfig({
     AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: '1000',

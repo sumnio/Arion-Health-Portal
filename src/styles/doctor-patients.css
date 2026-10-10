@@ -16,4 +16,14 @@
 .doctor-patients-page .status-pending { background: #fff3d9; color: #825400; }
 .doctor-patients-page .status-cancelled { background: #ffe4e7; color: #a33434; }
 .doctor-patients-page .status-no_show { background: #e7ebf0; color: #44536a; }
-@media (max-width: 700px) { .doctor-patients-page .patients-table-wrap { border: 0; background: transparent; overflow: visible; } .doctor-patients-page table, .doctor-patients-page tbody, .doctor-patients-page tr, .doctor-patients-page td { display: block; min-width: 0; } .doctor-patients-page thead { display: none; } .doctor-patients-page caption { padding: 0 0 12px; } .doctor-patients-page tr { margin-bottom: 14px; padding: 18px; background: white; border: 1px solid #dfe7ee; border-radius: 10px; } .doctor-patients-page td { padding: 10px 0; border: 0; } }
+.doctor-patients-page td:last-child .action-link { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; white-space: nowrap; }
+@media (max-width: 900px) {
+  .doctor-patients-page .patients-table-wrap { border: 0; background: transparent; overflow: visible; }
+  .doctor-patients-page table, .doctor-patients-page tbody, .doctor-patients-page tr, .doctor-patients-page td { display: block; min-width: 0; }
+  .doctor-patients-page thead { display: none; }
+  .doctor-patients-page caption { padding: 0 0 12px; }
+  .doctor-patients-page tr { margin-bottom: 14px; padding: 18px; background: white; border: 1px solid #dfe7ee; border-radius: 10px; }
+  .doctor-patients-page td { padding: 10px 0; border: 0; }
+  .doctor-patients-page td:last-child { padding-top: 16px; border-top: 1px solid #e3eaf0; }
+  .doctor-patients-page td:last-child .action-link { display: flex; width: 100%; box-sizing: border-box; text-align: center; }
+}

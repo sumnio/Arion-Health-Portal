@@ -10,6 +10,14 @@ export const RATE_LIMIT_DEFAULTS = Object.freeze({
   adminProvisionMax: 20,
   mfaVerifyWindowMs: 10 * 60 * 1000,
   mfaVerifyMax: 5,
+  verificationAttemptWindowMs: 10 * 60 * 1000,
+  verificationAttemptMax: 10,
+  verificationResendWindowMs: 60 * 60 * 1000,
+  verificationResendMax: 3,
+  forgotPasswordWindowMs: 60 * 60 * 1000,
+  forgotPasswordMax: 5,
+  passwordResetWindowMs: 15 * 60 * 1000,
+  passwordResetMax: 5,
 });
 
 const rateLimitedResponse = Object.freeze({
@@ -46,6 +54,14 @@ export function createRateLimiters({
   adminProvisionMax = RATE_LIMIT_DEFAULTS.adminProvisionMax,
   mfaVerifyWindowMs = RATE_LIMIT_DEFAULTS.mfaVerifyWindowMs,
   mfaVerifyMax = RATE_LIMIT_DEFAULTS.mfaVerifyMax,
+  verificationAttemptWindowMs = RATE_LIMIT_DEFAULTS.verificationAttemptWindowMs,
+  verificationAttemptMax = RATE_LIMIT_DEFAULTS.verificationAttemptMax,
+  verificationResendWindowMs = RATE_LIMIT_DEFAULTS.verificationResendWindowMs,
+  verificationResendMax = RATE_LIMIT_DEFAULTS.verificationResendMax,
+  forgotPasswordWindowMs = RATE_LIMIT_DEFAULTS.forgotPasswordWindowMs,
+  forgotPasswordMax = RATE_LIMIT_DEFAULTS.forgotPasswordMax,
+  passwordResetWindowMs = RATE_LIMIT_DEFAULTS.passwordResetWindowMs,
+  passwordResetMax = RATE_LIMIT_DEFAULTS.passwordResetMax,
   storeFactory = () => undefined,
 } = {}) {
   return {
@@ -75,6 +91,32 @@ export function createRateLimiters({
       skipSuccessfulRequests: true,
       event: 'MFA_RATE_LIMITED',
       store: storeFactory('mfa_verification'),
+    }),
+    verificationAttemptRateLimiter: limiter({
+      windowMs: verificationAttemptWindowMs,
+      max: verificationAttemptMax,
+      limiterType: 'email_verification_attempt',
+      skipSuccessfulRequests: true,
+      store: storeFactory('email_verification_attempt'),
+    }),
+    verificationResendRateLimiter: limiter({
+      windowMs: verificationResendWindowMs,
+      max: verificationResendMax,
+      limiterType: 'email_verification_resend',
+      store: storeFactory('email_verification_resend'),
+    }),
+    forgotPasswordRateLimiter: limiter({
+      windowMs: forgotPasswordWindowMs,
+      max: forgotPasswordMax,
+      limiterType: 'forgot_password',
+      store: storeFactory('forgot_password'),
+    }),
+    passwordResetRateLimiter: limiter({
+      windowMs: passwordResetWindowMs,
+      max: passwordResetMax,
+      limiterType: 'password_reset',
+      skipSuccessfulRequests: true,
+      store: storeFactory('password_reset'),
     }),
   };
 }

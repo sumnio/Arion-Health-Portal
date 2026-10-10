@@ -19,6 +19,15 @@ const authAccountSchema = new mongoose.Schema(
       required: true,
       select: false,
     },
+    email_verification_required: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+    email_verified_at: {
+      type: Date,
+      default: null,
+    },
     mfa_enabled: {
       type: Boolean,
       required: true,

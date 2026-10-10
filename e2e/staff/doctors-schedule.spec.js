@@ -54,6 +54,24 @@ test('Staff manages working hours, booking dates, and time off through the simpl
   await expect(day.locator('.schedule-status', { hasText: 'Enabled' })).toBeVisible();
 
   const range = day.locator('li').first();
+  const actions = range.locator('.row-actions');
+  await expect(actions).toHaveCSS('flex-wrap', 'nowrap');
+  let actionBoxes = await actions.getByRole('button').evaluateAll(buttons => buttons.map(button => { const box = button.getBoundingClientRect(); return { top: box.y, height: box.height }; }));
+  const tops = actionBoxes.map(box => box.top); const heights = actionBoxes.map(box => box.height);
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(2);
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(2);
+  const statusBox = await range.locator('.schedule-status').boundingBox();
+  const contentBox = await range.locator('.schedule-range-content').boundingBox();
+  expect(statusBox.width).toBeLessThan(contentBox.width / 2);
+  let timeBox = await range.locator('.schedule-time-value').boundingBox();
+  expect(statusBox.y + statusBox.height).toBeLessThanOrEqual(timeBox.y);
+  expect(Math.abs(timeBox.height - actionBoxes[0].height)).toBeLessThan(2);
+
+  await page.setViewportSize({ width: 1000, height: 885 });
+  timeBox = await range.locator('.schedule-time-value').boundingBox();
+  actionBoxes = await actions.getByRole('button').evaluateAll(buttons => buttons.map(button => { const box = button.getBoundingClientRect(); return { top: box.y, height: box.height }; }));
+  expect(Math.min(...actionBoxes.map(box => box.top))).toBeGreaterThanOrEqual(timeBox.y + timeBox.height);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await range.getByRole('button', { name: 'Edit' }).click();
   await range.getByLabel('End').fill('11:30');
   await range.getByRole('button', { name: 'Save' }).click();

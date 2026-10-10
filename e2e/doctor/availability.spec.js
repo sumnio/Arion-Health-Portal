@@ -33,6 +33,10 @@ test('Doctor sees a read-only schedule managed by Staff', async ({ page, patient
 
   await openAvailability(page, seededDoctor);
   await expect(page.getByText('Read-only schedule · Staff manages Doctor availability and blocked time.')).toBeVisible();
+  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long' }).format(dateOnlyToUtc(date));
+  const workingDay = page.locator('.availability-day').filter({ has: page.getByRole('heading', { name: weekday }) });
+  await expect(workingDay.locator('header > div')).toHaveCSS('display', 'flex');
+  await expect(workingDay.locator('header > div')).toHaveCSS('align-items', 'center');
   await expect(page.getByText(formatBookingDate(date), { exact: true })).toHaveCount(2);
   await expect(page.getByText('E2E meeting')).toBeVisible();
   await expect(page.getByRole('button', { name: /Add Range|Publish Range|Add Block|Remove/ })).toHaveCount(0);

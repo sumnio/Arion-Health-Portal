@@ -7,6 +7,8 @@ This ERD is the logical and relational reference model. UUID and PostgreSQL-spec
 The Arion Health Portal contains the following main entities and external identity relationship:
 
 - AuthAccount
+- EmailVerificationChallenge
+- PasswordResetToken
 - UserProfile
 - Patient
 - Doctor
@@ -53,7 +55,7 @@ UserProfile 1 ─── 0..1 Staff
                 via Staff.user_profile_id
 ```
 
-AuthAccount fields are `id`, unique `user_profile_id`, unique normalized `email`, `password_hash`, `mfa_enabled`, encrypted enrolled and pending MFA secrets, `mfa_enrolled_at`, short-lived MFA challenge hash/expiration, `created_at`, and `updated_at`. Password hashes, encrypted MFA secrets, and challenge state are excluded from normal queries and all API responses.
+AuthAccount fields are `id`, unique `user_profile_id`, unique normalized `email`, `password_hash`, backward-compatible `email_verification_required` (default false), nullable `email_verified_at`, `mfa_enabled`, encrypted enrolled and pending MFA secrets, `mfa_enrolled_at`, short-lived MFA challenge hash/expiration, `created_at`, and `updated_at`. Password hashes, encrypted MFA secrets, and challenge state are excluded from normal queries and all API responses. Milestone 1.25 does not enforce verification during registration or login.
 
 Authentication uses a server-signed JWT stored in an HttpOnly cookie. Password hashes stay in AuthAccount; cookie/token validation establishes identity, while UserProfile status and role authorization determine access. Admin password verification creates only a separate ten-minute pre-authentication challenge. The full session is issued only after TOTP enrollment or verification succeeds, and consumed challenges cannot be replayed.
 
@@ -64,6 +66,15 @@ Relationship:
 ```text
 AuthAccount 1 ─── 1 UserProfile
 ```
+
+Future Patient account verification and password recovery use separate server-owned security records:
+
+```text
+AuthAccount 1 ─── 0..* EmailVerificationChallenge
+AuthAccount 1 ─── 0..* PasswordResetToken
+```
+
+`EmailVerificationChallenge` stores an immutable account reference, fixed registration-verification purpose, HMAC code hash, ten-minute expiry, attempt/resend counters, last-sent time, and consumption/invalidation times. `PasswordResetToken` stores an immutable account reference, unique HMAC token hash, thirty-minute expiry, and consumption/invalidation times. Both use `ACCOUNT_TOKEN_HMAC_SECRET`, store no plaintext secret, logically reject expired/consumed/invalidated records, and invalidate older active records when replaced. Neither collection has TTL deletion. No public verification, resend, forgot-password, or reset endpoint exists in Milestone 1.25.
 
 ```text
 UserProfile 0..1 ─── 0..1 Patient

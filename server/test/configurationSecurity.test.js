@@ -27,6 +27,8 @@ test('backend example contains placeholders and gitignore protects real environm
   assert.match(example, /^MONGODB_URI=\s*$/m);
   assert.match(example, /^AUTH_SECRET=\s*$/m);
   assert.match(example, /^MFA_ENCRYPTION_KEY=\s*$/m);
+  assert.match(example, /^ACCOUNT_TOKEN_HMAC_SECRET=\s*$/m);
+  assert.match(example, /^RESEND_API_KEY=\s*$/m);
   assert.match(example, /^ADMIN_PASSWORD=\s*$/m);
   assert.doesNotMatch(example, /mongodb(?:\+srv)?:\/\/[^\s:@]+:[^\s@]+@/i);
 

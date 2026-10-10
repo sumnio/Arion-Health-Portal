@@ -6,6 +6,7 @@ import {
   Appointment,
   AppointmentPriorityAudit,
   AuthAccount,
+  EmailVerificationChallenge,
   Doctor,
   DoctorAvailability,
   DoctorBlockedTime,
@@ -13,6 +14,7 @@ import {
   MedicalCertificate,
   MedicalRecord,
   Notification,
+  PasswordResetToken,
   Patient,
   Prescription,
   Staff,
@@ -30,6 +32,8 @@ test('all domain models load with their intended collection names', () => {
     [
       UserProfile,
       AuthAccount,
+      EmailVerificationChallenge,
+      PasswordResetToken,
       Patient,
       Doctor,
       Staff,
@@ -46,6 +50,8 @@ test('all domain models load with their intended collection names', () => {
     [
       'user_profiles',
       'auth_accounts',
+      'email_verification_challenges',
+      'password_reset_tokens',
       'patients',
       'doctors',
       'staff',
@@ -188,6 +194,8 @@ test('AuthAccount owns credentials and declares unique email and profile indexes
   assert.equal(AuthAccount.schema.path('mfa_pending_secret_encrypted').options.select, false);
   assert.equal(AuthAccount.schema.path('mfa_challenge_hash').options.select, false);
   assert.equal(AuthAccount.schema.path('mfa_enabled').options.default, false);
+  assert.equal(AuthAccount.schema.path('email_verification_required').options.default, false);
+  assert.equal(AuthAccount.schema.path('email_verified_at').options.default, null);
   assert.equal(indexByName(AuthAccount, 'unique_auth_account_email')[1].unique, true);
   assert.equal(indexByName(AuthAccount, 'unique_auth_account_profile')[1].unique, true);
 });
@@ -363,6 +371,18 @@ test('Appointment created_by is a nullable UserProfile reference', async () => {
   });
   await appointment.validate();
   assert.equal(appointment.created_by, null);
+});
+
+test('account challenge models protect token hashes and declare lookup indexes without TTL deletion', () => {
+  assert.equal(EmailVerificationChallenge.schema.path('code_hash').options.select, false);
+  assert.equal(PasswordResetToken.schema.path('token_hash').options.select, false);
+  assert.ok(indexByName(EmailVerificationChallenge, 'email_verification_account_history'));
+  assert.ok(indexByName(EmailVerificationChallenge, 'email_verification_expiry_lookup'));
+  assert.equal(indexByName(PasswordResetToken, 'unique_password_reset_token_hash')[1].unique, true);
+  assert.ok(indexByName(PasswordResetToken, 'password_reset_account_history'));
+  assert.ok(indexByName(PasswordResetToken, 'password_reset_expiry_lookup'));
+  assert.equal(EmailVerificationChallenge.schema.indexes().some(([, options]) => 'expireAfterSeconds' in options), false);
+  assert.equal(PasswordResetToken.schema.indexes().some(([, options]) => 'expireAfterSeconds' in options), false);
 });
 
 test('priority audit requires approved append-only transition evidence', async () => {

@@ -6,8 +6,10 @@ dotenv.config({ path: envPath, quiet: true });
 
 export const AUTH_SECRET_MIN_LENGTH = 32;
 export const MFA_ENCRYPTION_KEY_BYTES = 32;
+export const ACCOUNT_TOKEN_HMAC_SECRET_MIN_LENGTH = 32;
 export const DEFAULT_DEVELOPMENT_ORIGIN = 'http://127.0.0.1:5173';
 const allowedNodeEnvironments = new Set(['development', 'test', 'production']);
+const allowedEmailProviders = new Set(['fake', 'resend']);
 const placeholderSecrets = new Set([
   'secret',
   'changeme',
@@ -119,6 +121,52 @@ export function requireMfaEncryptionKey(key, nodeEnv = 'development') {
   return value;
 }
 
+export function requireAccountTokenHmacSecret(secret, nodeEnv = 'development') {
+  const value = secret?.trim();
+  if (!value) {
+    if (nodeEnv === 'test') return 'test-only-account-token-hmac-secret';
+    throw new Error('ACCOUNT_TOKEN_HMAC_SECRET is required for account token operations.');
+  }
+  if (nodeEnv !== 'test') {
+    const normalized = value.toLowerCase();
+    if (
+      value.length < ACCOUNT_TOKEN_HMAC_SECRET_MIN_LENGTH ||
+      placeholderSecrets.has(normalized) ||
+      normalized.includes('replace-with') ||
+      /[<>]/.test(value)
+    ) {
+      throw new Error(`ACCOUNT_TOKEN_HMAC_SECRET must be a non-placeholder value of at least ${ACCOUNT_TOKEN_HMAC_SECRET_MIN_LENGTH} characters.`);
+    }
+  }
+  return value;
+}
+
+function parseEmailProvider(value, nodeEnv) {
+  const provider = value?.trim().toLowerCase() || 'fake';
+  if (!allowedEmailProviders.has(provider)) {
+    throw new Error('EMAIL_PROVIDER must be fake or resend.');
+  }
+  if (nodeEnv === 'production' && provider === 'fake' && value?.trim()) {
+    throw new Error('EMAIL_PROVIDER=fake is not allowed in production.');
+  }
+  return provider;
+}
+
+function parseAppBaseUrl(value, nodeEnv) {
+  const raw = value?.trim() || (nodeEnv === 'production' ? '' : DEFAULT_DEVELOPMENT_ORIGIN);
+  if (!raw) return '';
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('APP_BASE_URL must be a valid HTTP or HTTPS origin.');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.origin !== raw) {
+    throw new Error('APP_BASE_URL must be an origin-only HTTP or HTTPS URL.');
+  }
+  return parsed.origin;
+}
+
 export function validateRuntimeConfig(config) {
   if (!config?.mongoUri) throw new Error('MONGODB_URI is required. Add it to server/.env before starting the API.');
   requireAuthSecret(config.authSecret, config.nodeEnv);
@@ -127,6 +175,7 @@ export function validateRuntimeConfig(config) {
     throw new Error('CORS_ORIGIN must contain at least one trusted origin.');
   }
   if (config.nodeEnv === 'production') {
+    requireAccountTokenHmacSecret(config.accountTokenHmacSecret, config.nodeEnv);
     if (!config.mongoDatabaseName) {
       throw new Error('MONGODB_DB_NAME is required in production to isolate application data.');
     }
@@ -138,6 +187,18 @@ export function validateRuntimeConfig(config) {
     }
     if (!config.clinicLocation || config.clinicLocation === 'Clinic location not configured') {
       throw new Error('CLINIC_LOCATION must contain the real clinic location in production.');
+    }
+  }
+  if (config.emailProvider === 'resend') {
+    requireAccountTokenHmacSecret(config.accountTokenHmacSecret, config.nodeEnv);
+    if (!config.resendApiKey) throw new Error('RESEND_API_KEY is required when EMAIL_PROVIDER=resend.');
+    if (!config.emailFrom) throw new Error('EMAIL_FROM is required when EMAIL_PROVIDER=resend.');
+    if (!config.appBaseUrl) throw new Error('APP_BASE_URL is required when EMAIL_PROVIDER=resend.');
+    if (/\r|\n/.test(config.emailFrom) || config.emailFrom.length > 320) {
+      throw new Error('EMAIL_FROM contains an invalid sender value.');
+    }
+    if (config.nodeEnv === 'production' && !config.appBaseUrl.startsWith('https://')) {
+      throw new Error('APP_BASE_URL must use HTTPS in production email mode.');
     }
   }
   return config;
@@ -155,6 +216,11 @@ export function loadConfig(environment = process.env) {
     corsOrigins,
     authSecret: environment.AUTH_SECRET?.trim() || '',
     mfaEncryptionKey: environment.MFA_ENCRYPTION_KEY?.trim() || '',
+    accountTokenHmacSecret: environment.ACCOUNT_TOKEN_HMAC_SECRET?.trim() || '',
+    emailProvider: parseEmailProvider(environment.EMAIL_PROVIDER, nodeEnv),
+    resendApiKey: environment.RESEND_API_KEY?.trim() || '',
+    emailFrom: environment.EMAIL_FROM?.trim() || '',
+    appBaseUrl: parseAppBaseUrl(environment.APP_BASE_URL, nodeEnv),
     clinicTimeZone: environment.CLINIC_TIME_ZONE?.trim() || (nodeEnv === 'production' ? '' : 'Asia/Manila'),
     clinicOpenTime: environment.CLINIC_OPEN_TIME?.trim() || '',
     clinicCloseTime: environment.CLINIC_CLOSE_TIME?.trim() || '',
@@ -173,5 +239,13 @@ export function loadConfig(environment = process.env) {
     adminProvisionRateLimitMax: parsePositiveInteger(environment.ADMIN_PROVISION_RATE_LIMIT_MAX, 20, 'ADMIN_PROVISION_RATE_LIMIT_MAX'),
     mfaVerifyRateLimitWindowMs: parsePositiveInteger(environment.MFA_VERIFY_RATE_LIMIT_WINDOW_MS, 10 * 60 * 1000, 'MFA_VERIFY_RATE_LIMIT_WINDOW_MS'),
     mfaVerifyRateLimitMax: parsePositiveInteger(environment.MFA_VERIFY_RATE_LIMIT_MAX, 5, 'MFA_VERIFY_RATE_LIMIT_MAX'),
+    verificationAttemptRateLimitWindowMs: parsePositiveInteger(environment.EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_WINDOW_MS, 10 * 60 * 1000, 'EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_WINDOW_MS'),
+    verificationAttemptRateLimitMax: parsePositiveInteger(environment.EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_MAX, 10, 'EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_MAX'),
+    verificationResendRateLimitWindowMs: parsePositiveInteger(environment.EMAIL_VERIFICATION_RESEND_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000, 'EMAIL_VERIFICATION_RESEND_RATE_LIMIT_WINDOW_MS'),
+    verificationResendRateLimitMax: parsePositiveInteger(environment.EMAIL_VERIFICATION_RESEND_RATE_LIMIT_MAX, 3, 'EMAIL_VERIFICATION_RESEND_RATE_LIMIT_MAX'),
+    forgotPasswordRateLimitWindowMs: parsePositiveInteger(environment.FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000, 'FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS'),
+    forgotPasswordRateLimitMax: parsePositiveInteger(environment.FORGOT_PASSWORD_RATE_LIMIT_MAX, 5, 'FORGOT_PASSWORD_RATE_LIMIT_MAX'),
+    passwordResetRateLimitWindowMs: parsePositiveInteger(environment.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000, 'PASSWORD_RESET_RATE_LIMIT_WINDOW_MS'),
+    passwordResetRateLimitMax: parsePositiveInteger(environment.PASSWORD_RESET_RATE_LIMIT_MAX, 5, 'PASSWORD_RESET_RATE_LIMIT_MAX'),
   };
 }

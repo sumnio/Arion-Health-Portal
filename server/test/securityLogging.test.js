@@ -166,6 +166,9 @@ test('logger redacts dangerous metadata recursively and logger failure cannot br
   assert.match(output, /\[REDACTED\]/);
   assert.equal(captured[0].metadata.safe, 'ok');
 
+  logger.logSecurityEvent({ event: 'EMAIL_TEST', metadata: { code: '012345', reset_url: 'https://example.test/reset?token=private' } });
+  assert.doesNotMatch(JSON.stringify(captured), /012345|reset\?token=private/);
+
   const throwingLogger = createSecurityLogger({ write() { throw new Error('sink unavailable'); } });
   assert.doesNotThrow(() => throwingLogger.logSecurityEvent({ event: 'TEST' }));
   const auth = authModule();
