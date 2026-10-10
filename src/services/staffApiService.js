@@ -1,6 +1,7 @@
 import { apiErrorMessage } from './apiClient.js';
 import { staffApiRepository } from '../repositories/staffApiRepository.js';
 import { clinicDateTimeParts, clinicToday, formatSlot } from './dateTimeService.js';
+import { canonicalizePhilippineMobile } from './phoneNumber.js';
 
 export const staffVisitTypes = [
   { id: 'general_consultation', name: 'General Consultation' },
@@ -130,7 +131,7 @@ export function createStaffApiService(repository = staffApiRepository) {
     deletePublishedAvailability: (id, publishedId) => repository.deletePublishedAvailability(id, publishedId),
     createBlockedTime: (id, values) => repository.createBlockedTime(id, staffBlockedTimePayload(values)),
     deleteBlockedTime: (id, blockedId) => repository.deleteBlockedTime(id, blockedId),
-    registerWalkIn(values) { return repository.registerWalkIn({ ...values, address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: values.emergency_contact_number?.trim() || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean) }); },
+    registerWalkIn(values) { return repository.registerWalkIn({ ...values, contact_number: canonicalizePhilippineMobile(values.contact_number), address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: canonicalizePhilippineMobile(values.emergency_contact_number) || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean) }); },
     createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: 'normal' }); },
     confirm: (id) => repository.confirmAppointment(id), checkIn: (id) => repository.checkIn(id), updatePriority: (id, payload) => repository.updatePriority(id, payload), getPriorityHistory: (id) => repository.getPriorityHistory(id), noShow: (id) => repository.markNoShow(id), cancel: (id) => repository.cancelAppointment(id),
   };

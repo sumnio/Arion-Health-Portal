@@ -17,6 +17,8 @@ import {
 import { validateAdminListQuery } from '../src/validation/adminAccountValidation.js';
 import { validateWalkInPatient } from '../src/validation/staffOperationsValidation.js';
 import { validateBlockedCreate } from '../src/validation/schedulingValidation.js';
+import { validatePatientProfilePatch } from '../src/validation/patientValidation.js';
+import { validatePhilippineMobile } from '../src/validation/phoneValidation.js';
 
 const validRegistration = {
   email: 'patient@example.test',
@@ -67,6 +69,31 @@ test('Patient registration rejects server-owned account and identity fields', ()
     () => validateRegistration({ ...validRegistration, dob: [] }),
     error => error.code === 'INVALID_INPUT',
   );
+});
+
+test('shared Philippine mobile validation canonicalizes spaces and rejects every invalid shape', () => {
+  assert.equal(validatePhilippineMobile('09171234567', 'contact_number'), '09171234567');
+  assert.equal(validatePhilippineMobile('0917 123 4567', 'contact_number'), '09171234567');
+  assert.equal(validatePhilippineMobile('', 'emergency_contact_number', { optional: true }), null);
+  for (const value of ['wdw', '0917123', '091712345678', '12345678901', '08171234567', '0917abc4567', '+639171234567', '0917-123-4567']) {
+    assert.throws(() => validatePhilippineMobile(value, 'contact_number'), error => error.status === 400);
+  }
+});
+
+test('registration, Patient profile, and Staff walk-in validators share canonical phone rules', () => {
+  const registration = validateRegistration({ ...validRegistration, contact_number: '0917 123 4567', emergency_contact_number: '0999 888 7777' });
+  assert.equal(registration.contact_number, '09171234567');
+  assert.equal(registration.emergency_contact_number, '09998887777');
+  assert.equal(validatePatientProfilePatch({ contact_number: '0917 123 4567' }).contact_number, '09171234567');
+  assert.equal(validatePatientProfilePatch({ emergency_contact_number: '' }).emergency_contact_number, null);
+  const walkIn = validateWalkInPatient({ full_name: 'Walk-in Patient', dob: '1985-02-10', sex: 'female', contact_number: '0917 555 0123', emergency_contact_number: '' });
+  assert.equal(walkIn.contact_number, '09175550123');
+  assert.equal(walkIn.emergency_contact_number, null);
+  for (const contact_number of ['0917123', '091712345678', '08171234567', '0917abc4567']) {
+    assert.throws(() => validateRegistration({ ...validRegistration, contact_number }), error => error.code === 'INVALID_INPUT');
+    assert.throws(() => validatePatientProfilePatch({ contact_number }), error => error.code === 'INVALID_INPUT');
+    assert.throws(() => validateWalkInPatient({ full_name: 'Walk-in Patient', dob: '1985-02-10', sex: 'female', contact_number }), error => error.status === 400);
+  }
 });
 
 test('date/time inputs reject arrays and objects before Date coercion', () => {

@@ -181,6 +181,20 @@ test('invalid registration data is rejected before persistence', async () => {
   });
 });
 
+test('registration API enforces and canonically stores Philippine mobile numbers', async () => {
+  const { app, repository } = createTestContext();
+  await withServer(app, async (baseUrl) => {
+    for (const contact_number of ['0917123', '091712345678', '08171234567', '0917abc4567']) {
+      const response = await request(baseUrl, '/api/auth/register', { method: 'POST', body: { ...validRegistration, email: `${contact_number.replace(/\W/g, '')}@example.test`, contact_number } });
+      assert.equal(response.status, 400);
+      assert.equal(repository.accounts.size, 0);
+    }
+    const response = await request(baseUrl, '/api/auth/register', { method: 'POST', body: { ...validRegistration, contact_number: '0917 123 4567' } });
+    assert.equal(response.status, 201);
+    assert.equal([...repository.patients.values()][0].contact_number, '09171234567');
+  });
+});
+
 test('a known unlinked walk-in candidate is not silently duplicated', async () => {
   const { app, repository } = createTestContext();
   repository.patients.set('existing-walk-in', {

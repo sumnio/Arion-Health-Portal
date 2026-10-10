@@ -1,5 +1,6 @@
 import { httpError } from '../utils/httpError.js';
 import { INPUT_LIMITS } from './inputValidation.js';
+import { validatePhilippineMobile } from './phoneValidation.js';
 
 const editableFields = new Set([
   'full_name',
@@ -47,7 +48,9 @@ export function validatePatientProfilePatch(body) {
 
   const updates = {};
   for (const field of keys) {
-    if (field === 'full_name' || field === 'contact_number' || field === 'sex') {
+    if (field === 'contact_number') {
+      updates[field] = validatePhilippineMobile(body[field], field, { code: 'INVALID_INPUT' });
+    } else if (field === 'full_name' || field === 'sex') {
       updates[field] = requiredText(body[field], field);
     } else if (field === 'dob') {
       if (typeof body.dob !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.dob)) {
@@ -63,6 +66,8 @@ export function validatePatientProfilePatch(body) {
         throw httpError(400, 'INVALID_INPUT', 'is_pwd must be boolean.');
       }
       updates.is_pwd = body.is_pwd;
+    } else if (field === 'emergency_contact_number') {
+      updates[field] = validatePhilippineMobile(body[field], field, { optional: true, code: 'INVALID_INPUT' });
     } else {
       updates[field] = optionalText(body[field], field);
     }

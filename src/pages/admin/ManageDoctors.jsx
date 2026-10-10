@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import FormField from '../../components/public/FormField.jsx';
 import { adminApiErrorMessage, adminApiService } from '../../services/adminApiService.js';
+import { philippineMobileInput, philippineMobileInputAttributes, validatePhilippineMobile } from '../../services/phoneNumber.js';
 import '../../styles/admin-doctors.css';
 
 const emptyForm = { email: '', password: '', display_name: '', contact_number: '', specialty: '', license_number: '', ptr_number: '', signature_path: '' };
@@ -11,7 +12,7 @@ export default function ManageDoctors() {
   const [search, setSearch] = useState(''); const [page, setPage] = useState(1); const [reload, setReload] = useState(0);
   const [list, setList] = useState({ loading: true, items: [], total: 0, page: 1, pageCount: 1, error: '' });
   const [panel, setPanel] = useState(null); const [form, setForm] = useState(emptyForm);
-  const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [saving, setSaving] = useState(false); const [phoneError, setPhoneError] = useState('');
   const heading = useRef(null);
 
   useEffect(() => {
@@ -24,9 +25,10 @@ export default function ManageDoctors() {
     return () => { active = false; clearTimeout(timer); };
   }, [search, page, reload]);
 
-  function open(mode, doctor = null) { setPanel({ mode, doctor }); setForm(formFor(doctor)); setError(''); setMessage(''); requestAnimationFrame(() => heading.current?.focus()); }
+  function open(mode, doctor = null) { setPanel({ mode, doctor }); setForm(formFor(doctor)); setError(''); setMessage(''); setPhoneError(''); requestAnimationFrame(() => heading.current?.focus()); }
   async function save(event) {
     event.preventDefault(); if (saving || !panel || panel.mode === 'view') return;
+    const validationError = validatePhilippineMobile(form.contact_number); if (validationError) { setPhoneError(validationError); return; }
     setSaving(true); setError('');
     try {
       const doctor = panel.mode === 'add' ? await adminApiService.createDoctor(form) : await adminApiService.updateDoctor(panel.doctor.id, form);
@@ -42,6 +44,7 @@ export default function ManageDoctors() {
     finally { setSaving(false); }
   }
   const setField = (field, value) => setForm(current => ({ ...current, [field]: value }));
+  const setPhone = (value) => { const next = philippineMobileInput(value); if (next.accepted) setField('contact_number', next.value); setPhoneError(''); };
 
   return <div className="manage-doctors">
     <header className="md-heading"><div><h1>Manage Doctors</h1><p>Provision Doctor accounts and manage approved profile information and portal access.</p></div><button className="action-link" onClick={() => open('add')}>Add Doctor</button></header>
@@ -59,7 +62,7 @@ export default function ManageDoctors() {
           <p>{panel.mode === 'add' ? 'Provide account credentials and the approved Doctor profile fields. The Doctor role is assigned by the server.' : 'Email and role are fixed. Update approved profile fields only.'}</p>
           {panel.doctor && <><p className="md-id">Doctor ID: {panel.doctor.id}</p><p>Email: {panel.doctor.email}</p></>}
           {panel.mode === 'add' && <><FormField label="Email" name="doctor-email" type="email" required value={form.email} onChange={event => setField('email', event.target.value)} /><FormField label="Temporary password" name="doctor-password" type="password" required minLength={8} value={form.password} onChange={event => setField('password', event.target.value)} /></>}
-          <FormField label="Doctor name" name="doctor-name" required value={form.display_name} onChange={event => setField('display_name', event.target.value)} /><FormField label="Contact number" name="doctor-contact" required value={form.contact_number} onChange={event => setField('contact_number', event.target.value)} /><FormField label="Specialty" name="doctor-specialty" required value={form.specialty} onChange={event => setField('specialty', event.target.value)} /><FormField label="License number" name="doctor-license" required value={form.license_number} onChange={event => setField('license_number', event.target.value)} /><FormField label="PTR number" name="doctor-ptr" required value={form.ptr_number} onChange={event => setField('ptr_number', event.target.value)} /><FormField label="Signature reference (optional)" name="doctor-signature" value={form.signature_path} onChange={event => setField('signature_path', event.target.value)} />
+          <FormField label="Doctor name" name="doctor-name" required value={form.display_name} onChange={event => setField('display_name', event.target.value)} /><div><FormField label="Contact number" name="doctor-contact" required value={form.contact_number} aria-invalid={!!phoneError} {...philippineMobileInputAttributes} onChange={event => setPhone(event.target.value)} onBlur={() => setPhoneError(validatePhilippineMobile(form.contact_number))} />{phoneError && <p className="md-error" role="alert">{phoneError}</p>}</div><FormField label="Specialty" name="doctor-specialty" required value={form.specialty} onChange={event => setField('specialty', event.target.value)} /><FormField label="License number" name="doctor-license" required value={form.license_number} onChange={event => setField('license_number', event.target.value)} /><FormField label="PTR number" name="doctor-ptr" required value={form.ptr_number} onChange={event => setField('ptr_number', event.target.value)} /><FormField label="Signature reference (optional)" name="doctor-signature" value={form.signature_path} onChange={event => setField('signature_path', event.target.value)} />
           <div className="md-actions"><button type="button" className="action-link" disabled={saving} onClick={() => setPanel(null)}>Cancel</button><button type="submit" className="action-link md-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Doctor'}</button></div>
         </form>}
       </section>}

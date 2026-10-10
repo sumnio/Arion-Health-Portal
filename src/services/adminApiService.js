@@ -1,5 +1,6 @@
 import { apiErrorMessage } from './apiClient.js';
 import { adminApiRepository } from '../repositories/adminApiRepository.js';
+import { canonicalizePhilippineMobile } from './phoneNumber.js';
 
 function page(result = {}) {
   return {
@@ -12,7 +13,7 @@ function page(result = {}) {
 }
 
 function clean(values, keys) {
-  return Object.fromEntries(keys.map((key) => [key, typeof values[key] === 'string' ? values[key].trim() : values[key]]));
+  return Object.fromEntries(keys.map((key) => [key, key === 'contact_number' ? canonicalizePhilippineMobile(values[key]) : typeof values[key] === 'string' ? values[key].trim() : values[key]]));
 }
 
 export function adminApiErrorMessage(error, fallback = 'Unable to load Admin data.') {

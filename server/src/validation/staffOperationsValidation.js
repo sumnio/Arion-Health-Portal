@@ -3,6 +3,7 @@ import { httpError } from '../utils/httpError.js';
 import { appointmentLocalParts, clinicDate, SLOT_TIME_PATTERN } from '../utils/schedulingTime.js';
 import { validateObjectId } from './appointmentValidation.js';
 import { boundedText, INPUT_LIMITS, queryText, rejectUnknownFields, validateQueryKeys } from './inputValidation.js';
+import { validatePhilippineMobile } from './phoneValidation.js';
 
 const patientFields = new Set(['full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'is_pwd']);
 const appointmentFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason', 'priority']);
@@ -27,15 +28,9 @@ export function validateWalkInPatient(body = {}, now = new Date()) {
   bodyObject(body); rejectUnknown(body, patientFields);
   const dob = validDateOnly(body.dob, 'dob');
   if (dob > now) throw httpError(400, 'VALIDATION_ERROR', 'dob cannot be in the future.');
-  const contact = text(body.contact_number, 'contact_number', false, INPUT_LIMITS.contact);
-  const digits = contact.replace(/\D/g, '');
-  if (!/^[+\d\s().-]+$/.test(contact) || digits.length < 7 || digits.length > 15) throw httpError(400, 'VALIDATION_ERROR', 'contact_number must contain 7 to 15 digits.');
+  const contact = validatePhilippineMobile(body.contact_number, 'contact_number');
   const sex = text(body.sex, 'sex', false, 40);
-  const emergencyNumber = text(body.emergency_contact_number, 'emergency_contact_number', true, INPUT_LIMITS.contact);
-  if (emergencyNumber) {
-    const emergencyDigits = emergencyNumber.replace(/\D/g, '');
-    if (!/^[+\d\s().-]+$/.test(emergencyNumber) || emergencyDigits.length < 7 || emergencyDigits.length > 15) throw httpError(400, 'VALIDATION_ERROR', 'emergency_contact_number must contain 7 to 15 digits.');
-  }
+  const emergencyNumber = validatePhilippineMobile(body.emergency_contact_number, 'emergency_contact_number', { optional: true });
   if (body.is_pwd != null && typeof body.is_pwd !== 'boolean') throw httpError(400, 'VALIDATION_ERROR', 'is_pwd must be boolean when provided.');
   if (body.allergies != null && !Array.isArray(body.allergies)) throw httpError(400, 'VALIDATION_ERROR', 'allergies must be an array when provided.');
   if ((body.allergies?.length ?? 0) > INPUT_LIMITS.allergies) throw httpError(400, 'VALIDATION_ERROR', `allergies must contain at most ${INPUT_LIMITS.allergies} items.`);

@@ -76,6 +76,23 @@ test('Staff registers a persistent no-account walk-in and duplicate matching is 
   assertBrowserClean();
 });
 
+test('Staff walk-in phone inputs ignore malformed input and extra digits while keeping emergency phone optional', async ({ page, seededStaff }) => {
+  await loginAsStaff(page, seededStaff);
+  await page.goto('/staff/patients/new');
+  const contact = page.getByLabel('Contact number *');
+  const emergency = page.getByLabel('Emergency contact number (optional)');
+  await contact.fill('0917abc4567');
+  await expect(contact).toHaveValue('');
+  await expect(page.getByText('Invalid phone number.')).toHaveCount(0);
+  await contact.fill('0917 123 4567');
+  await expect(contact).toHaveValue('09171234567');
+  await contact.press('8');
+  await expect(contact).toHaveValue('09171234567');
+  await expect(page.getByText('Phone number must be 11 digits.')).toHaveCount(0);
+  await emergency.fill('');
+  await expect(emergency).toHaveValue('');
+});
+
 test('Staff creates a same-day walk-in Appointment with its own creator and non-current dates are rejected', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const patient = await staffScenario.createGuestPatient();

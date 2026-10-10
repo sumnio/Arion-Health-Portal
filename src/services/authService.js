@@ -1,4 +1,5 @@
 import { apiClient, ApiError } from './apiClient.js';
+import { canonicalizePhilippineMobile } from './phoneNumber.js';
 
 const registrationFields = [
   'email', 'password', 'display_name', 'full_name', 'contact_number', 'dob', 'sex',
@@ -12,6 +13,8 @@ function patientRegistrationPayload(values) {
     if (values[field] !== undefined) payload[field] = values[field];
   }
   payload.full_name = payload.full_name || payload.display_name;
+  if (payload.contact_number != null) payload.contact_number = canonicalizePhilippineMobile(payload.contact_number);
+  if (payload.emergency_contact_number != null) payload.emergency_contact_number = canonicalizePhilippineMobile(payload.emergency_contact_number) || null;
   payload.allergies = payload.allergies || [];
   payload.is_pwd = payload.is_pwd ?? false;
   return payload;

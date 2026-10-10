@@ -1,5 +1,6 @@
 import { httpError } from '../utils/httpError.js';
 import { boundedText, INPUT_LIMITS, rejectUnknownFields, requireObject } from './inputValidation.js';
+import { validatePhilippineMobile } from './phoneValidation.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const registrationFields = new Set(['email', 'password', 'display_name', 'full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'is_pwd']);
@@ -76,7 +77,7 @@ export function validateRegistration(body = {}) {
     password: validPassword(body.password),
     display_name: displayName,
     full_name: boundedText(body.full_name ?? displayName, 'full_name', INPUT_LIMITS.name, { code: 'INVALID_INPUT' }),
-    contact_number: boundedText(body.contact_number, 'contact_number', INPUT_LIMITS.contact, { code: 'INVALID_INPUT' }),
+    contact_number: validatePhilippineMobile(body.contact_number, 'contact_number', { code: 'INVALID_INPUT' }),
     dob,
     sex: boundedText(body.sex, 'sex', 40, { code: 'INVALID_INPUT' }),
     address: body.address == null || body.address === '' ? null : boundedText(body.address, 'address', INPUT_LIMITS.address, { optional: true, code: 'INVALID_INPUT' }),
@@ -84,10 +85,7 @@ export function validateRegistration(body = {}) {
       body.emergency_contact_name,
       'emergency_contact_name',
     ),
-    emergency_contact_number: optionalText(
-      body.emergency_contact_number,
-      'emergency_contact_number',
-    ),
+    emergency_contact_number: validatePhilippineMobile(body.emergency_contact_number, 'emergency_contact_number', { optional: true, code: 'INVALID_INPUT' }),
     emergency_contact_relationship: optionalText(
       body.emergency_contact_relationship,
       'emergency_contact_relationship',

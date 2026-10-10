@@ -34,14 +34,16 @@ test('Admin service normalizes pages and sends only approved create/update field
   };
   const service = createAdminApiService(repository); const dashboard = await service.getDashboard();
   assert.equal(dashboard.doctors.total, 1); assert.equal(dashboard.staff.total, 1); assert.equal(dashboard.patients.total, 1);
-  await service.createDoctor({ email: ' doctor@example.com ', password: 'password123', display_name: ' Doctor ', contact_number: ' 0917 ', specialty: ' GP ', license_number: ' L-1 ', ptr_number: ' P-1 ', signature_path: ' ', role: 'admin' });
-  await service.updateDoctor('doctor-1', { email: 'ignored@example.com', password: 'ignored', display_name: ' Doctor ', contact_number: ' 0917 ', specialty: ' GP ', license_number: ' L-1 ', ptr_number: ' P-1 ', signature_path: '' });
-  await service.createStaff({ email: ' staff@example.com ', password: 'password123', display_name: ' Staff ', contact_number: ' 0918 ', role: 'admin', username: 'ignored' });
-  await service.updateStaff('staff-1', { email: 'ignored@example.com', display_name: ' Staff ', contact_number: ' 0918 ' });
+  await service.createDoctor({ email: ' doctor@example.com ', password: 'password123', display_name: ' Doctor ', contact_number: '0917 123 4567', specialty: ' GP ', license_number: ' L-1 ', ptr_number: ' P-1 ', signature_path: ' ', role: 'admin' });
+  await service.updateDoctor('doctor-1', { email: 'ignored@example.com', password: 'ignored', display_name: ' Doctor ', contact_number: '0917 123 4567', specialty: ' GP ', license_number: ' L-1 ', ptr_number: ' P-1 ', signature_path: '' });
+  await service.createStaff({ email: ' staff@example.com ', password: 'password123', display_name: ' Staff ', contact_number: '0918 123 4567', role: 'admin', username: 'ignored' });
+  await service.updateStaff('staff-1', { email: 'ignored@example.com', display_name: ' Staff ', contact_number: '0918 123 4567' });
   assert.deepEqual(Object.keys(captured.doctorCreate), ['email', 'password', 'display_name', 'contact_number', 'specialty', 'license_number', 'ptr_number', 'signature_path']);
   assert.equal(captured.doctorCreate.email, 'doctor@example.com'); assert.equal(captured.doctorCreate.role, undefined);
+  assert.equal(captured.doctorCreate.contact_number, '09171234567'); assert.equal(captured.doctorUpdate.payload.contact_number, '09171234567');
   assert.equal(captured.doctorUpdate.payload.email, undefined); assert.equal(captured.doctorUpdate.payload.password, undefined);
   assert.deepEqual(Object.keys(captured.staffCreate), ['email', 'password', 'display_name', 'contact_number']); assert.equal(captured.staffCreate.username, undefined);
+  assert.equal(captured.staffCreate.contact_number, '09181234567'); assert.equal(captured.staffUpdate.payload.contact_number, '09181234567');
   assert.deepEqual(Object.keys(captured.staffUpdate.payload), ['display_name', 'contact_number']);
 });
 

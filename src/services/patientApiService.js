@@ -1,6 +1,7 @@
 import { apiErrorMessage } from './apiClient.js';
 import { patientApiRepository } from '../repositories/patientApiRepository.js';
 import { clinicDateTimeParts, clinicToday, slotRange } from './dateTimeService.js';
+import { canonicalizePhilippineMobile, validatePhilippineMobile } from './phoneNumber.js';
 
 export const patientVisitTypes = Object.freeze([
   { id: 'general_consultation', name: 'General Consultation' },
@@ -65,13 +66,14 @@ export function patientIsSenior(dob, today = clinicToday()) {
 }
 
 export function validatePatientProfile(values) {
-  const validPhone = (value) => /^[+\d\s().-]+$/.test(value) && value.replace(/\D/g, '').length >= 7 && value.replace(/\D/g, '').length <= 15;
   const errors = {};
   if (!values.fullName?.trim()) errors.fullName = 'Enter your full name.';
   if (patientAge(values.dob) === null) errors.dob = 'Enter a valid date of birth that is not in the future.';
   if (!patientProfileSexOptions.some((option) => option.value === values.sex)) errors.sex = 'Select a sex option.';
-  if (!validPhone(values.contactNumber?.trim() ?? '')) errors.contactNumber = 'Enter a contact number with 7–15 digits.';
-  if (values.emergencyNumber?.trim() && !validPhone(values.emergencyNumber.trim())) errors.emergencyNumber = 'Enter an emergency number with 7–15 digits, or leave it blank.';
+  const contactError = validatePhilippineMobile(values.contactNumber);
+  const emergencyError = validatePhilippineMobile(values.emergencyNumber, { optional: true });
+  if (contactError) errors.contactNumber = contactError;
+  if (emergencyError) errors.emergencyNumber = emergencyError;
   return errors;
 }
 
@@ -114,10 +116,10 @@ function profilePatch(values) {
     full_name: values.fullName.trim(),
     dob: values.dob,
     sex: values.sex,
-    contact_number: values.contactNumber.trim(),
+    contact_number: canonicalizePhilippineMobile(values.contactNumber),
     address: values.address.trim() || null,
     emergency_contact_name: values.emergencyName.trim() || null,
-    emergency_contact_number: values.emergencyNumber.trim() || null,
+    emergency_contact_number: canonicalizePhilippineMobile(values.emergencyNumber) || null,
     emergency_contact_relationship: values.relationship.trim() || null,
     is_pwd: values.isPwd === true,
   };

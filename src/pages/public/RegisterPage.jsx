@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import AuthCard from '../../components/public/AuthCard.jsx';
 import FormField from '../../components/public/FormField.jsx';
 import { useAuth } from '../../auth/AuthContext.jsx';
+import { philippineMobileInput, philippineMobileInputAttributes, validatePhilippineMobile } from '../../services/phoneNumber.js';
 
 export default function RegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const { register } = useAuth();
   const now = new Date();
   const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
@@ -15,12 +18,15 @@ export default function RegisterPage() {
     event.preventDefault();
     const form = event.currentTarget;
     setError('');
+    const values = Object.fromEntries(new FormData(form));
+    const validationError = validatePhilippineMobile(values.contact_number);
+    if (validationError) { setPhoneError(validationError); return; }
     setBusy(true);
     try {
-      const values = Object.fromEntries(new FormData(form));
       if (values.password !== values.confirmPassword) throw new Error('Passwords do not match.');
       await register(values);
       form.reset();
+      setPhone('');
       setSuccess(true);
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -36,7 +42,7 @@ export default function RegisterPage() {
         <FormField label="Full Name" name="display_name" placeholder="e.g. Alex Santos" autoComplete="name" required />
         <div className="form-grid">
           <FormField label="Email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
-          <FormField label="Phone Number" name="contact_number" type="tel" placeholder="09XX XXX XXXX" autoComplete="tel" required />
+          <div><FormField label="Phone Number" name="contact_number" placeholder="09XX XXX XXXX" required value={phone} aria-invalid={!!phoneError} {...philippineMobileInputAttributes} onChange={event => { const next = philippineMobileInput(event.target.value); if (next.accepted) setPhone(next.value); setPhoneError(''); }} onBlur={() => setPhoneError(validatePhilippineMobile(phone))} />{phoneError && <p className="form-error" role="alert">{phoneError}</p>}</div>
           <FormField label="Date of Birth" name="dob" type="date" max={today} autoComplete="bday" required />
           <FormField label="Sex" name="sex" defaultValue="" required><option value="" disabled>Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></FormField>
           <FormField label="Password" name="password" type="password" placeholder="At least 8 characters" autoComplete="new-password" minLength="8" required />

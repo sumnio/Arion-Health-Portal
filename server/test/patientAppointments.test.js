@@ -307,6 +307,21 @@ test('invalid visit_type is rejected', async () => {
   await withServer(app, async (url) => assert.equal((await request(url, '/api/patient/appointments', { method: 'POST', cookie: cookie(ids.patientProfile), body: { ...validBooking, visit_type: 'emergency' } })).status, 400));
 });
 
+test('Patient profile API validates required and optional Philippine mobile numbers', async () => {
+  const { app, cookie } = createContext();
+  await withServer(app, async (url) => {
+    for (const body of [{ contact_number: '0917abc4567' }, { contact_number: '08171234567' }, { emergency_contact_number: '0917123' }]) {
+      const response = await request(url, '/api/patient/profile', { method: 'PATCH', cookie: cookie(ids.patientProfile), body });
+      assert.equal(response.status, 400);
+    }
+    const response = await request(url, '/api/patient/profile', { method: 'PATCH', cookie: cookie(ids.patientProfile), body: { contact_number: '0917 555 0123', emergency_contact_number: '' } });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.patient.contact_number, '09175550123');
+    assert.equal(body.patient.emergency_contact_number, null);
+  });
+});
+
 test('Patient booking accepts approved reasons and normalizes Other concern text', async () => {
   const { app, cookie, appointments } = createContext();
   await withServer(app, async (url) => {

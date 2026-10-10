@@ -79,6 +79,8 @@ Public Patient registration creates AuthAccount, UserProfile with role `patient`
 
 `display_name` and `contact_number` belong in UserProfile for account holders. `Patient.full_name` and `Patient.contact_number` remain in Patient so walk-ins can exist without a UserProfile. Account contact information does not replace Patient contact information.
 
+Patient-facing and Staff walk-in mobile numbers are stored canonically as exactly 11 digits matching `^09\d{9}$`. Formatting spaces may be removed at the request boundary; punctuation, letters, other prefixes, and `+63` are not accepted.
+
 ### Account lifecycle
 
 - Use `UserProfile.status = inactive` to deactivate account access instead of hard-deleting an account. Inactive accounts must not be allowed to log in; application access must respect this status.
@@ -124,6 +126,8 @@ Frontend guards must be combined with future backend authorization and database 
 A Patient can exist without a UserProfile or authentication account. Staff can register a guest/walk-in patient with `user_profile_id = null`.
 
 `full_name` belongs to Patient so a walk-in's name does not depend on a UserProfile. `contact_number`, optional `address`, and the three optional emergency contact fields also belong to Patient. The separate emergency contact fields replace the former single `emergency_contact` field.
+
+`Patient.contact_number` is required and uses the canonical Philippine mobile format above. `emergency_contact_number` remains nullable; any non-null value must use the same format.
 
 For a registered patient, `user_profile_id` links to a UserProfile with the `patient` role. Each Patient has at most one linked UserProfile, and each UserProfile can link to at most one Patient. Multiple guest patients can have a null `user_profile_id`.
 

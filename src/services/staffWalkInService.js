@@ -8,6 +8,7 @@ import { appointmentRepository, DEMO_DOCTOR_ID } from '../repositories/appointme
 import { createMockId } from '../repositories/mockId.js';
 import { doctorProfileService } from './doctorProfileService.js';
 import { toPatientSearchOption } from './adapters/domainAdapters.js';
+import { canonicalizePhilippineMobile, validatePhilippineMobile } from './phoneNumber.js';
 
 // Match the existing Staff dashboard preview snapshot regardless of local testing time.
 export function walkInMockNow() { return new Date(clinicToday() + 'T10:00:00+08:00'); }
@@ -29,15 +30,17 @@ export const staffWalkInService = {
     if (!values.full_name?.trim()) errors.full_name = 'Enter the patient’s full name.';
     if (ageFromDob(values.dob, clinicToday(now)) === null) errors.dob = 'Enter a valid date of birth, not in the future.';
     if (!profileSexOptions.includes(values.sex)) errors.sex = 'Select a sex option.';
-    if (!/^[+\d\s().-]+$/.test(values.contact_number ?? '') || phone(values.contact_number).length < 7 || phone(values.contact_number).length > 15) errors.contact_number = 'Enter a contact number with 7–15 digits.';
-    if (values.emergency_contact_number?.trim() && (!/^[+\d\s().-]+$/.test(values.emergency_contact_number) || phone(values.emergency_contact_number).length < 7 || phone(values.emergency_contact_number).length > 15)) errors.emergency_contact_number = 'Enter an emergency contact number with 7–15 digits.';
+    const contactError = validatePhilippineMobile(values.contact_number);
+    const emergencyError = validatePhilippineMobile(values.emergency_contact_number, { optional: true });
+    if (contactError) errors.contact_number = contactError;
+    if (emergencyError) errors.emergency_contact_number = emergencyError;
     if (Object.keys(errors).length) return { errors };
     const matches = patientRepository.list().filter(item => phone(item.contact_number) === phone(values.contact_number) || (normalized(item.full_name) === normalized(values.full_name) && item.dob === values.dob));
     if (matches.length) return { matches: matches.map(item => this.getPatient(item.id)) };
     const patient = { id: createMockId(), user_profile_id: null, full_name: values.full_name.trim(), dob: values.dob, sex: values.sex,
-      contact_number: values.contact_number.trim(), address: values.address?.trim() || null,
+      contact_number: canonicalizePhilippineMobile(values.contact_number), address: values.address?.trim() || null,
       emergency_contact_name: values.emergency_contact_name?.trim() || null,
-      emergency_contact_number: values.emergency_contact_number?.trim() || null,
+      emergency_contact_number: canonicalizePhilippineMobile(values.emergency_contact_number) || null,
       emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null,
       allergies: (values.allergies ?? '').split(/[,\n]/).map(value => value.trim()).filter(Boolean), is_pwd: values.is_pwd === true };
     patientRepository.add(patient);
