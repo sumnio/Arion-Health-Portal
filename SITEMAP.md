@@ -2,11 +2,17 @@ PUBLIC
 /
 /login
 /register
+/verify-email
+/forgot-password
+/reset-password
 /unauthorized
 
 Authentication notes:
 - `/login` is shared by Patient, Doctor, Staff, and Admin. Real login uses account credentials and does not ask the user to select a role.
 - `/register` is Patient self-registration only. Doctor and Staff accounts are Admin-provisioned; the Admin account is provisioned separately.
+- `/verify-email` is the public Patient registration verification step. It uses an HttpOnly temporary verification session, displays only a masked email address, and never authenticates the Patient automatically.
+- `/forgot-password` accepts an email and always shows the same confirmation for valid submissions. Only eligible active Patient accounts receive reset email.
+- `/reset-password` immediately exchanges an emailed one-time token for an opaque HttpOnly reset session, removes the token from the visible URL, and requires normal login after a successful reset.
 - Unauthenticated access to any protected route redirects to `/login`.
 - An authenticated user with the wrong role is sent to `/unauthorized` or denied access.
 - Inactive accounts do not receive normal portal access.

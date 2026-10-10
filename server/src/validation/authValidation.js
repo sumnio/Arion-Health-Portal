@@ -6,6 +6,9 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const registrationFields = new Set(['email', 'password', 'display_name', 'full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'is_pwd']);
 const loginFields = new Set(['email', 'password']);
 const mfaCodeFields = new Set(['code']);
+const forgotPasswordFields = new Set(['email']);
+const resetSessionFields = new Set(['token']);
+const resetPasswordFields = new Set(['password', 'confirm_password']);
 
 function requiredText(value, field) {
   if (typeof value !== 'string' || !value.trim()) {
@@ -111,4 +114,29 @@ export function validateMfaCode(body = {}) {
     throw httpError(400, 'INVALID_INPUT', 'code must contain exactly 6 digits.');
   }
   return { code: body.code };
+}
+
+export function validateForgotPassword(body = {}) {
+  requireObject(body);
+  rejectUnknownFields(body, forgotPasswordFields, 'RESTRICTED_FIELD');
+  return { email: validEmail(body.email) };
+}
+
+export function validatePasswordResetSession(body = {}) {
+  requireObject(body);
+  rejectUnknownFields(body, resetSessionFields, 'RESTRICTED_FIELD');
+  if (typeof body.token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(body.token)) {
+    throw httpError(400, 'PASSWORD_RESET_INVALID', 'This password reset link is invalid or has expired.');
+  }
+  return { token: body.token };
+}
+
+export function validatePasswordReset(body = {}) {
+  requireObject(body);
+  rejectUnknownFields(body, resetPasswordFields, 'RESTRICTED_FIELD');
+  const password = validPassword(body.password);
+  if (body.confirm_password !== password) {
+    throw httpError(400, 'PASSWORDS_DO_NOT_MATCH', 'Passwords do not match.');
+  }
+  return { password };
 }

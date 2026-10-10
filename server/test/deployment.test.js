@@ -121,6 +121,7 @@ test('failed MongoDB connection clears the cache and permits a clean retry', asy
 test('production trusts exactly one proxy hop and non-production keeps Express default', () => {
   const production = createApp({
     nodeEnv: 'production',
+    accountTokenHmacSecret: 'production-test-account-token-secret-123456789',
     corsOrigins: ['https://portal.example.test'],
   });
   assert.equal(production.get('trust proxy'), 1);

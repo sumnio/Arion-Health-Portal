@@ -23,6 +23,7 @@ import { createAnalyticsModule } from './services/analyticsModule.js';
 import { createAnalyticsRouter } from './routes/analyticsRoutes.js';
 import { createNotificationModule } from './services/notificationModule.js';
 import { createNotificationRouter } from './routes/notificationRoutes.js';
+import { createE2eEmailCaptureRouter } from './routes/e2eEmailCaptureRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createRateLimiters, RATE_LIMIT_DEFAULTS } from './middleware/rateLimiters.js';
@@ -57,6 +58,12 @@ export function createApp(
     nodeEnv = 'development',
     authSecret = '',
     mfaEncryptionKey = '',
+    accountTokenHmacSecret = '',
+    emailProvider = 'fake',
+    resendApiKey = '',
+    emailFrom = '',
+    appBaseUrl = 'http://127.0.0.1:5173',
+    e2eEmailCaptureKey = '',
     enableAuthorizationProbes = false,
     clinicTimeZone = 'Asia/Manila',
     clinicOpenTime = '',
@@ -114,7 +121,18 @@ export function createApp(
     securityLogger,
     storeFactory: dependencies.rateLimitStoreFactory,
   });
-  const authModule = dependencies.authModule ?? createAuthModule({ authSecret, mfaEncryptionKey, nodeEnv });
+  const authModule = dependencies.authModule ?? createAuthModule({
+    authSecret,
+    mfaEncryptionKey,
+    accountTokenHmacSecret: accountTokenHmacSecret || (
+      nodeEnv === 'development' ? 'local-development-account-token-secret' : ''
+    ),
+    emailProvider,
+    resendApiKey,
+    emailFrom,
+    appBaseUrl,
+    nodeEnv,
+  });
   const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({
     clinic: {
       timeZone: clinicTimeZone,
@@ -140,6 +158,17 @@ export function createApp(
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   const analyticsModule = dependencies.analyticsModule ?? createAnalyticsModule({ clinic: schedulingModule.clinic });
   app.use('/api/health', healthRouter);
+  if (
+    nodeEnv === 'test' &&
+    e2eEmailCaptureKey &&
+    authModule.emailProvider?.name === 'fake' &&
+    Array.isArray(authModule.emailProvider.deliveries)
+  ) {
+    app.use('/api/e2e/email-capture', createE2eEmailCaptureRouter({
+      provider: authModule.emailProvider,
+      captureKey: e2eEmailCaptureKey,
+    }));
+  }
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv, rateLimiters }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
   app.use('/api/doctor', createDoctorClinicalRouter({ authModule, clinicalModule }));

@@ -84,7 +84,10 @@ export function createMfaService({ repository, tokens, encryption, totp, now = (
         enrolledAt,
       );
       if (!completed) throw CHALLENGE_ERROR();
-      return { user: profile, token: tokens.sign(profile.user_profile_id, { mfaVerified: true }) };
+      return { user: profile, token: tokens.sign(profile.user_profile_id, {
+        mfaVerified: true,
+        sessionVersion: account.auth_session_version ?? 0,
+      }) };
     },
 
     async verify(token, code) {
@@ -99,7 +102,10 @@ export function createMfaService({ repository, tokens, encryption, totp, now = (
       if (!(await repository.consumeMfaChallenge(profile.user_profile_id, hash, now()))) {
         throw CHALLENGE_ERROR();
       }
-      return { user: profile, token: tokens.sign(profile.user_profile_id, { mfaVerified: true }) };
+      return { user: profile, token: tokens.sign(profile.user_profile_id, {
+        mfaVerified: true,
+        sessionVersion: account.auth_session_version ?? 0,
+      }) };
     },
   });
 }

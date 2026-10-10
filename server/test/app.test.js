@@ -102,6 +102,10 @@ test('runtime configuration validates required values without exposing them', ()
     CLINIC_TIME_ZONE: 'Asia/Manila',
     CLINIC_NAME: 'Arion Health Clinic',
     CLINIC_LOCATION: 'Approved production clinic location',
+    EMAIL_PROVIDER: 'resend',
+    RESEND_API_KEY: 'private-key',
+    EMAIL_FROM: 'noreply@example.test',
+    APP_BASE_URL: 'https://portal.example.test',
   });
   assert.equal(valid.mongoDatabaseName, 'arion_health_preview');
   assert.equal(valid.certificateIssuanceEnabled, false);
@@ -147,6 +151,8 @@ test('email configuration is safe by default and strict when Resend is enabled',
     CLINIC_LOCATION: 'Approved production clinic location',
     EMAIL_PROVIDER: 'resend',
   };
+  const { EMAIL_PROVIDER: _provider, ...withoutProvider } = base;
+  assert.throws(() => validateRuntimeConfig(loadConfig(withoutProvider)), /EMAIL_PROVIDER=resend/);
   assert.throws(() => validateRuntimeConfig(loadConfig(base)), /RESEND_API_KEY/);
   assert.throws(() => validateRuntimeConfig(loadConfig({ ...base, RESEND_API_KEY: 'private-key' })), /EMAIL_FROM/);
   assert.throws(() => validateRuntimeConfig(loadConfig({ ...base, RESEND_API_KEY: 'private-key', EMAIL_FROM: 'noreply@example.test' })), /APP_BASE_URL/);

@@ -3,6 +3,8 @@ import { requireAccountTokenHmacSecret } from '../config/env.js';
 
 export const VERIFICATION_CODE_LENGTH = 6;
 export const PASSWORD_RESET_TOKEN_BYTES = 32;
+export const VERIFICATION_SESSION_TOKEN_BYTES = 32;
+export const PASSWORD_RESET_SESSION_TOKEN_BYTES = 32;
 function safeEqual(left, right) {
   const leftBuffer = Buffer.from(String(left));
   const rightBuffer = Buffer.from(String(right));
@@ -25,6 +27,14 @@ export function createAccountTokenService(
     return digest(`password-reset\0${String(token)}`);
   }
 
+  function hashVerificationSessionToken(token) {
+    return digest(`email-verification-session\0${String(token)}`);
+  }
+
+  function hashPasswordResetSessionToken(token) {
+    return digest(`password-reset-session\0${String(token)}`);
+  }
+
   return Object.freeze({
     generateVerificationCode() {
       return String(randomInteger(0, 10 ** VERIFICATION_CODE_LENGTH)).padStart(
@@ -39,6 +49,14 @@ export function createAccountTokenService(
     generatePasswordResetToken() {
       return randomByteSource(PASSWORD_RESET_TOKEN_BYTES).toString('base64url');
     },
+    generateVerificationSessionToken() {
+      return randomByteSource(VERIFICATION_SESSION_TOKEN_BYTES).toString('base64url');
+    },
+    generatePasswordResetSessionToken() {
+      return randomByteSource(PASSWORD_RESET_SESSION_TOKEN_BYTES).toString('base64url');
+    },
+    hashVerificationSessionToken,
+    hashPasswordResetSessionToken,
     hashPasswordResetToken,
     verifyPasswordResetToken(token, expectedHash) {
       return safeEqual(hashPasswordResetToken(token), expectedHash);

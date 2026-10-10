@@ -73,6 +73,7 @@ export function AuthProvider({ children }) {
       dispatch({ type: 'mfa', mfaState: 'verify' });
       return { status: result.status };
     }
+    if (result.status === 'EMAIL_VERIFICATION_REQUIRED') return result;
     throw new Error('The login response was not recognized.');
   }, []);
   const verifyMfa = useCallback(async (code) => {

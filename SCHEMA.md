@@ -24,7 +24,7 @@ Main revisions:
 
 # 1. Authentication and User Profiles
 
-Authentication credentials, account-verification state, and Admin MFA state are owned by the backend AuthAccount model. Email, `password_hash`, verification state, and MFA secrets are authentication data and are not fields in the approved UserProfile structure. Milestone 1.25 adds storage and security primitives for future Patient email verification and password reset, but no routes, UI, or enforcement.
+Authentication credentials, account-verification state, Patient password-recovery state, and Admin MFA state are owned by backend authentication models. Email, `password_hash`, verification state, session version, and MFA secrets are authentication data and are not fields in the approved UserProfile structure. Milestone 1.26 enforces email verification for newly self-registered Patients; Milestone 1.27 adds Patient-only self-service password recovery.
 
 Passwords, including password hashes, must not be stored in UserProfile, Patient, Doctor, or Staff. UserProfile stores application identity, role, common contact information, and account status, not authentication credentials. Doctor and Staff must not contain username-based authentication fields.
 
@@ -48,8 +48,9 @@ Admin is represented by `UserProfile.role = admin`; there is no separate Admin e
 | user_profile_id | identifier, FK, unique | Required reference to `UserProfile.id`; one credential account per profile |
 | email | text, unique | Required; normalized to lowercase |
 | password_hash | text | Required bcrypt hash; excluded from normal query/API output |
-| email_verification_required | boolean | Defaults false so every existing account and current registration remains compatible; Milestone 1.26 may set true only for new Patient registrations |
-| email_verified_at | timestamp, nullable | Future server-owned verification completion time; null does not block login in Milestone 1.25 |
+| email_verification_required | boolean | Defaults false for existing/legacy accounts; explicitly true for new public Patient registrations until successful OTP verification |
+| email_verified_at | timestamp, nullable | Server-owned verification completion time; set only after successful Patient registration OTP verification |
+| auth_session_version | integer | Defaults to zero; incremented after a successful password reset so previously issued authenticated JWTs are rejected |
 | mfa_enabled | boolean | Defaults false; mandatory before an Admin receives full portal access |
 | mfa_secret_encrypted | text, nullable | Authenticated-encryption ciphertext for the enrolled TOTP secret; excluded from normal queries and all APIs |
 | mfa_pending_secret_encrypted | text, nullable | Temporary encrypted TOTP secret used only during Admin enrollment |
@@ -65,22 +66,23 @@ Admin accounts require TOTP MFA. Valid Admin credentials create only a separate 
 
 TOTP secrets are generated and verified by the maintained `otplib` library. Enrolled and pending secrets use AES-256-GCM authenticated encryption with a separately configured `MFA_ENCRYPTION_KEY`; plaintext secrets are returned only during the enrollment response and are never stored or logged. Verification accepts a six-digit code with one 30-second clock-skew step and is limited to five failed attempts per ten minutes. Recovery codes and self-service MFA reset are deferred; loss of the authenticator requires a controlled offline operator recovery process.
 
-Public Patient registration creates AuthAccount, UserProfile with role `patient`, and linked Patient records in one MongoDB transaction. A request body cannot assign Doctor, Staff, or Admin. If an unlinked walk-in candidate already has the same contact number and date of birth, registration stops for later verified account-linking review instead of automatically matching by name or creating a silent duplicate.
+Public Patient registration creates AuthAccount, UserProfile with role `patient`, and linked Patient records in one MongoDB transaction. New registrations set `email_verification_required = true`, create a verification challenge, deliver a six-digit OTP through the trusted email service, and issue no authenticated session. A request body cannot assign Doctor, Staff, or Admin. If an unlinked walk-in candidate already has the same contact number and date of birth, registration stops for later verified account-linking review instead of automatically matching by name or creating a silent duplicate.
 
 ## EmailVerificationChallenge
 
-The `email_verification_challenges` collection is an internal foundation for future Patient registration verification. It is not exposed through an API in Milestone 1.25.
+The `email_verification_challenges` collection supports Patient registration verification. The browser receives only a random opaque token in the HttpOnly `arion_email_verification` cookie; account IDs, challenge IDs, OTP hashes, and full email addresses are not returned to frontend code.
 
 | Field | Type | Notes |
 |---|---|---|
 | id | identifier, PK | MongoDB `_id` |
 | account_id | identifier, FK | Required immutable AuthAccount reference |
 | purpose | enum | `registration_verification` |
+| session_hash | string, select-false | Unique HMAC hash of the temporary opaque browser verification token; plaintext token is cookie-only and never persisted |
 | code_hash | text | Required keyed HMAC-SHA-256 digest; excluded from normal queries; plaintext OTP is never persisted |
 | expires_at | timestamp | Ten minutes after creation |
 | attempt_count | integer | Starts at zero |
 | max_attempts | integer | Five attempts per challenge |
-| resend_count | integer | Foundation metadata for future resend control |
+| resend_count | integer | Increments when a replacement registration code is issued |
 | last_sent_at | timestamp, nullable | Trusted server time for the most recent delivery attempt |
 | consumed_at | timestamp, nullable | Set once after successful verification |
 | invalidated_at | timestamp, nullable | Set when a newer replacement challenge invalidates this challenge |
@@ -90,7 +92,7 @@ Indexes support `(account_id, purpose, created_at DESC)` history and `expires_at
 
 ## PasswordResetToken
 
-The `password_reset_tokens` collection is an internal foundation for Milestone 1.27. No forgot-password or reset route exists yet.
+The `password_reset_tokens` collection supports Patient-only password recovery. Raw email-link and browser-session tokens are never persisted.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -98,11 +100,14 @@ The `password_reset_tokens` collection is an internal foundation for Milestone 1
 | account_id | identifier, FK | Required immutable AuthAccount reference |
 | token_hash | text, unique | Keyed HMAC-SHA-256 digest of a 32-byte URL-safe random token; excluded from normal queries |
 | expires_at | timestamp | Thirty minutes after creation |
-| consumed_at | timestamp, nullable | Set by the single-use consume primitive |
+| consumed_at | timestamp, nullable | Set when the raw email-link token is exchanged for a temporary reset session |
 | invalidated_at | timestamp, nullable | Set when a newer token replaces outstanding tokens for the account |
+| session_hash | text, nullable, unique, select-false | HMAC hash of the exchanged opaque browser reset token; omitted until exchange |
+| session_expires_at | timestamp, nullable | Fifteen minutes after successful link exchange |
+| session_consumed_at | timestamp, nullable | Set atomically when the password update succeeds |
 | created_at / updated_at | timestamp | Managed by Mongoose |
 
-Indexes support unique hash lookup, `(account_id, created_at DESC)` history, and expiry lookup. Plaintext reset tokens and complete reset links are never stored or logged. Expiration and consumption are logical, with no TTL deletion. Future forgot-password responses must be generic whether or not an account exists.
+Indexes support unique raw-token hash lookup, sparse unique reset-session hash lookup, `(account_id, created_at DESC)` history, and expiry lookup. Plaintext reset tokens, reset-session tokens, and complete reset links are never stored or logged. Expiration and consumption are logical, with no TTL deletion. Forgot-password responses remain identical whether an eligible account exists, and only active Patient accounts receive delivery. Successful completion increments `AuthAccount.auth_session_version`, preserves verification state, and invalidates other outstanding reset records for the account.
 
 ## UserProfile
 

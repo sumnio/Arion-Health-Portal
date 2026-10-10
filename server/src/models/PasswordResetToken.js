@@ -18,6 +18,12 @@ const passwordResetTokenSchema = new mongoose.Schema(
     expires_at: { type: Date, required: true },
     consumed_at: { type: Date, default: null },
     invalidated_at: { type: Date, default: null },
+    session_hash: {
+      type: String,
+      select: false,
+    },
+    session_expires_at: { type: Date, default: null },
+    session_consumed_at: { type: Date, default: null },
   },
   modelOptions,
 );
@@ -33,6 +39,10 @@ passwordResetTokenSchema.index(
 passwordResetTokenSchema.index(
   { expires_at: 1 },
   { name: 'password_reset_expiry_lookup' },
+);
+passwordResetTokenSchema.index(
+  { session_hash: 1 },
+  { unique: true, sparse: true, name: 'unique_password_reset_session_hash' },
 );
 
 export const PasswordResetToken =

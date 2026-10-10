@@ -43,6 +43,12 @@ export default function LoginPage() {
     try {
       const result = await login(Object.fromEntries(new FormData(event.currentTarget)));
       if (result.user) openPortal(result.user);
+      else if (result.status === 'EMAIL_VERIFICATION_REQUIRED') {
+        navigate('/verify-email', {
+          replace: true,
+          state: { maskedEmail: result.masked_email },
+        });
+      }
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
@@ -106,6 +112,7 @@ export default function LoginPage() {
     <form onSubmit={submitLogin}>
       <FormField label="Email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
       <FormField label="Password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" required />
+      <p className="auth-inline-link"><Link to="/forgot-password">Forgot password?</Link></p>
       {!error && accessMessage && <p className="form-error" role="alert">{accessMessage}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="public-button primary full-width" disabled={busy} type="submit">{busy ? 'Signing in…' : 'Login'}</button>

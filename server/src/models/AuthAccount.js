@@ -28,6 +28,12 @@ const authAccountSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    auth_session_version: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+    },
     mfa_enabled: {
       type: Boolean,
       required: true,

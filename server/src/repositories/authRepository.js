@@ -47,6 +47,8 @@ async function createWithSession(data, session) {
         user_profile_id: profile._id,
         email: data.email,
         password_hash: data.password_hash,
+        email_verification_required: data.email_verification_required ?? false,
+        email_verified_at: data.email_verified_at ?? null,
       },
     ],
     { session },
@@ -134,6 +136,18 @@ export const authRepository = {
   async findSafeProfileById(id) {
     const profile = await UserProfile.findById(id).lean();
     return safeProfile(profile);
+  },
+
+  async findAuthenticationContextByProfileId(id) {
+    const [profile, account] = await Promise.all([
+      UserProfile.findById(id).lean(),
+      AuthAccount.findOne({ user_profile_id: id }).select('auth_session_version').lean(),
+    ]);
+    if (!profile || !account) return null;
+    return {
+      profile: safeProfile(profile),
+      sessionVersion: account.auth_session_version ?? 0,
+    };
   },
 
   async findUnlinkedPatientCandidate({ contact_number, dob }) {

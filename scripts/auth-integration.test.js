@@ -112,6 +112,76 @@ test('Patient registration uses the backend and cannot send role or confirmation
   assert.equal(request.options.body.is_pwd, false);
 });
 
+test('Patient email verification client uses only cookie-bound status, verify, and resend endpoints', async () => {
+  const calls = [];
+  const service = createAuthService({
+    async request(path, options = {}) {
+      calls.push({ path, options });
+      return path.endsWith('status')
+        ? { status: 'EMAIL_VERIFICATION_REQUIRED', masked_email: 'iv***@example.com' }
+        : { status: path.endsWith('verify-email') ? 'EMAIL_VERIFIED' : 'EMAIL_VERIFICATION_REQUIRED' };
+    },
+  });
+  assert.equal((await service.getEmailVerificationStatus()).masked_email, 'iv***@example.com');
+  assert.equal((await service.verifyEmail('012345')).status, 'EMAIL_VERIFIED');
+  await service.resendEmailVerification();
+  assert.deepEqual(calls.map(item => item.path), [
+    '/api/auth/verification-status', '/api/auth/verify-email', '/api/auth/resend-verification',
+  ]);
+  assert.deepEqual(calls[1].options.body, { code: '012345' });
+  assert.equal(calls[2].options.body, undefined);
+});
+
+test('Patient password recovery client exchanges the raw link once and then uses only cookie-bound requests', async () => {
+  const calls = [];
+  const service = createAuthService({
+    async request(path, options = {}) {
+      calls.push({ path, options });
+      return { status: 'ok' };
+    },
+  });
+  await service.forgotPassword('patient@example.com');
+  await service.createPasswordResetSession('A'.repeat(43));
+  await service.getPasswordResetStatus();
+  await service.resetPassword('NewPassword123!', 'NewPassword123!');
+  assert.deepEqual(calls.map(item => item.path), [
+    '/api/auth/forgot-password',
+    '/api/auth/password-reset/session',
+    '/api/auth/password-reset/status',
+    '/api/auth/reset-password',
+  ]);
+  assert.deepEqual(calls[0].options.body, { email: 'patient@example.com' });
+  assert.deepEqual(calls[1].options.body, { token: 'A'.repeat(43) });
+  assert.equal(calls[2].options.body, undefined);
+  assert.deepEqual(calls[3].options.body, {
+    password: 'NewPassword123!', confirm_password: 'NewPassword123!',
+  });
+});
+
+test('password recovery UI removes the link token and never stores reset credentials in browser storage', () => {
+  const login = readFileSync(new URL('../src/pages/public/LoginPage.jsx', import.meta.url), 'utf8');
+  const forgot = readFileSync(new URL('../src/pages/public/ForgotPasswordPage.jsx', import.meta.url), 'utf8');
+  const reset = readFileSync(new URL('../src/pages/public/ResetPasswordPage.jsx', import.meta.url), 'utf8');
+  assert.match(login, /Forgot password\?/);
+  assert.match(forgot, /If a Patient account exists for that email/);
+  assert.match(reset, /createPasswordResetSession\(token\)/);
+  assert.match(reset, /navigate\('\/reset-password', \{ replace: true \}\)/);
+  assert.match(reset, /Passwords do not match/);
+  assert.match(reset, /type="password"/);
+  assert.doesNotMatch(`${forgot}\n${reset}`, /localStorage|sessionStorage|accountId|email_verified_at/);
+});
+
+test('email verification UI is segmented, numeric, refresh-safe, and contains no browser token store', () => {
+  const source = readFileSync(new URL('../src/pages/public/VerifyEmailPage.jsx', import.meta.url), 'utf8');
+  assert.match(source, /Verification digit \$\{index \+ 1\}/);
+  assert.match(source, /inputMode="numeric"/);
+  assert.match(source, /autoComplete=\{index === 0 \? 'one-time-code'/);
+  assert.match(source, /clipboardData\.getData\('text'\)/);
+  assert.match(source, /event\.key === 'Backspace'/);
+  assert.match(source, /getEmailVerificationStatus/);
+  assert.doesNotMatch(source, /localStorage|sessionStorage|accountId|challengeId/);
+});
+
 test('session restore and logout use the real backend endpoints', async () => {
   const paths = [];
   const service = createAuthService({
@@ -140,6 +210,8 @@ test('frontend auth code does not store tokens or retain the mock role selector'
   const authFiles = [
     '../src/services/apiClient.js', '../src/services/authService.js', '../src/auth/AuthContext.jsx',
     '../src/pages/public/LoginPage.jsx', '../src/pages/public/RegisterPage.jsx',
+    '../src/pages/public/VerifyEmailPage.jsx',
+    '../src/pages/public/ForgotPasswordPage.jsx', '../src/pages/public/ResetPasswordPage.jsx',
   ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
   assert.doesNotMatch(authFiles, /localStorage|sessionStorage/);
   assert.doesNotMatch(readFileSync(new URL('../src/pages/public/LoginPage.jsx', import.meta.url), 'utf8'), /Preview role|name="role"/);

@@ -13,7 +13,7 @@ export function createRequireAuth({ tokens, service }) {
       } catch {
         throw httpError(401, 'UNAUTHENTICATED', 'Authentication is required.');
       }
-      const profile = await service.getAuthenticatedUser(payload.sub);
+      const profile = await service.getAuthenticatedUser(payload.sub, payload.session_version ?? 0);
       if (profile.role === 'admin' && payload.mfa_verified !== true) {
         throw httpError(401, 'UNAUTHENTICATED', 'Authentication is required.');
       }

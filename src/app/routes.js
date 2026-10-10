@@ -14,6 +14,18 @@ export const routeGroups = {
       "title": "Register"
     },
     {
+      "path": "/verify-email",
+      "title": "Verify Email"
+    },
+    {
+      "path": "/forgot-password",
+      "title": "Forgot Password"
+    },
+    {
+      "path": "/reset-password",
+      "title": "Reset Password"
+    },
+    {
       "path": "/unauthorized",
       "title": "Unauthorized"
     }

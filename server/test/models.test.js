@@ -375,10 +375,16 @@ test('Appointment created_by is a nullable UserProfile reference', async () => {
 
 test('account challenge models protect token hashes and declare lookup indexes without TTL deletion', () => {
   assert.equal(EmailVerificationChallenge.schema.path('code_hash').options.select, false);
+  assert.equal(EmailVerificationChallenge.schema.path('session_hash').options.select, false);
   assert.equal(PasswordResetToken.schema.path('token_hash').options.select, false);
+  assert.equal(PasswordResetToken.schema.path('session_hash').options.select, false);
+  assert.equal(AuthAccount.schema.path('auth_session_version').options.default, 0);
   assert.ok(indexByName(EmailVerificationChallenge, 'email_verification_account_history'));
   assert.ok(indexByName(EmailVerificationChallenge, 'email_verification_expiry_lookup'));
+  assert.equal(indexByName(EmailVerificationChallenge, 'unique_email_verification_session')[1].unique, true);
   assert.equal(indexByName(PasswordResetToken, 'unique_password_reset_token_hash')[1].unique, true);
+  assert.equal(indexByName(PasswordResetToken, 'unique_password_reset_session_hash')[1].unique, true);
+  assert.equal(indexByName(PasswordResetToken, 'unique_password_reset_session_hash')[1].sparse, true);
   assert.ok(indexByName(PasswordResetToken, 'password_reset_account_history'));
   assert.ok(indexByName(PasswordResetToken, 'password_reset_expiry_lookup'));
   assert.equal(EmailVerificationChallenge.schema.indexes().some(([, options]) => 'expireAfterSeconds' in options), false);

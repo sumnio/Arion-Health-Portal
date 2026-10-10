@@ -36,10 +36,44 @@ export function createAuthService(client = apiClient) {
       }
     },
     async registerPatient(values) {
-      const result = await client.request('/api/auth/register', {
+      return client.request('/api/auth/register', {
         method: 'POST', body: patientRegistrationPayload(values), skipUnauthorizedHandling: true,
       });
-      return result.user;
+    },
+    async getEmailVerificationStatus() {
+      return client.request('/api/auth/verification-status', { skipUnauthorizedHandling: true });
+    },
+    async verifyEmail(code) {
+      return client.request('/api/auth/verify-email', {
+        method: 'POST', body: { code }, skipUnauthorizedHandling: true,
+      });
+    },
+    async resendEmailVerification() {
+      return client.request('/api/auth/resend-verification', {
+        method: 'POST', skipUnauthorizedHandling: true,
+      });
+    },
+    async forgotPassword(email) {
+      return client.request('/api/auth/forgot-password', {
+        method: 'POST', body: { email }, skipUnauthorizedHandling: true,
+      });
+    },
+    async createPasswordResetSession(token) {
+      return client.request('/api/auth/password-reset/session', {
+        method: 'POST', body: { token }, skipUnauthorizedHandling: true,
+      });
+    },
+    async getPasswordResetStatus() {
+      return client.request('/api/auth/password-reset/status', {
+        skipUnauthorizedHandling: true,
+      });
+    },
+    async resetPassword(password, confirmPassword) {
+      return client.request('/api/auth/reset-password', {
+        method: 'POST',
+        body: { password, confirm_password: confirmPassword },
+        skipUnauthorizedHandling: true,
+      });
     },
     async logout() {
       return client.request('/api/auth/logout', { method: 'POST', skipUnauthorizedHandling: true });

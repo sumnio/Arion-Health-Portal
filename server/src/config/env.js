@@ -146,9 +146,6 @@ function parseEmailProvider(value, nodeEnv) {
   if (!allowedEmailProviders.has(provider)) {
     throw new Error('EMAIL_PROVIDER must be fake or resend.');
   }
-  if (nodeEnv === 'production' && provider === 'fake' && value?.trim()) {
-    throw new Error('EMAIL_PROVIDER=fake is not allowed in production.');
-  }
   return provider;
 }
 
@@ -188,6 +185,9 @@ export function validateRuntimeConfig(config) {
     if (!config.clinicLocation || config.clinicLocation === 'Clinic location not configured') {
       throw new Error('CLINIC_LOCATION must contain the real clinic location in production.');
     }
+    if (config.emailProvider !== 'resend') {
+      throw new Error('EMAIL_PROVIDER=resend is required in production while Patient email verification is enabled.');
+    }
   }
   if (config.emailProvider === 'resend') {
     requireAccountTokenHmacSecret(config.accountTokenHmacSecret, config.nodeEnv);
@@ -221,6 +221,7 @@ export function loadConfig(environment = process.env) {
     resendApiKey: environment.RESEND_API_KEY?.trim() || '',
     emailFrom: environment.EMAIL_FROM?.trim() || '',
     appBaseUrl: parseAppBaseUrl(environment.APP_BASE_URL, nodeEnv),
+    e2eEmailCaptureKey: nodeEnv === 'test' ? environment.E2E_EMAIL_CAPTURE_KEY?.trim() || '' : '',
     clinicTimeZone: environment.CLINIC_TIME_ZONE?.trim() || (nodeEnv === 'production' ? '' : 'Asia/Manila'),
     clinicOpenTime: environment.CLINIC_OPEN_TIME?.trim() || '',
     clinicCloseTime: environment.CLINIC_CLOSE_TIME?.trim() || '',

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import AuthCard from '../../components/public/AuthCard.jsx';
 import FormField from '../../components/public/FormField.jsx';
 import { useAuth } from '../../auth/AuthContext.jsx';
@@ -7,11 +7,11 @@ import { philippineMobileInput, philippineMobileInputAttributes, validatePhilipp
 
 export default function RegisterPage() {
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
   const [busy, setBusy] = useState(false);
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const { register } = useAuth();
+  const navigate = useNavigate();
   const now = new Date();
   const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
   async function submit(event) {
@@ -24,19 +24,16 @@ export default function RegisterPage() {
     setBusy(true);
     try {
       if (values.password !== values.confirmPassword) throw new Error('Passwords do not match.');
-      await register(values);
-      form.reset();
-      setPhone('');
-      setSuccess(true);
+      const result = await register(values);
+      navigate('/verify-email', {
+        replace: true,
+        state: { maskedEmail: result.masked_email },
+      });
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
   return <AuthCard title="Create Your Account" subtitle="Join Arion Health Portal as a patient." wide>
-    {success ? <div className="registration-success" role="status">
-      <span className="success-symbol" aria-hidden="true">✓</span>
-      <h2>Registration complete</h2><p>Your patient account was created. Log in with your email and password to continue.</p>
-      <Link className="public-button primary full-width" to="/login">Continue to login</Link>
-    </div> : <>
+    <>
       <p className="auth-notice">Patient self-registration. Doctor and staff accounts are created by an administrator.</p>
       <form onSubmit={submit}>
         <FormField label="Full Name" name="display_name" placeholder="e.g. Alex Santos" autoComplete="name" required />
@@ -51,7 +48,7 @@ export default function RegisterPage() {
         {error && <p className="form-error" role="alert">{error}</p>}
         <button className="public-button primary full-width" disabled={busy} type="submit">{busy ? 'Creating account…' : 'Create Account'}</button>
       </form>
-    </>}
+    </>
     <p className="auth-switch">Already have an account? <Link to="/login">Login here</Link></p>
   </AuthCard>;
 }

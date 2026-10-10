@@ -23,6 +23,11 @@ const emailVerificationChallengeSchema = new mongoose.Schema(
       immutable: true,
       select: false,
     },
+    session_hash: {
+      type: String,
+      required: true,
+      select: false,
+    },
     expires_at: { type: Date, required: true },
     attempt_count: { type: Number, required: true, default: 0, min: 0 },
     max_attempts: { type: Number, required: true, default: 5, min: 1 },
@@ -41,6 +46,10 @@ emailVerificationChallengeSchema.index(
 emailVerificationChallengeSchema.index(
   { expires_at: 1 },
   { name: 'email_verification_expiry_lookup' },
+);
+emailVerificationChallengeSchema.index(
+  { session_hash: 1 },
+  { unique: true, name: 'unique_email_verification_session' },
 );
 
 export const EmailVerificationChallenge =

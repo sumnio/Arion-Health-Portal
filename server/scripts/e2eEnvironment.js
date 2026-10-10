@@ -59,8 +59,14 @@ export function getE2eRuntimeConfig(environment = loadE2eEnvironment()) {
     NODE_ENV: 'test',
     PORT: api.port || (api.protocol === 'https:' ? '443' : '80'),
     CORS_ORIGIN: new URL(baseUrl).origin,
+    APP_BASE_URL: new URL(baseUrl).origin,
     MONGODB_URI: mongoUri,
     AUTH_SECRET: environment.E2E_AUTH_SECRET || 'arion-e2e-auth-secret-local-tests-only',
     MFA_ENCRYPTION_KEY: environment.E2E_MFA_ENCRYPTION_KEY || testMfaKey,
+    E2E_EMAIL_CAPTURE_KEY: environment.E2E_EMAIL_CAPTURE_KEY || 'arion-e2e-email-capture-only',
+    // Browser journeys share one local IP. Keep recovery scenarios independent
+    // while dedicated backend tests exercise the production-sized limits.
+    FORGOT_PASSWORD_RATE_LIMIT_MAX: environment.E2E_FORGOT_PASSWORD_RATE_LIMIT_MAX || '100',
+    PASSWORD_RESET_RATE_LIMIT_MAX: environment.E2E_PASSWORD_RESET_RATE_LIMIT_MAX || '100',
   }));
 }

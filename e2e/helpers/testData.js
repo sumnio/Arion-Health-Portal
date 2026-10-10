@@ -1,11 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { AuthAccount, Patient, UserProfile } from '../../server/src/models/index.js';
+import {
+  AuthAccount,
+  EmailVerificationChallenge,
+  PasswordResetToken,
+  Patient,
+  UserProfile,
+} from '../../server/src/models/index.js';
 import { connectDatabase, disconnectDatabase } from '../../server/src/config/database.js';
 import {
-  DEFAULT_E2E_API_URL,
   getE2eRuntimeConfig,
   loadE2eEnvironment,
 } from '../../server/scripts/e2eEnvironment.js';
+import { authRepository } from '../../server/src/repositories/authRepository.js';
+import { passwordService } from '../../server/src/services/passwordService.js';
 
 export function buildTestPatient() {
   const marker = randomUUID();
@@ -27,14 +34,22 @@ export function buildTestPatient() {
   };
 }
 
-export async function createTestPatient(request) {
+export async function createTestPatient(_request) {
   loadE2eEnvironment();
   const account = buildTestPatient();
   const { marker: _marker, ...registration } = account;
-  const apiURL = process.env.E2E_API_URL || DEFAULT_E2E_API_URL;
-  const response = await request.post(`${apiURL}/api/auth/register`, { data: registration });
-  if (!response.ok()) {
-    throw new Error(`Unable to create disposable E2E Patient: HTTP ${response.status()} ${await response.text()}`);
+  const { mongoUri } = getE2eRuntimeConfig();
+  await connectDatabase(mongoUri);
+  try {
+    await authRepository.createPatientRegistration({
+      ...registration,
+      dob: new Date(registration.dob),
+      password_hash: await passwordService.hash(registration.password),
+      email_verification_required: false,
+      email_verified_at: null,
+    });
+  } finally {
+    await disconnectDatabase();
   }
   return account;
 }
@@ -50,6 +65,8 @@ export async function cleanupTestPatient(account) {
     if (!authAccount) return;
     const profileId = authAccount.user_profile_id;
     const patient = await Patient.findOne({ user_profile_id: profileId }).select('_id').lean();
+    await EmailVerificationChallenge.deleteMany({ account_id: authAccount._id });
+    await PasswordResetToken.deleteMany({ account_id: authAccount._id });
     await AuthAccount.deleteOne({ _id: authAccount._id, email: account.email });
     if (patient) await Patient.deleteOne({ _id: patient._id, user_profile_id: profileId });
     await UserProfile.deleteOne({ _id: profileId, role: 'patient' });

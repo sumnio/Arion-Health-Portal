@@ -60,7 +60,14 @@
 .password-toggle { position: absolute; right: 3px; top: 3px; bottom: 3px; padding: 0 10px; color: #456277; background: transparent; border: 0; border-radius: 4px; font-size: 12px; cursor: pointer; }
 .auth-switch { text-align: center; font-size: 13px; margin: 24px 0 0; line-height: 1.7; }
 .auth-switch a { color: #215c83; text-decoration: underline; text-underline-offset: 3px; margin-left: 4px; }
+.auth-inline-link { margin: -10px 0 18px; text-align: right; font-size: 13px; }
+.auth-inline-link a { color: #215c83; text-decoration: underline; text-underline-offset: 3px; }
 .form-error { padding: 10px 12px; margin: 0 0 18px; background: #fff1f0; border-radius: 5px; color: #a03131; font-size: 14px; }
+.form-success { padding: 10px 12px; margin: 0 0 18px; background: #e8f5ee; border-radius: 5px; color: #216746; font-size: 14px; }
+.otp-fieldset { border: 0; padding: 0; margin: 0 0 22px; }
+.otp-fieldset legend { width: 100%; margin-bottom: 12px; text-align: center; font-size: 13px; font-weight: 600; }
+.otp-inputs { display: grid; grid-template-columns: repeat(6, minmax(38px, 1fr)); gap: 9px; }
+.otp-inputs input { width: 100%; min-width: 0; height: 54px; border: 1px solid #bfcfda; border-radius: 7px; background: #fff; color: #20384a; font: inherit; font-size: 23px; font-weight: 700; text-align: center; }
 .mfa-enrollment { margin-bottom: 20px; color: #405767; font-size: 13px; line-height: 1.55; }
 .mfa-enrollment ol { padding-left: 20px; }
 .mfa-qr { display: block; width: 220px; max-width: 100%; height: auto; margin: 14px auto; border: 1px solid #dfe7ed; border-radius: 8px; }
@@ -88,4 +95,6 @@
   .auth-card { padding: 26px 20px; }
   .form-grid { grid-template-columns: 1fr; }
   .public-v2 .auth-heading h1 { font-size: 24px; }
+  .otp-inputs { gap: 6px; }
+  .otp-inputs input { height: 48px; font-size: 20px; }
 }

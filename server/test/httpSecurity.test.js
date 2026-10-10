@@ -30,7 +30,7 @@ test('development responses include Helmet defaults without local HSTS or X-Powe
 });
 
 test('production responses retain Helmet HSTS for HTTPS deployment', async () => {
-  await withServer({ nodeEnv: 'production' }, async baseUrl => {
+  await withServer({ nodeEnv: 'production', accountTokenHmacSecret: 'production-test-account-token-secret-123456789' }, async baseUrl => {
     const response = await fetch(`${baseUrl}/api/health`);
     assert.match(response.headers.get('strict-transport-security'), /^max-age=/);
   });

@@ -29,6 +29,25 @@ function authModule() {
         if (!profile) throw httpError(401, 'UNAUTHENTICATED', 'Authentication is required.');
         return profile;
       },
+      async getEmailVerificationStatus() { return { status: 'EMAIL_VERIFICATION_REQUIRED', masked_email: 'pa***@example.test' }; },
+      async verifyEmail(_session, code) {
+        if (code !== '123456') throw httpError(400, 'INVALID_VERIFICATION_CODE', 'The verification code is incorrect.');
+        return { status: 'EMAIL_VERIFIED' };
+      },
+      async resendEmailVerification() {
+        return { status: 'EMAIL_VERIFICATION_REQUIRED', masked_email: 'pa***@example.test', verificationToken: 'replacement-test-token' };
+      },
+      async forgotPassword() {
+        return { message: 'If a Patient account exists for that email, password reset instructions have been sent.' };
+      },
+      async createPasswordResetSession() {
+        return { status: 'PASSWORD_RESET_SESSION_READY', resetSessionToken: 'opaque-password-reset-session-token-long-enough' };
+      },
+      async getPasswordResetStatus() { return { status: 'PASSWORD_RESET_SESSION_READY' }; },
+      async resetPassword(session) {
+        if (!session) throw httpError(400, 'PASSWORD_RESET_INVALID', 'This password reset link is invalid or has expired.');
+        return { status: 'PASSWORD_RESET_COMPLETED' };
+      },
     },
   };
 }
@@ -191,4 +210,51 @@ test('future account-security limiters use distinct shared-store namespaces', ()
     'password_reset',
   ]) assert.ok(namespaces.includes(namespace));
   assert.equal(new Set(namespaces).size, namespaces.length);
+});
+
+test('email verification attempt and resend endpoints enforce separate limits', async () => {
+  const app = createApp(
+    {
+      nodeEnv: 'test', authSecret: SECRET,
+      verificationAttemptRateLimitMax: 1,
+      verificationResendRateLimitMax: 1,
+    },
+    { authModule: authModule() },
+  );
+  await withServer(app, async baseUrl => {
+    const cookie = 'arion_email_verification=opaque-test-token';
+    assert.equal((await request(baseUrl, '/api/auth/verify-email', { method: 'POST', cookie, body: { code: '000000' } })).status, 400);
+    assert.equal((await request(baseUrl, '/api/auth/verify-email', { method: 'POST', cookie, body: { code: '123456' } })).status, 429);
+    assert.equal((await request(baseUrl, '/api/auth/resend-verification', { method: 'POST', cookie })).status, 200);
+    assert.equal((await request(baseUrl, '/api/auth/resend-verification', { method: 'POST', cookie })).status, 429);
+  });
+});
+
+test('forgot-password and password-reset endpoints enforce their mounted limits', async () => {
+  const app = createApp(
+    {
+      nodeEnv: 'test', authSecret: SECRET,
+      forgotPasswordRateLimitMax: 1,
+      passwordResetRateLimitMax: 1,
+    },
+    { authModule: authModule() },
+  );
+  await withServer(app, async baseUrl => {
+    const forgotBody = { email: 'patient@example.test' };
+    assert.equal((await request(baseUrl, '/api/auth/forgot-password', {
+      method: 'POST', body: forgotBody,
+    })).status, 200);
+    assert.equal((await request(baseUrl, '/api/auth/forgot-password', {
+      method: 'POST', body: forgotBody,
+    })).status, 429);
+
+    assert.equal((await request(baseUrl, '/api/auth/reset-password', {
+      method: 'POST',
+      body: { password: 'Password123!', confirm_password: 'Password123!' },
+    })).status, 400);
+    assert.equal((await request(baseUrl, '/api/auth/reset-password', {
+      method: 'POST',
+      body: { password: 'Password123!', confirm_password: 'Password123!' },
+    })).status, 429);
+  });
 });

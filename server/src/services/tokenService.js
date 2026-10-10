@@ -7,11 +7,18 @@ export const AUTH_COOKIE_NAME = 'arion_auth';
 export const AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60;
 export const MFA_CHALLENGE_COOKIE_NAME = 'arion_mfa_challenge';
 export const MFA_CHALLENGE_TTL_SECONDS = 10 * 60;
+export const EMAIL_VERIFICATION_COOKIE_NAME = 'arion_email_verification';
+export const EMAIL_VERIFICATION_SESSION_TTL_SECONDS = 60 * 60;
+export const PASSWORD_RESET_COOKIE_NAME = 'arion_password_reset';
+export const PASSWORD_RESET_SESSION_TTL_SECONDS = 15 * 60;
 
 export function createTokenService(secret, nodeEnv = 'development') {
   return {
-    sign(userProfileId, { mfaVerified = false } = {}) {
-      return jwt.sign(mfaVerified ? { mfa_verified: true } : {}, requireAuthSecret(secret, nodeEnv), {
+    sign(userProfileId, { mfaVerified = false, sessionVersion = 0 } = {}) {
+      return jwt.sign({
+        ...(mfaVerified ? { mfa_verified: true } : {}),
+        session_version: sessionVersion,
+      }, requireAuthSecret(secret, nodeEnv), {
         subject: String(userProfileId),
         expiresIn: AUTH_TOKEN_TTL_SECONDS,
         issuer: 'arion-health-api',
@@ -66,5 +73,31 @@ export function mfaChallengeCookieOptions(nodeEnv = 'development') {
 
 export function mfaChallengeCookieClearOptions(nodeEnv = 'development') {
   const { maxAge: _maxAge, ...options } = mfaChallengeCookieOptions(nodeEnv);
+  return options;
+}
+
+export function emailVerificationCookieOptions(nodeEnv = 'development') {
+  return {
+    ...authCookieOptions(nodeEnv),
+    maxAge: EMAIL_VERIFICATION_SESSION_TTL_SECONDS * 1000,
+    path: '/api/auth',
+  };
+}
+
+export function emailVerificationCookieClearOptions(nodeEnv = 'development') {
+  const { maxAge: _maxAge, ...options } = emailVerificationCookieOptions(nodeEnv);
+  return options;
+}
+
+export function passwordResetCookieOptions(nodeEnv = 'development') {
+  return {
+    ...authCookieOptions(nodeEnv),
+    maxAge: PASSWORD_RESET_SESSION_TTL_SECONDS * 1000,
+    path: '/api/auth',
+  };
+}
+
+export function passwordResetCookieClearOptions(nodeEnv = 'development') {
+  const { maxAge: _maxAge, ...options } = passwordResetCookieOptions(nodeEnv);
   return options;
 }

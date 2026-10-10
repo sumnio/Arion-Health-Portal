@@ -21,11 +21,14 @@ export default function AppRouter() {
     document.getElementById('main-content')?.focus();
     window.scrollTo(0, 0);
   }, [pathname]);
+  const guestOnlyPaths = [
+    '/login', '/register', '/verify-email', '/forgot-password',
+  ];
   return <Routes>
     <Route element={<PublicLayout />}>
-      {routeGroups.public.filter(route => !['/login', '/register'].includes(route.path)).map(route => <Route key={route.path} path={route.path} element={<PublicPage route={route} />} />)}
+      {routeGroups.public.filter(route => !guestOnlyPaths.includes(route.path)).map(route => <Route key={route.path} path={route.path} element={<PublicPage route={route} />} />)}
       <Route element={<GuestOnlyRoute />}>
-        {routeGroups.public.filter(route => ['/login', '/register'].includes(route.path)).map(route => <Route key={route.path} path={route.path} element={<PublicPage route={route} />} />)}
+        {routeGroups.public.filter(route => guestOnlyPaths.includes(route.path)).map(route => <Route key={route.path} path={route.path} element={<PublicPage route={route} />} />)}
       </Route>
       <Route path="*" element={<PlaceholderPage title="Page not found" links={[{ to: '/', label: 'Back to home' }]} />} />
     </Route>
