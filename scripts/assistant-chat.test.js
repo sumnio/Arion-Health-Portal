@@ -36,23 +36,23 @@ test('assistant service rejects malformed replies and maps errors without leakin
   assert.equal(ASSISTANT_MESSAGE_MAX_LENGTH, 800);
 });
 
-test('Patient layout alone mounts the floating assistant', async () => {
+test('authenticated Patient layout alone mounts the floating assistant', async () => {
   const patient = await readSource('../src/layouts/PatientLayout.jsx');
   assert.match(patient, /ArionAssistantChat/);
-  for (const layout of ['StaffLayout.jsx', 'DoctorLayout.jsx', 'AdminLayout.jsx', 'PublicLayout.jsx']) {
+  for (const layout of ['StaffLayout.jsx', 'DoctorLayout.jsx', 'AdminLayout.jsx']) {
     assert.doesNotMatch(await readSource(`../src/layouts/${layout}`), /ArionAssistantChat/);
   }
 });
 
 test('assistant component provides session-only chat, controls, suggestions, and safe text rendering', async () => {
   const source = await readSource('../src/components/assistant/ArionAssistantChat.jsx');
-  assert.match(source, /useState\(\(\) => \[welcomeMessage\(\)\]\)/);
+  assert.match(source, /useState\(\(\) => \[welcomeMessage\(welcomeText\)\]\)/);
   assert.match(source, /Open Arion Assistant/);
   assert.match(source, /Close Arion Assistant/);
   assert.match(source, /Clear chat/);
   assert.match(source, /Send message/);
   assert.match(source, /Arion Assistant provides clinic and portal guidance and does not replace a Doctor\./);
-  assert.match(source, /ASSISTANT_SUGGESTIONS\.map/);
+  assert.match(source, /suggestions\.map/);
   assert.match(source, /sendMessage\(item\.question\)/);
   assert.match(source, /event\.key === 'Enter' && !event\.shiftKey/);
   assert.match(source, /pending \|\| !message/);

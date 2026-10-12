@@ -2,23 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ASSISTANT_MESSAGE_MAX_LENGTH,
   assistantErrorMessage,
-  patientAssistantApiService,
-} from '../../services/patientAssistantApiService.js';
+} from '../../services/assistantApiService.js';
+import { patientAssistantApiService } from '../../services/patientAssistantApiService.js';
+import { PATIENT_ASSISTANT_CONFIG } from './assistantConfig.js';
 import '../../styles/arion-assistant.css';
 
-const WELCOME_MESSAGE = "Hi! I'm Arion Assistant. I can help with appointments, portal navigation, notifications, Medical Records, Certificates, and account-related questions.";
 const DISCLAIMER = 'Arion Assistant provides clinic and portal guidance and does not replace a Doctor.';
-
-export const ASSISTANT_SUGGESTIONS = Object.freeze([
-  { label: 'My Next Appointment', question: 'When is my next appointment?' },
-  { label: 'Appointment Status', question: 'What is my appointment status?' },
-  { label: 'How to Reschedule', question: 'How do I reschedule?' },
-  { label: 'Medical Records', question: 'Where are my Medical Records?' },
-  { label: 'Certificates', question: 'Where are my Certificates?' },
-  { label: 'Notifications', question: 'How do notifications work?' },
-  { label: 'Password Help', question: 'How do I reset my password?' },
-  { label: 'How Does the Queue Work?', question: 'How does the queue work?' },
-]);
+export const ASSISTANT_SUGGESTIONS = PATIENT_ASSISTANT_CONFIG.suggestions;
 
 function AssistantIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -27,13 +17,17 @@ function AssistantIcon() {
   </svg>;
 }
 
-function welcomeMessage() {
-  return { id: 'assistant-welcome', role: 'assistant', text: WELCOME_MESSAGE };
+function welcomeMessage(text) {
+  return { id: 'assistant-welcome', role: 'assistant', text };
 }
 
-export default function ArionAssistantChat({ service = patientAssistantApiService }) {
+export default function ArionAssistantChat({
+  service = patientAssistantApiService,
+  welcomeText = PATIENT_ASSISTANT_CONFIG.welcomeMessage,
+  suggestions = PATIENT_ASSISTANT_CONFIG.suggestions,
+}) {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState(() => [welcomeMessage()]);
+  const [messages, setMessages] = useState(() => [welcomeMessage(welcomeText)]);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
   const launcherRef = useRef(null);
@@ -68,7 +62,7 @@ export default function ArionAssistantChat({ service = patientAssistantApiServic
 
   function clearChat() {
     if (pending) return;
-    setMessages([welcomeMessage()]);
+    setMessages([welcomeMessage(welcomeText)]);
     setDraft('');
     queueMicrotask(() => inputRef.current?.focus());
   }
@@ -117,7 +111,7 @@ export default function ArionAssistantChat({ service = patientAssistantApiServic
           <p>{item.text}</p>
         </article>)}
         {messages.length === 1 && <div className="assistant-suggestions" aria-label="Suggested questions">
-          {ASSISTANT_SUGGESTIONS.map(item => <button key={item.label} type="button" disabled={pending} onClick={() => sendMessage(item.question)}>{item.label}</button>)}
+          {suggestions.map(item => <button key={item.label} type="button" disabled={pending} onClick={() => sendMessage(item.question)}>{item.label}</button>)}
         </div>}
         {pending && <div className="assistant-thinking" role="status"><span aria-hidden="true">•••</span> Arion Assistant is thinking...</div>}
         <div ref={endRef} />

@@ -29,10 +29,10 @@ test('Patient uses the session-only Arion Assistant for FAQ and live appointment
   assertBrowserClean();
 });
 
-test('Arion Assistant fits a narrow Patient viewport and remains absent from Login', async ({ page, seededPatient }) => {
+test('Arion Assistant fits a narrow Patient viewport and switches from public to Patient mode after login', async ({ page, seededPatient }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto('/login');
-  await expect(page.getByRole('button', { name: 'Open Arion Assistant' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open Arion Assistant' })).toBeVisible();
   await loginAsPatient(page, seededPatient);
   await page.getByRole('button', { name: 'Open Arion Assistant' }).click();
   const panel = page.getByRole('dialog', { name: 'Arion Assistant' });

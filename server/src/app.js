@@ -23,6 +23,8 @@ import { createAnalyticsModule } from './services/analyticsModule.js';
 import { createAnalyticsRouter } from './routes/analyticsRoutes.js';
 import { createNotificationModule } from './services/notificationModule.js';
 import { createAssistantModule } from './services/assistantModule.js';
+import { createPublicAssistantModule } from './services/publicAssistantModule.js';
+import { createPublicAssistantRouter } from './routes/publicAssistantRoutes.js';
 import { createNotificationRouter } from './routes/notificationRoutes.js';
 import { createE2eEmailCaptureRouter } from './routes/e2eEmailCaptureRoutes.js';
 import { notFound } from './middleware/notFound.js';
@@ -92,6 +94,8 @@ export function createApp(
     assistantMaxMessageLength = 800,
     assistantRateLimitWindowMs = RATE_LIMIT_DEFAULTS.assistantWindowMs,
     assistantRateLimitMax = RATE_LIMIT_DEFAULTS.assistantMax,
+    publicAssistantRateLimitWindowMs = RATE_LIMIT_DEFAULTS.publicAssistantWindowMs,
+    publicAssistantRateLimitMax = RATE_LIMIT_DEFAULTS.publicAssistantMax,
     aiExternalEnabled = ASSISTANT_AI_DEFAULTS.enabled,
     aiProvider = ASSISTANT_AI_DEFAULTS.provider,
     openAiApiKey = '',
@@ -131,6 +135,8 @@ export function createApp(
     passwordResetMax: passwordResetRateLimitMax,
     assistantWindowMs: assistantRateLimitWindowMs,
     assistantMax: assistantRateLimitMax,
+    publicAssistantWindowMs: publicAssistantRateLimitWindowMs,
+    publicAssistantMax: publicAssistantRateLimitMax,
     securityLogger,
     storeFactory: dependencies.rateLimitStoreFactory,
   });
@@ -183,7 +189,11 @@ export function createApp(
     aiProviderTimeoutMs,
     aiMaxOutputTokens,
   });
+  const publicAssistantModule = dependencies.publicAssistantModule ?? createPublicAssistantModule({
+    maxMessageLength: assistantMaxMessageLength,
+  });
   app.use('/api/health', healthRouter);
+  app.use('/api/public/assistant', createPublicAssistantRouter({ publicAssistantModule, rateLimiters }));
   if (
     nodeEnv === 'test' &&
     e2eEmailCaptureKey &&

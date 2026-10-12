@@ -20,6 +20,8 @@ export const RATE_LIMIT_DEFAULTS = Object.freeze({
   passwordResetMax: 5,
   assistantWindowMs: 60 * 1000,
   assistantMax: 10,
+  publicAssistantWindowMs: 60 * 1000,
+  publicAssistantMax: 5,
 });
 
 const rateLimitedResponse = Object.freeze({
@@ -42,7 +44,7 @@ function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false, e
       requestSecurityEvent(request, {
         event, severity: 'warning', outcome: 'denied',
         metadata: { limiter_type: limiterType },
-      }, limiterType === 'patient_assistant'
+      }, ['patient_assistant', 'public_assistant'].includes(limiterType)
         ? { includeActor: false, includeIp: false }
         : undefined);
       response.status(429).json(rateLimitedResponse);
@@ -69,6 +71,8 @@ export function createRateLimiters({
   passwordResetMax = RATE_LIMIT_DEFAULTS.passwordResetMax,
   assistantWindowMs = RATE_LIMIT_DEFAULTS.assistantWindowMs,
   assistantMax = RATE_LIMIT_DEFAULTS.assistantMax,
+  publicAssistantWindowMs = RATE_LIMIT_DEFAULTS.publicAssistantWindowMs,
+  publicAssistantMax = RATE_LIMIT_DEFAULTS.publicAssistantMax,
   storeFactory = () => undefined,
 } = {}) {
   return {
@@ -132,6 +136,13 @@ export function createRateLimiters({
       event: 'ASSISTANT_RATE_LIMITED',
       store: storeFactory('patient_assistant'),
       keyGenerator: request => `patient:${request.authUser.user_profile_id}`,
+    }),
+    publicAssistantRateLimiter: limiter({
+      windowMs: publicAssistantWindowMs,
+      max: publicAssistantMax,
+      limiterType: 'public_assistant',
+      event: 'PUBLIC_ASSISTANT_RATE_LIMITED',
+      store: storeFactory('public_assistant'),
     }),
   };
 }

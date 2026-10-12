@@ -260,6 +260,8 @@ export function loadConfig(environment = process.env) {
     assistantMaxMessageLength: parsePositiveInteger(environment.ASSISTANT_MAX_MESSAGE_LENGTH, 800, 'ASSISTANT_MAX_MESSAGE_LENGTH'),
     assistantRateLimitWindowMs: parsePositiveInteger(environment.ASSISTANT_RATE_LIMIT_WINDOW_MS, 60_000, 'ASSISTANT_RATE_LIMIT_WINDOW_MS'),
     assistantRateLimitMax: parsePositiveInteger(environment.ASSISTANT_RATE_LIMIT_MAX, 10, 'ASSISTANT_RATE_LIMIT_MAX'),
+    publicAssistantRateLimitWindowMs: parsePositiveInteger(environment.PUBLIC_ASSISTANT_RATE_LIMIT_WINDOW_MS, 60_000, 'PUBLIC_ASSISTANT_RATE_LIMIT_WINDOW_MS'),
+    publicAssistantRateLimitMax: parsePositiveInteger(environment.PUBLIC_ASSISTANT_RATE_LIMIT_MAX, 5, 'PUBLIC_ASSISTANT_RATE_LIMIT_MAX'),
     aiExternalEnabled: parseBoolean(environment.AI_EXTERNAL_ENABLED, ASSISTANT_AI_DEFAULTS.enabled, 'AI_EXTERNAL_ENABLED'),
     aiProvider: environment.AI_PROVIDER?.trim().toLowerCase() || ASSISTANT_AI_DEFAULTS.provider,
     openAiApiKey: environment.OPENAI_API_KEY?.trim() || '',
