@@ -37,14 +37,21 @@ test('public layout mounts safe mode only for approved guest routes', async () =
   assert.doesNotMatch(source, /verify-email|reset-password|unauthorized/);
 });
 
-test('public and authenticated Patient modes use distinct welcome text and suggestions', () => {
+test('public and authenticated Patient modes use distinct welcome text and category trees', () => {
   assert.notEqual(PUBLIC_ASSISTANT_CONFIG.welcomeMessage, PATIENT_ASSISTANT_CONFIG.welcomeMessage);
-  assert.match(PUBLIC_ASSISTANT_CONFIG.welcomeMessage, /For personal appointment or account details, please sign in/);
-  assert.equal(PUBLIC_ASSISTANT_CONFIG.suggestions.length, 8);
-  assert.equal(PATIENT_ASSISTANT_CONFIG.suggestions.length, 8);
-  assert.ok(PUBLIC_ASSISTANT_CONFIG.suggestions.some(item => item.question === 'How do I register?'));
-  assert.ok(PATIENT_ASSISTANT_CONFIG.suggestions.some(item => item.question === 'When is my next appointment?'));
-  assert.equal(PUBLIC_ASSISTANT_CONFIG.suggestions.some(item => item.question === 'When is my next appointment?'), false);
+  assert.equal(PUBLIC_ASSISTANT_CONFIG.welcomeMessage, "Hi! I'm Arion Assistant. I can help you learn how to use the Arion Health Portal.");
+  assert.equal(PATIENT_ASSISTANT_CONFIG.welcomeMessage, "Hi! I'm Arion Assistant. What can I help you with?");
+  assert.equal(PUBLIC_ASSISTANT_CONFIG.categories.length, 6);
+  assert.equal(PATIENT_ASSISTANT_CONFIG.categories.length, 7);
+  const publicQuestions = PUBLIC_ASSISTANT_CONFIG.categories.flatMap(item => item.questions);
+  const patientQuestions = PATIENT_ASSISTANT_CONFIG.categories.flatMap(item => item.questions);
+  assert.ok(publicQuestions.some(item => item.question === 'How do I register?'));
+  assert.ok(patientQuestions.some(item => item.question === 'When is my next appointment?'));
+  assert.equal(publicQuestions.some(item => item.question === 'When is my next appointment?'), false);
+  assert.equal(publicQuestions.some(item => item.question === 'Who is my Doctor?'), false);
+  assert.equal(publicQuestions.some(item => item.question === 'What are my recent notifications?'), false);
+  assert.deepEqual(PUBLIC_ASSISTANT_CONFIG.categories.map(item => item.label), ['Getting Started', 'Appointments', 'Account Help', 'Records & Certificates', 'Queue & Clinic Process', 'About Arion Assistant']);
+  assert.deepEqual(PATIENT_ASSISTANT_CONFIG.categories.map(item => item.label), ['My Appointments', 'Medical Records', 'Certificates', 'Notifications', 'Account & Profile', 'Queue & Arrival', 'About Arion Assistant']);
 });
 
 test('shared chat stays session-only and renders responses as plain React text', async () => {

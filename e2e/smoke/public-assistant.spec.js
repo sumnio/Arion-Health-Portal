@@ -24,13 +24,19 @@ test('public assistant appears only on the approved landing and account-help pag
   }
 });
 
-test('public assistant answers an allowlisted registration question', async ({ page }) => {
+test('public assistant guides an appointment question through categories and back navigation', async ({ page }) => {
   const assertBrowserClean = observeBrowser(page);
   await page.goto('/');
   const panel = await openAssistant(page);
-  await expect(panel.getByText(/For personal appointment or account details, please sign in/)).toBeVisible();
-  await panel.getByRole('button', { name: 'How Do I Register?' }).click();
-  await expect(panel.getByText(/New Patient accounts must complete email verification/)).toBeVisible();
+  await expect(panel.getByText("Hi! I'm Arion Assistant. I can help you learn how to use the Arion Health Portal.")).toBeVisible();
+  await panel.getByRole('button', { name: 'Appointments' }).click();
+  await expect(panel.getByRole('button', { name: 'How do appointments work?' })).toBeFocused();
+  await panel.getByRole('button', { name: '← Back to topics' }).click();
+  await expect(panel.getByRole('button', { name: 'Getting Started' })).toBeFocused();
+  await panel.getByRole('button', { name: 'Appointments' }).click();
+  await panel.getByRole('button', { name: 'How do appointments work?' }).click();
+  await expect(panel.getByText(/Patient bookings start as Pending/)).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Browse topics' })).toBeVisible();
   assertBrowserClean();
 });
 
@@ -53,7 +59,8 @@ test('public assistant keeps health and emergency handling deterministic', async
 test('Login public assistant explains Patient password recovery', async ({ page }) => {
   await page.goto('/login');
   const panel = await openAssistant(page);
-  await panel.getByRole('button', { name: 'Forgot My Password' }).click();
+  await panel.getByRole('button', { name: 'Account Help' }).click();
+  await panel.getByRole('button', { name: 'I forgot my password' }).click();
   await expect(panel.getByText(/select Forgot Password on Login to request an email reset link/i)).toBeVisible();
 });
 
@@ -66,14 +73,14 @@ test('login replaces public safe mode with a clean authenticated Patient assista
 
   await loginAsPatient(page, seededPatient);
   panel = await openAssistant(page);
-  await expect(panel.getByText(/notifications, Medical Records, Certificates/)).toBeVisible();
+  await expect(panel.getByText("Hi! I'm Arion Assistant. What can I help you with?")).toBeVisible();
   await expect(panel.getByText(/New Patient accounts/)).toHaveCount(0);
   await panel.getByRole('button', { name: 'Close Arion Assistant' }).click();
 
   await logoutThroughUi(page);
   panel = await openAssistant(page);
-  await expect(panel.getByText(/For personal appointment or account details, please sign in/)).toBeVisible();
-  await expect(panel.getByText(/notifications, Medical Records, Certificates/)).toHaveCount(0);
+  await expect(panel.getByText(/help you learn how to use the Arion Health Portal/)).toBeVisible();
+  await expect(panel.getByText(/What can I help you with/)).toHaveCount(0);
 });
 
 test('public assistant sends only the message contract and displays safe failures', async ({ page }) => {
@@ -85,7 +92,8 @@ test('public assistant sends only the message contract and displays safe failure
     expect(route.request().postDataJSON()).toEqual({ message: 'How do I register?' });
     await route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: { code: 'RATE_LIMITED', message: 'Hidden detail' } }) });
   });
-  await panel.getByRole('button', { name: 'How Do I Register?' }).click();
+  await panel.getByRole('button', { name: 'Getting Started' }).click();
+  await panel.getByRole('button', { name: 'How do I register?' }).click();
   await expect(panel.getByText("You've sent several messages quickly. Please wait a moment before trying again.")).toBeVisible();
   expect(requestCount).toBe(1);
 });
@@ -100,4 +108,8 @@ test('public assistant stays usable inside a 320-pixel viewport', async ({ page 
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.y + box.height).toBeLessThanOrEqual(640);
   await expect(panel.getByRole('textbox', { name: 'Message Arion Assistant' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Getting Started' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Queue & Clinic Process' }).click();
+  await expect(panel.getByRole('button', { name: 'What does Senior/PWD priority mean?' })).toBeVisible();
+  expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 });

@@ -37,14 +37,14 @@ export const ASSISTANT_KNOWLEDGE_BASE = Object.freeze([
     id: 'phone_number_format',
     category: ASSISTANT_INTENTS.ACCOUNT_HELP,
     phrases: ['phone number format', 'contact number format', 'valid mobile number'],
-    patterns: [/\b(?:phone|mobile|contact) number\b.*\b(?:format|digits?|valid|start)\b/i, /\b09x{5,}x*\b/i],
+    patterns: [/\b(?:phone|mobile|contact) number\b.*\b(?:format|digits?|valid|use|enter|start)\b/i, /\bwhat (?:phone|mobile|contact) number should i use\b/i, /\b09x{5,}x*\b/i],
     response: 'Use the Philippine mobile format 09XXXXXXXXX. It must contain exactly 11 digits and start with 09.',
   }),
   knowledgeEntry({
     id: 'email_verification',
     category: ASSISTANT_INTENTS.ACCOUNT_HELP,
     phrases: ['verify my email', 'verification code', "didn't get verification code", 'resend code'],
-    patterns: [/\b(?:verify|verification|otp|one[- ]time code|resend code)\b.*\b(?:email|code|registration)?\b/i, /\b(?:did not|didn['’]?t|never) (?:get|receive)\b.*\b(?:code|otp)\b/i],
+    patterns: [/\b(?:verify|verification|otp|one[- ]time code|resend code)\b.*\b(?:email|code|registration)?\b/i, /\b(?:did not|didn['’]?t|never|haven['’]?t) (?:get|receive|received)\b.*\b(?:code|otp)\b/i],
     response: 'New Patient registration uses a 6-digit email verification code. Enter the newest code in the verification flow within 10 minutes; requesting another code makes the previous code invalid.',
   }),
   knowledgeEntry({
@@ -58,7 +58,7 @@ export const ASSISTANT_KNOWLEDGE_BASE = Object.freeze([
     id: 'profile_editing',
     category: ASSISTANT_INTENTS.ACCOUNT_HELP,
     phrases: ['edit my profile', 'change my profile', 'update my details'],
-    patterns: [/\b(?:profile|personal information|my details)\b.*\b(?:edit|change|update|read[- ]only)\b/i, /\b(?:edit|change|update)\b.*\b(?:profile|personal information|my details)\b/i],
+    patterns: [/\b(?:profile|personal information|my details)\b.*\b(?:edit|change|update|read[- ]only)\b/i, /\b(?:edit|change|update)\b.*\b(?:profile|personal information|my details)\b/i, /\bprofile help\b/i],
     response: 'Profile is read-only when you first open it. Select Edit Profile to change permitted details. Emergency-contact information remains visible only in your Patient profile; Staff do not see allergies, while a related Doctor may see approved health details.',
   }),
   knowledgeEntry({
@@ -72,43 +72,50 @@ export const ASSISTANT_KNOWLEDGE_BASE = Object.freeze([
     id: 'appointment_reschedule',
     category: ASSISTANT_INTENTS.APPOINTMENT_HELP,
     phrases: ['how do i reschedule', 'move my appointment', 'change appointment time', 'change schedule'],
-    patterns: [/\b(?:reschedul|move|change)\w*\b.*\b(?:appointment|schedule|time)\b/i, /\bchange schedule\b/i],
+    patterns: [/\b(?:reschedul|move|change)\w*\b.*\b(?:appointment|schedule|booking|time)\b/i, /\bchange (?:my )?schedule\b/i, /\b(?:different|another) appointment time\b/i],
     response: 'In My Appointments, you may reschedule a Patient-created Pending or Confirmed appointment that is not checked in and is still at least 60 minutes away. Choose a new available time within the 14-day booking window; the Doctor, appointment type, and visit reason stay the same, and the appointment returns to Pending for confirmation.',
   }),
   knowledgeEntry({
     id: 'appointment_cancellation',
     category: ASSISTANT_INTENTS.APPOINTMENT_HELP,
     phrases: ['how do i cancel', 'when can i cancel', 'cancel appointment'],
-    patterns: [/\bcancel\w*\b.*\bappointment\b/i, /\bappointment\b.*\bcancel\w*\b/i],
+    patterns: [/\bcancel\w*\b.*\bappointment\b/i, /\bappointment\b.*\bcancel\w*\b/i, /\bhow (?:do|can) i cancel\b/i],
     response: 'In My Appointments, a future Pending or Confirmed appointment can be cancelled before check-in. Cancellation is unavailable after check-in, after completion or another final status, or once a Medical Record exists.',
   }),
   knowledgeEntry({
     id: 'appointment_booking',
     category: ASSISTANT_INTENTS.APPOINTMENT_HELP,
     phrases: ['how do i book an appointment', 'make an appointment', 'request an appointment'],
-    patterns: [/\b(?:book|make|request|schedule)\w*\b.*\bappointment\b/i, /\bappointment\b.*\b(?:book|make|request|schedule)\w*\b/i],
+    patterns: [/\b(?:book|make|request|schedule|set up)\w*\b.*\bappointment\b/i, /\bappointment\b.*\b(?:book|make|request|schedule|set up)\w*\b/i, /\bneed (?:to see|an appointment with) (?:a )?doctor\b/i],
     response: 'Open Book Appointment, choose a Doctor and an available published time within the next 14 days, enter the visit details, and submit the request. Patient bookings start as Pending and are not instantly confirmed; Arion Assistant cannot book for you.',
   }),
   knowledgeEntry({
     id: 'arrival_check_in',
     category: ASSISTANT_INTENTS.APPOINTMENT_HELP,
     phrases: ['how do i check in', 'confirm my arrival', 'appointment arrival'],
-    patterns: [/\b(?:check[ -]?in|checked in|confirm(?:ed)? (?:my )?arrival|arrival)\b/i],
+    patterns: [/\b(?:check[ -]?in|checked in|confirm(?:ed)? (?:my )?arrival|arrival|i['’]?m at the clinic|i am at the clinic)\b/i],
     response: 'Clinic Staff confirms your arrival for an eligible appointment on the clinic day. Patients cannot self-check in through Arion Assistant. After arrival is confirmed, the appointment can join the active queue.',
   }),
   knowledgeEntry({
     id: 'clinic_queue',
     category: ASSISTANT_INTENTS.APPOINTMENT_HELP,
     phrases: ['how does the queue work', 'queue priority', 'waiting order'],
-    patterns: [/\b(?:clinic |appointment |waiting )?queue\b/i, /\bwaiting order\b/i],
+    patterns: [/\b(?:clinic |appointment |waiting )?queue\b/i, /\bwaiting (?:order|line)\b/i, /\bhow does waiting work\b/i, /\b(?:patient|priority) order\b/i, /\b(?:senior\s*\/\s*pwd|urgent|normal) priority\b/i, /\bwho (?:goes|is seen) first\b/i],
     response: 'After Staff confirms arrival, the active queue is ordered Urgent first, then Senior/PWD, then Normal. Within the same priority group, the earlier check-in time comes first. Patients cannot change their own priority, and Arion Assistant cannot mark anyone Urgent.',
   }),
   knowledgeEntry({
     id: 'status_no_show',
     category: ASSISTANT_INTENTS.APPOINTMENT_HELP,
     phrases: ['what does no-show mean', 'marked no-show', 'no show status'],
-    patterns: [/\bno[ -]?show\b/i],
+    patterns: [/\bno[ -]?show\b/i, /\bi missed my appointment\b/i],
     response: 'No-show means clinic Staff marked an unchecked appointment as unattended. Staff can apply it only after the scheduled start time plus the current 5-minute grace period; Arion Assistant cannot mark this status.',
+  }),
+  knowledgeEntry({
+    id: 'medical_records_creation',
+    category: ASSISTANT_INTENTS.PORTAL_HELP,
+    phrases: ['who creates my medical record'],
+    patterns: [/\bwho (?:creates?|writes?|makes?)\b.*\bmedical records?\b/i],
+    response: 'Medical Records are created through the Doctor’s clinical workflow. Patients can view their own issued records in My Records, but cannot edit them or ask Arion Assistant to interpret them.',
   }),
   knowledgeEntry({
     id: 'status_pending',
@@ -156,7 +163,7 @@ export const ASSISTANT_KNOWLEDGE_BASE = Object.freeze([
     id: 'certificate_issuance',
     category: ASSISTANT_INTENTS.PORTAL_HELP,
     phrases: ['can you issue a certificate', 'get a medical certificate'],
-    patterns: [/\b(?:issue|create|make|request|get)\b.*\b(?:medical )?certificate\b/i],
+    patterns: [/\b(?:issues?|create|make|request|get)\b.*\b(?:medical )?certificates?\b/i, /\bwho issues certificates?\b/i],
     response: 'Medical Certificates are issued through the clinic’s Doctor workflow when available. Arion Assistant cannot issue or change a certificate.',
   }),
   knowledgeEntry({
@@ -181,6 +188,48 @@ export const ASSISTANT_KNOWLEDGE_BASE = Object.freeze([
     response: 'Open Notifications or the notification bell to review appointment and clinic workflow updates relevant to your account. When available, the page shows relevant appointment context. Arion currently shows these inside the portal; Arion Assistant does not claim SMS, push, email, or real-time delivery.',
   }),
   knowledgeEntry({
+    id: 'appointment_general_help',
+    category: ASSISTANT_INTENTS.APPOINTMENT_GENERAL_HELP,
+    phrases: ['appointment help', 'appointments help me', 'help with appointments'],
+    patterns: [/\bappointments?\b.{0,20}\b(?:help|information|guidance|question)\b/i, /\bhelp(?: me)?\b.{0,20}\bappointments?\b/i, /\btell me about appointments?\b/i],
+    response: 'I can explain how to book, reschedule, or cancel an appointment and what each appointment status means. I can also show your own upcoming appointment details when you ask a specific question, such as “When is my next appointment?”',
+  }),
+  knowledgeEntry({
+    id: 'account_general_help',
+    category: ASSISTANT_INTENTS.ACCOUNT_GENERAL_HELP,
+    phrases: ['account help', 'help with my account'],
+    patterns: [/\baccount\b.{0,20}\b(?:help|support|guidance|problem)\b/i, /\bhelp(?: me)?\b.{0,20}\b(?:account|login|profile)\b/i],
+    response: 'I can explain email verification, password recovery, Profile editing, and the required phone-number format. For a specific step, ask about the part of your account you need help with.',
+  }),
+  knowledgeEntry({
+    id: 'records_general_help',
+    category: ASSISTANT_INTENTS.RECORDS_GENERAL_HELP,
+    phrases: ['records help', 'help with records'],
+    patterns: [/\b(?:medical )?records?\b.{0,20}\b(?:help|information|guidance|question)\b/i, /\bhelp(?: me)?\b.{0,20}\b(?:medical )?records?\b/i, /\btell me about (?:medical )?records?\b/i],
+    response: 'Open My Records to view Medical Records issued to your account. Doctors create them through the clinical workflow, and Patients cannot edit them or use Arion Assistant for clinical interpretation.',
+  }),
+  knowledgeEntry({
+    id: 'certificates_general_help',
+    category: ASSISTANT_INTENTS.CERTIFICATES_GENERAL_HELP,
+    phrases: ['certificate help', 'help with certificates'],
+    patterns: [/\bcertificates?\b.{0,20}\b(?:help|information|guidance|question)\b/i, /\bhelp(?: me)?\b.{0,20}\bcertificates?\b/i, /\btell me about certificates?\b/i],
+    response: 'Open My Certificates to view certificates issued to your account. Certificates come from the clinic’s Doctor workflow, and Arion Assistant cannot issue or change one.',
+  }),
+  knowledgeEntry({
+    id: 'notifications_general_help',
+    category: ASSISTANT_INTENTS.NOTIFICATIONS_GENERAL_HELP,
+    phrases: ['notification help', 'help with notifications'],
+    patterns: [/\bnotifications?\b.{0,20}\b(?:help|information|guidance|question)\b/i, /\bhelp(?: me)?\b.{0,20}\bnotifications?\b/i, /\btell me about notifications?\b/i],
+    response: 'Open Notifications or the notification bell to review appointment and clinic workflow updates. You can ask me how read and unread notifications work or ask a specific question about your own recent notifications.',
+  }),
+  knowledgeEntry({
+    id: 'queue_general_help',
+    category: ASSISTANT_INTENTS.QUEUE_GENERAL_HELP,
+    phrases: ['queue help', 'help with the queue'],
+    patterns: [/\bqueue\b.{0,20}\b(?:help|information|guidance|question)\b/i, /\bhelp(?: me)?\b.{0,20}\bqueue\b/i, /\btell me about (?:the )?queue\b/i],
+    response: 'I can explain arrival confirmation and how the clinic queue is ordered: Urgent, then Senior/PWD, then Normal, with earlier check-in first within each group. Staff manages arrival and priority; Patients and Arion Assistant cannot change them.',
+  }),
+  knowledgeEntry({
     id: 'assistant_scope',
     category: ASSISTANT_INTENTS.PORTAL_HELP,
     phrases: ['what can you do', 'how can you help', 'what can arion assistant do', 'what can arion assistant help me with'],
@@ -189,10 +238,28 @@ export const ASSISTANT_KNOWLEDGE_BASE = Object.freeze([
   }),
 ]);
 
+const GENERAL_HELP_IDS = new Set([
+  'appointment_general_help',
+  'account_general_help',
+  'records_general_help',
+  'certificates_general_help',
+  'notifications_general_help',
+  'queue_general_help',
+]);
+
+export function findAssistantGeneralKnowledge(message) {
+  return ASSISTANT_KNOWLEDGE_BASE.find((item) =>
+    GENERAL_HELP_IDS.has(item.id)
+      && (item.phrases.some((phrase) => message.toLowerCase().includes(phrase))
+        || item.patterns.some((pattern) => pattern.test(message))),
+  ) ?? null;
+}
+
 export function findAssistantKnowledge(message) {
   return ASSISTANT_KNOWLEDGE_BASE.find((item) =>
-    item.phrases.some((phrase) => message.toLowerCase().includes(phrase))
-      || item.patterns.some((pattern) => pattern.test(message)),
+    !GENERAL_HELP_IDS.has(item.id)
+      && (item.phrases.some((phrase) => message.toLowerCase().includes(phrase))
+        || item.patterns.some((pattern) => pattern.test(message))),
   ) ?? null;
 }
 

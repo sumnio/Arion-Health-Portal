@@ -21,7 +21,7 @@ export default function PublicLayout() {
     {showAssistant && <ArionAssistantChat
       service={publicAssistantApiService}
       welcomeText={PUBLIC_ASSISTANT_CONFIG.welcomeMessage}
-      suggestions={PUBLIC_ASSISTANT_CONFIG.suggestions}
+      categories={PUBLIC_ASSISTANT_CONFIG.categories}
     />}
   </div>;
 }

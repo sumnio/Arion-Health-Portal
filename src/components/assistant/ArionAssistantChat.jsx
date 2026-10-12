@@ -8,7 +8,7 @@ import { PATIENT_ASSISTANT_CONFIG } from './assistantConfig.js';
 import '../../styles/arion-assistant.css';
 
 const DISCLAIMER = 'Arion Assistant provides clinic and portal guidance and does not replace a Doctor.';
-export const ASSISTANT_SUGGESTIONS = PATIENT_ASSISTANT_CONFIG.suggestions;
+export const ASSISTANT_CATEGORIES = PATIENT_ASSISTANT_CONFIG.categories;
 
 function AssistantIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -24,15 +24,19 @@ function welcomeMessage(text) {
 export default function ArionAssistantChat({
   service = patientAssistantApiService,
   welcomeText = PATIENT_ASSISTANT_CONFIG.welcomeMessage,
-  suggestions = PATIENT_ASSISTANT_CONFIG.suggestions,
+  categories = PATIENT_ASSISTANT_CONFIG.categories,
 }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(() => [welcomeMessage(welcomeText)]);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
+  const [topicsOpen, setTopicsOpen] = useState(true);
+  const [activeCategoryId, setActiveCategoryId] = useState(null);
   const launcherRef = useRef(null);
   const inputRef = useRef(null);
   const endRef = useRef(null);
+  const firstCategoryRef = useRef(null);
+  const firstQuestionRef = useRef(null);
   const sequenceRef = useRef(0);
   const activeRef = useRef(true);
 
@@ -43,13 +47,18 @@ export default function ArionAssistantChat({
 
   useEffect(() => {
     if (!open) return undefined;
-    queueMicrotask(() => inputRef.current?.focus());
+    queueMicrotask(() => (topicsOpen ? firstCategoryRef.current : inputRef.current)?.focus());
     const closeOnEscape = event => {
       if (event.key === 'Escape') closePanel();
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !topicsOpen) return;
+    queueMicrotask(() => (activeCategoryId ? firstQuestionRef.current : firstCategoryRef.current)?.focus());
+  }, [activeCategoryId, open, topicsOpen]);
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: 'nearest' });
@@ -64,7 +73,9 @@ export default function ArionAssistantChat({
     if (pending) return;
     setMessages([welcomeMessage(welcomeText)]);
     setDraft('');
-    queueMicrotask(() => inputRef.current?.focus());
+    setTopicsOpen(true);
+    setActiveCategoryId(null);
+    queueMicrotask(() => firstCategoryRef.current?.focus());
   }
 
   async function sendMessage(rawMessage = draft) {
@@ -73,6 +84,8 @@ export default function ArionAssistantChat({
     const requestId = ++sequenceRef.current;
     setMessages(current => [...current, { id: `patient-${requestId}`, role: 'user', text: message }]);
     setDraft('');
+    setTopicsOpen(false);
+    setActiveCategoryId(null);
     setPending(true);
     try {
       const reply = await service.sendMessage(message);
@@ -86,6 +99,22 @@ export default function ArionAssistantChat({
     }
   }
 
+  function selectCategory(categoryId) {
+    setActiveCategoryId(categoryId);
+    queueMicrotask(() => firstQuestionRef.current?.focus());
+  }
+
+  function showAllTopics() {
+    setTopicsOpen(true);
+    setActiveCategoryId(null);
+    queueMicrotask(() => firstCategoryRef.current?.focus());
+  }
+
+  function backToTopics() {
+    setActiveCategoryId(null);
+    queueMicrotask(() => firstCategoryRef.current?.focus());
+  }
+
   function handleKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -94,6 +123,7 @@ export default function ArionAssistantChat({
   }
 
   const validDraft = Boolean(draft.trim()) && draft.length <= ASSISTANT_MESSAGE_MAX_LENGTH;
+  const activeCategory = categories.find(category => category.id === activeCategoryId) ?? null;
   return <div className="arion-assistant">
     {!open && <button ref={launcherRef} className="assistant-launcher" type="button" aria-label="Open Arion Assistant" onClick={() => setOpen(true)}>
       <span className="assistant-launcher-icon"><AssistantIcon /></span><span className="assistant-launcher-label">Ask Arion</span>
@@ -102,7 +132,7 @@ export default function ArionAssistantChat({
       <header className="assistant-header">
         <span className="assistant-avatar"><AssistantIcon /></span>
         <span className="assistant-heading"><strong id="assistant-title">Arion Assistant</strong><small>AI Clinic Assistant</small></span>
-        <button className="assistant-header-action" type="button" onClick={clearChat} disabled={pending || messages.length === 1} aria-label="Clear chat">Clear</button>
+        <button className="assistant-header-action" type="button" onClick={clearChat} disabled={pending || (messages.length === 1 && topicsOpen && !activeCategory)} aria-label="Clear chat">Clear</button>
         <button className="assistant-header-action assistant-close" type="button" onClick={closePanel} aria-label="Close Arion Assistant">×</button>
       </header>
       <div className="assistant-messages" role="log" aria-live="polite" aria-relevant="additions">
@@ -110,9 +140,22 @@ export default function ArionAssistantChat({
           <span className="assistant-message-label">{item.role === 'user' ? 'You' : 'Arion Assistant'}</span>
           <p>{item.text}</p>
         </article>)}
-        {messages.length === 1 && <div className="assistant-suggestions" aria-label="Suggested questions">
-          {suggestions.map(item => <button key={item.label} type="button" disabled={pending} onClick={() => sendMessage(item.question)}>{item.label}</button>)}
-        </div>}
+        {topicsOpen && <section className="assistant-guidance" aria-label="Assistant topics">
+          {!activeCategory && <>
+            <h3>Choose a topic</h3>
+            <div className="assistant-categories">
+              {categories.map((category, index) => <button ref={index === 0 ? firstCategoryRef : null} key={category.id} type="button" disabled={pending} onClick={() => selectCategory(category.id)}>{category.label}</button>)}
+            </div>
+          </>}
+          {activeCategory && <>
+            <button className="assistant-topics-back" type="button" onClick={backToTopics}>← Back to topics</button>
+            <h3>{activeCategory.label}</h3>
+            <div className="assistant-questions">
+              {activeCategory.questions.map((item, index) => <button ref={index === 0 ? firstQuestionRef : null} key={item.label} type="button" disabled={pending} onClick={() => sendMessage(item.question)}>{item.label}</button>)}
+            </div>
+          </>}
+        </section>}
+        {!topicsOpen && !pending && <button className="assistant-browse-topics" type="button" onClick={showAllTopics}>Browse topics</button>}
         {pending && <div className="assistant-thinking" role="status"><span aria-hidden="true">•••</span> Arion Assistant is thinking...</div>}
         <div ref={endRef} />
       </div>

@@ -44,7 +44,7 @@ test('authenticated Patient layout alone mounts the floating assistant', async (
   }
 });
 
-test('assistant component provides session-only chat, controls, suggestions, and safe text rendering', async () => {
+test('assistant component provides session-only chat, controls, guided categories, and safe text rendering', async () => {
   const source = await readSource('../src/components/assistant/ArionAssistantChat.jsx');
   assert.match(source, /useState\(\(\) => \[welcomeMessage\(welcomeText\)\]\)/);
   assert.match(source, /Open Arion Assistant/);
@@ -52,7 +52,10 @@ test('assistant component provides session-only chat, controls, suggestions, and
   assert.match(source, /Clear chat/);
   assert.match(source, /Send message/);
   assert.match(source, /Arion Assistant provides clinic and portal guidance and does not replace a Doctor\./);
-  assert.match(source, /suggestions\.map/);
+  assert.match(source, /categories\.map/);
+  assert.match(source, /activeCategory\.questions\.map/);
+  assert.match(source, /Back to topics/);
+  assert.match(source, /Browse topics/);
   assert.match(source, /sendMessage\(item\.question\)/);
   assert.match(source, /event\.key === 'Enter' && !event\.shiftKey/);
   assert.match(source, /pending \|\| !message/);
@@ -70,6 +73,9 @@ test('assistant responsive styles constrain the panel and wrap long text', async
   assert.match(source, /width: min\(400px, calc\(100vw - 32px\)\)/);
   assert.match(source, /height: min\(650px, calc\(100dvh - 48px\)\)/);
   assert.match(source, /overflow-wrap: anywhere/);
+  assert.match(source, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(source, /@media \(max-width: 360px\)/);
+  assert.match(source, /grid-template-columns: 1fr/);
   assert.match(source, /overflow-y: auto/);
   assert.match(source, /@media \(max-width: 540px\)/);
 });

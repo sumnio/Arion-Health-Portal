@@ -23,9 +23,16 @@
 .assistant-message p { margin: 0; padding: 11px 13px; border: 1px solid #d7e2ec; border-radius: 5px 14px 14px; background: white; color: #152d4b; line-height: 1.45; white-space: pre-wrap; }
 .assistant-message.is-user p { border-color: #165ec0; border-radius: 14px 5px 14px 14px; background: #165ec0; color: white; }
 .assistant-message.is-error p { border-color: #e8b9b9; background: #fff5f5; }
-.assistant-suggestions { display: flex; flex-wrap: wrap; gap: 7px; }
-.assistant-suggestions button { min-height: 38px; padding: 7px 10px; border: 1px solid #9fbce0; border-radius: 999px; background: white; color: #0f4fa5; font: inherit; font-size: 12px; cursor: pointer; }
-.assistant-suggestions button:hover:not(:disabled) { background: #e7f0ff; }
+.assistant-guidance { min-width: 0; padding: 12px; border: 1px solid #d7e2ec; border-radius: 12px; background: white; }
+.assistant-guidance h3 { margin: 0 0 10px; color: #152d4b; font-size: 14px; }
+.assistant-categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.assistant-categories button, .assistant-questions button, .assistant-browse-topics, .assistant-topics-back { min-width: 0; min-height: 42px; padding: 9px 11px; border: 1px solid #9fbce0; background: white; color: #0f4fa5; font: inherit; font-size: 12px; line-height: 1.35; cursor: pointer; overflow-wrap: anywhere; }
+.assistant-categories button { border-radius: 10px; font-weight: 700; text-align: left; }
+.assistant-questions { display: grid; gap: 7px; }
+.assistant-questions button { width: 100%; border-radius: 9px; text-align: left; }
+.assistant-categories button:hover:not(:disabled), .assistant-questions button:hover:not(:disabled), .assistant-browse-topics:hover, .assistant-topics-back:hover { background: #e7f0ff; }
+.assistant-topics-back { min-height: 36px; margin: -4px 0 10px; padding: 5px 8px; border: 0; border-radius: 7px; }
+.assistant-browse-topics { align-self: flex-start; min-height: 36px; border-radius: 999px; }
 .assistant-thinking { align-self: flex-start; color: #52657b; font-size: 13px; }
 .assistant-composer { position: relative; padding: 12px 14px 14px; border-top: 1px solid #dfe7ee; background: white; }
 .assistant-disclaimer { margin: 0 0 9px; color: #52657b; font-size: 11px; line-height: 1.35; }
@@ -49,6 +56,7 @@
   .arion-assistant { right: 8px; bottom: 8px; }
   .assistant-header { padding: 10px; gap: 6px; }
   .assistant-heading small { display: none; }
+  .assistant-categories { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
