@@ -134,6 +134,17 @@ export function createAppointmentService({
         .sort((left, right) => compareAppointments(left, right, current));
     },
 
+    async listAssistantAppointmentsForPatient(userProfileId) {
+      const patient = await ownPatient(userProfileId);
+      const appointments = await repository.listAssistantAppointmentsByPatientId(patient._id ?? patient.id);
+      return appointments.map((appointment) => ({
+        appointment_at: new Date(appointment.appointment_at).toISOString(),
+        status: appointment.status,
+        visit_type: appointment.visit_type,
+        doctor_display_name: appointment.doctor_id?.user_profile_id?.display_name ?? null,
+      }));
+    },
+
     async getForPatient(userProfileId, appointmentId) {
       validateObjectId(appointmentId, 'appointmentId');
       const patient = await ownPatient(userProfileId);

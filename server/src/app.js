@@ -164,7 +164,12 @@ export function createApp(
   const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic, bookingAvailabilityService: schedulingModule.bookingAvailabilityService, notificationTriggers });
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   const analyticsModule = dependencies.analyticsModule ?? createAnalyticsModule({ clinic: schedulingModule.clinic });
-  const assistantModule = dependencies.assistantModule ?? createAssistantModule({ maxMessageLength: assistantMaxMessageLength });
+  const assistantModule = dependencies.assistantModule ?? createAssistantModule({
+    maxMessageLength: assistantMaxMessageLength,
+    appointmentService: patientAppointmentModule.appointmentService,
+    notificationService: notificationModule.notificationService,
+    clinicTimeZone,
+  });
   app.use('/api/health', healthRouter);
   if (
     nodeEnv === 'test' &&

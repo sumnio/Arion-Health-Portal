@@ -34,6 +34,18 @@ export const appointmentRepository = {
       .lean();
   },
 
+  async listAssistantAppointmentsByPatientId(patientId) {
+    return Appointment.find({ patient_id: patientId })
+      .select('-_id appointment_at status visit_type doctor_id')
+      .populate({
+        path: 'doctor_id',
+        select: '-_id user_profile_id',
+        populate: { path: 'user_profile_id', select: '-_id display_name' },
+      })
+      .sort({ appointment_at: 1 })
+      .lean();
+  },
+
   async findOwnedById(appointmentId, patientId) {
     return Appointment.findOne({ _id: appointmentId, patient_id: patientId })
       .populate(doctorDisplayPopulation)

@@ -784,10 +784,12 @@ MongoDB
 
 The backend choice is not finalized. This section defines the boundary only; it does not design Express endpoints, MongoDB collections, or provider-specific authentication.
 
-## Arion Assistant 1.28–1.29 schema impact
+## Arion Assistant 1.28–1.30 schema impact
 
 Milestone 1.28 adds no application collection, entity, relationship, field, index, migration, or persisted conversation. The Patient-only assistant request is stateless and uses no Patient, Appointment, Doctor, Notification, MedicalRecord, Prescription, or MedicalCertificate repository. Only the existing shared `rate_limit_counters` operational store may contain the dedicated `patient_assistant` limiter namespace in Production. It stores limiter keys and expiry/count state, not messages, replies, intent text, chat history, or clinical content.
 
 There is no `AssistantConversation`, `ChatHistory`, assistant-message, embedding, vector, or model-configuration schema. Any later Patient-data tool or persistent assistant feature requires a separately approved schema and authorization review.
 
 Milestone 1.29 keeps curated topics, aliases, suggested questions, and response text in application code. It adds no collection, document, field, index, migration, repository query, cache, vector, embedding, or transcript. The assistant still discards each message and response after returning the stateless result; only the existing content-free rate-limit counter and safe category-only security event behavior remain.
+
+Milestone 1.30 adds no schema. Its read-only tool layer reuses the authenticated UserProfile-to-Patient link, existing Patient-owned Appointment relationship, Doctor display-name relationship, and recipient-owned Notification relationship. The appointment query projects only appointment time, status, visit type, and Doctor display name. The notification service returns only its existing Patient-safe projection before the tool further limits output. No Patient or recipient identifier comes from assistant input, and no assistant cache, tool-result, conversation, audit-content, vector, or embedding document is stored.

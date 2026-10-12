@@ -50,9 +50,12 @@ function context(config = {}) {
   const auth = authModule();
   const events = [];
   const securityLogger = createSecurityLogger({ write: event => events.push(event) });
+  const assistantModule = createAssistantModule({
+    maxMessageLength: config.assistantMaxMessageLength ?? 800,
+  });
   const app = createApp(
     { nodeEnv: 'test', authSecret: SECRET, ...config },
-    { authModule: auth, securityLogger },
+    { authModule: auth, securityLogger, assistantModule },
   );
   return {
     app,
