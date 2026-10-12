@@ -10,6 +10,7 @@ export function createAssistantResponseProvider() {
       if (classification.topic === 'unsafe_request') return ASSISTANT_SAFETY_RESPONSES.unsafe;
       if (classification.intent === ASSISTANT_INTENTS.SENSITIVE_OR_UNCLEAR) return ASSISTANT_SAFETY_RESPONSES.unclear;
       if (classification.intent === ASSISTANT_INTENTS.UNSUPPORTED) return ASSISTANT_SAFETY_RESPONSES.unsupported;
+      if (classification.intent === ASSISTANT_INTENTS.GPT_CONVERSATIONAL) return ASSISTANT_SAFETY_RESPONSES.providerUnavailable;
       if ([
         ASSISTANT_INTENTS.NEXT_APPOINTMENT,
         ASSISTANT_INTENTS.UPCOMING_APPOINTMENTS,

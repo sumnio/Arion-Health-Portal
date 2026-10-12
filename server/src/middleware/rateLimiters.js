@@ -42,7 +42,9 @@ function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false, e
       requestSecurityEvent(request, {
         event, severity: 'warning', outcome: 'denied',
         metadata: { limiter_type: limiterType },
-      });
+      }, limiterType === 'patient_assistant'
+        ? { includeActor: false, includeIp: false }
+        : undefined);
       response.status(429).json(rateLimitedResponse);
     },
   });

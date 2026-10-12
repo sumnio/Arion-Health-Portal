@@ -75,14 +75,16 @@ export function attachSecurityLogger(logger = securityLogger) {
   };
 }
 
-export function requestSecurityEvent(request, input) {
+export function requestSecurityEvent(request, input, { includeActor = true, includeIp = true } = {}) {
   try {
     request?.securityLogger?.logSecurityEvent({
-      actor_user_profile_id: request.authUser?.user_profile_id,
-      actor_role: request.authUser?.role,
+      ...(includeActor ? {
+        actor_user_profile_id: request.authUser?.user_profile_id,
+        actor_role: request.authUser?.role,
+      } : {}),
       route: request.originalUrl?.split('?')[0],
       method: request.method,
-      ip: request.ip,
+      ...(includeIp ? { ip: request.ip } : {}),
       ...input,
     });
   } catch {

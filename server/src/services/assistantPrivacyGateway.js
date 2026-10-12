@@ -1,4 +1,5 @@
 import { findAssistantKnowledge } from './assistantKnowledgeBase.js';
+import { ASSISTANT_GPT_TASKS } from './assistantGptTasks.js';
 import { ASSISTANT_INTENTS } from './assistantIntents.js';
 
 export { ASSISTANT_INTENTS } from './assistantIntents.js';
@@ -12,7 +13,24 @@ const appointmentStatusPattern = /\b(?:what is my appointment status|did my appo
 const assignedDoctorPattern = /\b(?:who is my doctor|which doctor is assigned to my appointment|who am i seeing)\b/i;
 const nextAppointmentPattern = /\b(?:when|where|what time) (?:is|are) my next appointment\b|\bmy next appointment\b/i;
 const upcomingAppointmentsPattern = /\b(?:do i have (?:any )?upcoming appointments?|what appointments do i have|show my upcoming appointments?|my upcoming appointments?)\b/i;
+const externalRestrictedPattern = /(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|\b09\d{9}\b|\b(?:my (?:name|email|phone|address|date of birth|dob|patient id|appointment id|account id)|i was born|my doctor is|my appointment is (?:on|at)|my notification says)\b)/i;
 const unsupportedPattern = /\b(weather|sports?|movie|music|recipe|stock price|cryptocurrency|homework|write (?:a )?(?:poem|essay))\b/i;
+
+function gptTask(message) {
+  if (/\bpending\b.{0,40}\b(?:versus|vs\.?|compared (?:with|to)|and)\b.{0,40}\bconfirmed\b.{0,50}\b(?:simple|simpler|easy|easier|difference|compare|mean)\b/i.test(message)
+    || /\b(?:simple|simpler|easy|easier)\b.{0,50}\bpending\b.{0,40}\bconfirmed\b/i.test(message)) {
+    return ASSISTANT_GPT_TASKS.COMPARE_PENDING_CONFIRMED_SIMPLY;
+  }
+  if (/\b(?:explain|describe|help me understand)\b.{0,50}\bappointment process\b.{0,40}\b(?:simple|simpler|easy|easier|works?)?\b/i.test(message)
+    || /\b(?:i am|i['’]?m) confused\b.{0,50}\bappointments?\b/i.test(message)) {
+    return ASSISTANT_GPT_TASKS.EXPLAIN_APPOINTMENT_PROCESS_SIMPLY;
+  }
+  if (/\b(?:explain|describe|how does)\b.{0,40}\b(?:patient )?portal\b.{0,40}\b(?:new patient|work|works|simple|simpler)\b/i.test(message)
+    || /\bnew patient\b.{0,40}\b(?:portal|getting started)\b/i.test(message)) {
+    return ASSISTANT_GPT_TASKS.EXPLAIN_PORTAL_FOR_NEW_PATIENT;
+  }
+  return null;
+}
 
 function detail(intent, topic = null, emergency = false) {
   return Object.freeze({ intent, topic, emergency });
@@ -30,6 +48,11 @@ export function createAssistantPrivacyGateway() {
       if (assignedDoctorPattern.test(message)) return detail(ASSISTANT_INTENTS.ASSIGNED_DOCTOR, 'assigned_doctor');
       if (nextAppointmentPattern.test(message)) return detail(ASSISTANT_INTENTS.NEXT_APPOINTMENT, 'next_appointment');
       if (upcomingAppointmentsPattern.test(message)) return detail(ASSISTANT_INTENTS.UPCOMING_APPOINTMENTS, 'upcoming_appointments');
+      const approvedGptTask = gptTask(message);
+      if (approvedGptTask) {
+        if (externalRestrictedPattern.test(message)) return detail(ASSISTANT_INTENTS.SENSITIVE_OR_UNCLEAR, 'external_data_restricted');
+        return detail(ASSISTANT_INTENTS.GPT_CONVERSATIONAL, approvedGptTask);
+      }
       const knowledge = findAssistantKnowledge(message);
       if (knowledge) return detail(knowledge.category, knowledge.id);
       if (unsupportedPattern.test(message)) return detail(ASSISTANT_INTENTS.UNSUPPORTED, 'unsupported');

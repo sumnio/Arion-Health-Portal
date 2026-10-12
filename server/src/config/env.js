@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
+import { ASSISTANT_AI_DEFAULTS } from './assistantAiConfig.js';
 
 const envPath = fileURLToPath(new URL('../../.env', import.meta.url));
 dotenv.config({ path: envPath, quiet: true });
@@ -34,6 +35,14 @@ function parsePositiveInteger(value, fallback, name) {
   const result = value == null || value === '' ? fallback : Number(value);
   if (!Number.isInteger(result) || result < 1) {
     throw new Error(`${name} must be a positive integer.`);
+  }
+  return result;
+}
+
+function parseIntegerRange(value, fallback, name, minimum, maximum) {
+  const result = value == null || value === '' ? fallback : Number(value);
+  if (!Number.isInteger(result) || result < minimum || result > maximum) {
+    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}.`);
   }
   return result;
 }
@@ -251,5 +260,11 @@ export function loadConfig(environment = process.env) {
     assistantMaxMessageLength: parsePositiveInteger(environment.ASSISTANT_MAX_MESSAGE_LENGTH, 800, 'ASSISTANT_MAX_MESSAGE_LENGTH'),
     assistantRateLimitWindowMs: parsePositiveInteger(environment.ASSISTANT_RATE_LIMIT_WINDOW_MS, 60_000, 'ASSISTANT_RATE_LIMIT_WINDOW_MS'),
     assistantRateLimitMax: parsePositiveInteger(environment.ASSISTANT_RATE_LIMIT_MAX, 10, 'ASSISTANT_RATE_LIMIT_MAX'),
+    aiExternalEnabled: parseBoolean(environment.AI_EXTERNAL_ENABLED, ASSISTANT_AI_DEFAULTS.enabled, 'AI_EXTERNAL_ENABLED'),
+    aiProvider: environment.AI_PROVIDER?.trim().toLowerCase() || ASSISTANT_AI_DEFAULTS.provider,
+    openAiApiKey: environment.OPENAI_API_KEY?.trim() || '',
+    openAiModel: environment.OPENAI_MODEL?.trim() || ASSISTANT_AI_DEFAULTS.model,
+    aiProviderTimeoutMs: parseIntegerRange(environment.AI_PROVIDER_TIMEOUT_MS, ASSISTANT_AI_DEFAULTS.timeoutMs, 'AI_PROVIDER_TIMEOUT_MS', 100, 30_000),
+    aiMaxOutputTokens: parseIntegerRange(environment.AI_MAX_OUTPUT_TOKENS, ASSISTANT_AI_DEFAULTS.maxOutputTokens, 'AI_MAX_OUTPUT_TOKENS', 50, 500),
   };
 }

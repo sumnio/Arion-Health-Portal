@@ -29,6 +29,7 @@ import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createRateLimiters, RATE_LIMIT_DEFAULTS } from './middleware/rateLimiters.js';
 import { parseCorsOrigins } from './config/env.js';
+import { ASSISTANT_AI_DEFAULTS } from './config/assistantAiConfig.js';
 import { attachSecurityLogger, createSecurityLogger, securityLogger as defaultSecurityLogger } from './services/securityLogger.js';
 
 export function corsOptions(origins) {
@@ -91,6 +92,12 @@ export function createApp(
     assistantMaxMessageLength = 800,
     assistantRateLimitWindowMs = RATE_LIMIT_DEFAULTS.assistantWindowMs,
     assistantRateLimitMax = RATE_LIMIT_DEFAULTS.assistantMax,
+    aiExternalEnabled = ASSISTANT_AI_DEFAULTS.enabled,
+    aiProvider = ASSISTANT_AI_DEFAULTS.provider,
+    openAiApiKey = '',
+    openAiModel = ASSISTANT_AI_DEFAULTS.model,
+    aiProviderTimeoutMs = ASSISTANT_AI_DEFAULTS.timeoutMs,
+    aiMaxOutputTokens = ASSISTANT_AI_DEFAULTS.maxOutputTokens,
   } = {},
   dependencies = {},
 ) {
@@ -169,6 +176,12 @@ export function createApp(
     appointmentService: patientAppointmentModule.appointmentService,
     notificationService: notificationModule.notificationService,
     clinicTimeZone,
+    aiExternalEnabled,
+    aiProvider,
+    openAiApiKey,
+    openAiModel,
+    aiProviderTimeoutMs,
+    aiMaxOutputTokens,
   });
   app.use('/api/health', healthRouter);
   if (

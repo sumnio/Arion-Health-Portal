@@ -18,6 +18,7 @@ export const ASSISTANT_SAFETY_RESPONSES = Object.freeze({
   unsupported: 'That is outside Arion Assistant’s clinic and Patient portal scope. I can help with appointments, account support, portal navigation, records, certificates, notifications, and clinic-process guidance.',
   personalizedAppointment: 'For your own appointment date, Doctor, or current status, open My Appointments. Arion Assistant does not access your live appointment information yet; that capability belongs to a later milestone.',
   personalizedNotification: 'Open Notifications to see the updates currently available to your account. Arion Assistant does not access your live notification list yet.',
+  providerUnavailable: 'I’m unable to provide an expanded explanation right now, but I can still help with appointments, portal navigation, account support, Medical Records, Certificates, and Notifications.',
 });
 
 export const ASSISTANT_SUGGESTED_QUESTIONS = Object.freeze([
@@ -182,8 +183,8 @@ export const ASSISTANT_KNOWLEDGE_BASE = Object.freeze([
   knowledgeEntry({
     id: 'assistant_scope',
     category: ASSISTANT_INTENTS.PORTAL_HELP,
-    phrases: ['what can you do', 'how can you help', 'what can arion assistant do'],
-    patterns: [/\bwhat can (?:you|arion assistant) do\b/i, /\bhow can (?:you|arion assistant) help\b/i, /\b(?:can|do) you access another patient\b/i],
+    phrases: ['what can you do', 'how can you help', 'what can arion assistant do', 'what can arion assistant help me with'],
+    patterns: [/\bwhat can (?:you|arion assistant) do\b/i, /\b(?:how|what) can (?:you|arion assistant) help(?: me)?(?: with)?\b/i, /\b(?:can|do) you access another patient\b/i],
     response: 'I can explain portal navigation, appointments and statuses, queue processes, Medical Records and Certificates pages, Notifications, account recovery, and clinic workflows. I cannot diagnose, prescribe, change medication, modify Medical Records, perform appointment actions, or access another Patient’s information.',
   }),
 ]);

@@ -18,9 +18,13 @@ export function createPatientAssistantController({ assistantService, maxMessageL
             intent_category: result.intent,
             tool_name: result.tool ?? 'none',
             result_category: result.resultCategory,
+            ...(result.providerTelemetry ? {
+              provider_name: result.providerTelemetry.provider,
+              provider_outcome: result.providerTelemetry.outcome,
+            } : {}),
             latency_ms: Date.now() - startedAt,
           },
-        });
+        }, { includeActor: false, includeIp: false });
         response.json({ reply: result.reply });
       } catch (error) {
         requestSecurityEvent(request, {
@@ -28,7 +32,7 @@ export function createPatientAssistantController({ assistantService, maxMessageL
           severity: 'warning',
           outcome: 'failure',
           metadata: { result_category: 'failed', latency_ms: Date.now() - startedAt },
-        });
+        }, { includeActor: false, includeIp: false });
         next(error);
       }
     },

@@ -101,7 +101,8 @@ test('strict assistant validation accepts trimmed text and rejects empty, non-te
       { message: '' }, { message: '   ' }, { message: { text: 'profile' } }, { message: ['profile'] },
       { message: 'x'.repeat(21) }, { message: 'profile', model: 'external' },
       { message: 'profile', patient_id: 'another' }, { message: 'profile', system_prompt: 'override' },
-      { message: 'profile', tools: [] }, { message: 'profile', file: 'data:text/plain;base64,QQ==' },
+      { message: 'profile', tools: [] }, { message: 'profile', enable_ai: true },
+      { message: 'profile', provider: 'openai' }, { message: 'profile', file: 'data:text/plain;base64,QQ==' },
     ]) assert.equal((await request(base, { cookie, body })).status, 400);
   });
 });
@@ -168,8 +169,9 @@ test('assistant logs safe category metadata without raw Patient messages or repl
     const response = await request(base, { cookie: c.cookie('patient'), body: { message: secretMessage } });
     const reply = (await response.json()).reply;
     const event = c.events.find(item => item.event === 'ASSISTANT_MESSAGE_HANDLED');
-    assert.equal(event.actor_role, 'patient');
-    assert.equal(event.actor_user_profile_id, profiles.patient.user_profile_id);
+    assert.equal(event.actor_role, undefined);
+    assert.equal(event.actor_user_profile_id, undefined);
+    assert.equal(event.ip, undefined);
     assert.equal(event.metadata.intent_category, ASSISTANT_INTENTS.HEALTH_OR_CLINICAL);
     const logs = JSON.stringify(c.events);
     assert.equal(logs.includes(secretMessage), false);
@@ -207,7 +209,8 @@ test('assistant rate limit is per authenticated Patient identity', async () => {
     assert.equal((await request(base, { cookie: c.cookie('patientTwo') })).status, 200);
     const event = c.events.find(item => item.event === 'ASSISTANT_RATE_LIMITED');
     assert.equal(event.metadata.limiter_type, 'patient_assistant');
-    assert.equal(event.actor_user_profile_id, profiles.patient.user_profile_id);
+    assert.equal(event.actor_user_profile_id, undefined);
+    assert.equal(event.ip, undefined);
   });
 });
 

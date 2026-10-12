@@ -197,6 +197,12 @@ test('rate-limit configuration has safe defaults and validates positive integers
   assert.equal(defaults.assistantMaxMessageLength, 800);
   assert.equal(defaults.assistantRateLimitWindowMs, 60_000);
   assert.equal(defaults.assistantRateLimitMax, 10);
+  assert.equal(defaults.aiExternalEnabled, false);
+  assert.equal(defaults.aiProvider, 'openai');
+  assert.equal(defaults.openAiApiKey, '');
+  assert.equal(defaults.openAiModel, 'gpt-5.6-luna');
+  assert.equal(defaults.aiProviderTimeoutMs, 5_000);
+  assert.equal(defaults.aiMaxOutputTokens, 300);
 
   const configured = loadConfig({
     AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: '1000',
@@ -210,6 +216,12 @@ test('rate-limit configuration has safe defaults and validates positive integers
     ASSISTANT_MAX_MESSAGE_LENGTH: '600',
     ASSISTANT_RATE_LIMIT_WINDOW_MS: '5000',
     ASSISTANT_RATE_LIMIT_MAX: '7',
+    AI_EXTERNAL_ENABLED: 'true',
+    AI_PROVIDER: 'OPENAI',
+    OPENAI_API_KEY: 'test-key',
+    OPENAI_MODEL: 'configured-model',
+    AI_PROVIDER_TIMEOUT_MS: '2500',
+    AI_MAX_OUTPUT_TOKENS: '240',
   });
   assert.equal(configured.loginRateLimitMax, 2);
   assert.equal(configured.registerRateLimitMax, 3);
@@ -218,6 +230,17 @@ test('rate-limit configuration has safe defaults and validates positive integers
   assert.equal(configured.assistantMaxMessageLength, 600);
   assert.equal(configured.assistantRateLimitWindowMs, 5000);
   assert.equal(configured.assistantRateLimitMax, 7);
+  assert.equal(configured.aiExternalEnabled, true);
+  assert.equal(configured.aiProvider, 'openai');
+  assert.equal(configured.openAiApiKey, 'test-key');
+  assert.equal(configured.openAiModel, 'configured-model');
+  assert.equal(configured.aiProviderTimeoutMs, 2500);
+  assert.equal(configured.aiMaxOutputTokens, 240);
   assert.throws(() => loadConfig({ AUTH_LOGIN_RATE_LIMIT_MAX: '0' }), /positive integer/);
   assert.throws(() => loadConfig({ ASSISTANT_RATE_LIMIT_MAX: '0' }), /positive integer/);
+  assert.throws(() => loadConfig({ AI_EXTERNAL_ENABLED: 'yes' }), /AI_EXTERNAL_ENABLED/);
+  assert.throws(() => loadConfig({ AI_PROVIDER_TIMEOUT_MS: '99' }), /between 100 and 30000/);
+  assert.throws(() => loadConfig({ AI_PROVIDER_TIMEOUT_MS: '30001' }), /between 100 and 30000/);
+  assert.throws(() => loadConfig({ AI_MAX_OUTPUT_TOKENS: '49' }), /between 50 and 500/);
+  assert.throws(() => loadConfig({ AI_MAX_OUTPUT_TOKENS: '501' }), /between 50 and 500/);
 });

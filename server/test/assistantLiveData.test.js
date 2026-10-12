@@ -380,7 +380,7 @@ test('live tools make no external HTTP or AI request', async () => {
   assert.equal(externalCalls, 0);
 });
 
-test('assistant source imports no mutation, clinical, certificate, or provider service', () => {
+test('assistant live-tool source imports no mutation or sensitive-data service and never reaches a provider', () => {
   const source = [
     'assistantModule.js',
     'assistantPatientToolService.js',
@@ -388,8 +388,9 @@ test('assistant source imports no mutation, clinical, certificate, or provider s
     'assistantResponseProvider.js',
     'assistantService.js',
   ].map((file) => fs.readFileSync(new URL(`../src/services/${file}`, import.meta.url), 'utf8')).join('\n');
+  const patientToolSource = fs.readFileSync(new URL('../src/services/assistantPatientToolService.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /cancelForPatient|rescheduleForPatient|markNotificationRead|markAllNotificationsRead|clinicalService|MedicalRecord|Prescription|MedicalCertificate/i);
-  assert.doesNotMatch(source, /gemini|ollama|openai|anthropic|claude|fetch\(|axios|https?:\/\//i);
+  assert.doesNotMatch(patientToolSource, /gemini|ollama|openai|anthropic|claude|fetch\(|axios|https?:\/\//i);
 });
 
 test('existing booking, reschedule, account, and health FAQ behavior remains compatible', async () => {

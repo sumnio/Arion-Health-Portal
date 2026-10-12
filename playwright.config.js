@@ -44,6 +44,7 @@ export default defineConfig({
         ...process.env,
         E2E_BASE_URL: baseURL,
         E2E_API_URL: apiURL,
+        AI_EXTERNAL_ENABLED: 'false',
       },
     },
     {
