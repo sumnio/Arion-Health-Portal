@@ -772,3 +772,7 @@ MedicalRecord
    ├── Prescription
    └── MedicalCertificate
 ```
+
+## Arion Assistant 1.28 relationship impact
+
+The internal Arion Assistant privacy gateway adds no ERD entity or relationship. Its endpoint derives the active Patient role from the authenticated UserProfile, classifies one transient text message locally, returns a deterministic reply, and discards both values. It does not traverse or expose Patient, Appointment, Doctor, Notification, MedicalRecord, Prescription, or MedicalCertificate relationships. No conversation or message record is stored. The existing operational rate-limit counter is not a clinical/domain relationship and contains no assistant content.

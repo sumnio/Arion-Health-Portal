@@ -22,6 +22,7 @@ import { createAdminAccountRouter } from './routes/adminAccountRoutes.js';
 import { createAnalyticsModule } from './services/analyticsModule.js';
 import { createAnalyticsRouter } from './routes/analyticsRoutes.js';
 import { createNotificationModule } from './services/notificationModule.js';
+import { createAssistantModule } from './services/assistantModule.js';
 import { createNotificationRouter } from './routes/notificationRoutes.js';
 import { createE2eEmailCaptureRouter } from './routes/e2eEmailCaptureRoutes.js';
 import { notFound } from './middleware/notFound.js';
@@ -87,6 +88,9 @@ export function createApp(
     forgotPasswordRateLimitMax = RATE_LIMIT_DEFAULTS.forgotPasswordMax,
     passwordResetRateLimitWindowMs = RATE_LIMIT_DEFAULTS.passwordResetWindowMs,
     passwordResetRateLimitMax = RATE_LIMIT_DEFAULTS.passwordResetMax,
+    assistantMaxMessageLength = 800,
+    assistantRateLimitWindowMs = RATE_LIMIT_DEFAULTS.assistantWindowMs,
+    assistantRateLimitMax = RATE_LIMIT_DEFAULTS.assistantMax,
   } = {},
   dependencies = {},
 ) {
@@ -101,7 +105,7 @@ export function createApp(
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(cookieParser());
   app.use(attachSecurityLogger(securityLogger));
-  const rateLimiters = dependencies.rateLimiters ?? createRateLimiters({
+  const defaultRateLimiters = createRateLimiters({
     loginWindowMs: loginRateLimitWindowMs,
     loginMax: loginRateLimitMax,
     registerWindowMs: registerRateLimitWindowMs,
@@ -118,9 +122,12 @@ export function createApp(
     forgotPasswordMax: forgotPasswordRateLimitMax,
     passwordResetWindowMs: passwordResetRateLimitWindowMs,
     passwordResetMax: passwordResetRateLimitMax,
+    assistantWindowMs: assistantRateLimitWindowMs,
+    assistantMax: assistantRateLimitMax,
     securityLogger,
     storeFactory: dependencies.rateLimitStoreFactory,
   });
+  const rateLimiters = { ...defaultRateLimiters, ...(dependencies.rateLimiters ?? {}) };
   const authModule = dependencies.authModule ?? createAuthModule({
     authSecret,
     mfaEncryptionKey,
@@ -157,6 +164,7 @@ export function createApp(
   const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic, bookingAvailabilityService: schedulingModule.bookingAvailabilityService, notificationTriggers });
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   const analyticsModule = dependencies.analyticsModule ?? createAnalyticsModule({ clinic: schedulingModule.clinic });
+  const assistantModule = dependencies.assistantModule ?? createAssistantModule({ maxMessageLength: assistantMaxMessageLength });
   app.use('/api/health', healthRouter);
   if (
     nodeEnv === 'test' &&
@@ -174,7 +182,7 @@ export function createApp(
   app.use('/api/doctor', createDoctorClinicalRouter({ authModule, clinicalModule }));
   app.use(
     '/api/patient',
-    createPatientRouter({ authModule, patientAppointmentModule }),
+    createPatientRouter({ authModule, patientAppointmentModule, assistantModule, rateLimiters }),
   );
   app.use('/api/patient', createPatientClinicalRouter({ authModule, clinicalModule }));
   app.use(

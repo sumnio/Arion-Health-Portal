@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { createPatientController } from '../controllers/patientController.js';
+import { createPatientAssistantController } from '../controllers/patientAssistantController.js';
 import { createRequireAuth } from '../middleware/authenticate.js';
 import {
   requireActiveUser,
@@ -8,9 +9,10 @@ import {
 } from '../middleware/authorization.js';
 import { PERMISSIONS } from '../services/authorizationPolicy.js';
 
-export function createPatientRouter({ authModule, patientAppointmentModule }) {
+export function createPatientRouter({ authModule, patientAppointmentModule, assistantModule, rateLimiters }) {
   const router = Router();
   const controller = createPatientController(patientAppointmentModule);
+  const assistantController = createPatientAssistantController(assistantModule);
 
   router.use(
     createRequireAuth({ tokens: authModule.tokens, service: authModule.service }),
@@ -28,5 +30,6 @@ export function createPatientRouter({ authModule, patientAppointmentModule }) {
   router.get('/appointments/:appointmentId', controller.appointment);
   router.patch('/appointments/:appointmentId/cancel', controller.cancelAppointment);
   router.patch('/appointments/:appointmentId/reschedule', controller.rescheduleAppointment);
+  router.post('/assistant/message', rateLimiters.assistantRateLimiter, assistantController.message);
   return router;
 }

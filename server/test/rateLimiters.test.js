@@ -208,6 +208,7 @@ test('future account-security limiters use distinct shared-store namespaces', ()
     'email_verification_resend',
     'forgot_password',
     'password_reset',
+    'patient_assistant',
   ]) assert.ok(namespaces.includes(namespace));
   assert.equal(new Set(namespaces).size, namespaces.length);
 });

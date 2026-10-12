@@ -18,6 +18,8 @@ export const RATE_LIMIT_DEFAULTS = Object.freeze({
   forgotPasswordMax: 5,
   passwordResetWindowMs: 15 * 60 * 1000,
   passwordResetMax: 5,
+  assistantWindowMs: 60 * 1000,
+  assistantMax: 10,
 });
 
 const rateLimitedResponse = Object.freeze({
@@ -27,7 +29,7 @@ const rateLimitedResponse = Object.freeze({
   }),
 });
 
-function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false, event = 'RATE_LIMIT_TRIGGERED', store }) {
+function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false, event = 'RATE_LIMIT_TRIGGERED', store, keyGenerator }) {
   return rateLimit({
     windowMs,
     max,
@@ -35,6 +37,7 @@ function limiter({ windowMs, max, limiterType, skipSuccessfulRequests = false, e
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     ...(store ? { store } : {}),
+    ...(keyGenerator ? { keyGenerator } : {}),
     handler(request, response) {
       requestSecurityEvent(request, {
         event, severity: 'warning', outcome: 'denied',
@@ -62,6 +65,8 @@ export function createRateLimiters({
   forgotPasswordMax = RATE_LIMIT_DEFAULTS.forgotPasswordMax,
   passwordResetWindowMs = RATE_LIMIT_DEFAULTS.passwordResetWindowMs,
   passwordResetMax = RATE_LIMIT_DEFAULTS.passwordResetMax,
+  assistantWindowMs = RATE_LIMIT_DEFAULTS.assistantWindowMs,
+  assistantMax = RATE_LIMIT_DEFAULTS.assistantMax,
   storeFactory = () => undefined,
 } = {}) {
   return {
@@ -117,6 +122,14 @@ export function createRateLimiters({
       limiterType: 'password_reset',
       skipSuccessfulRequests: true,
       store: storeFactory('password_reset'),
+    }),
+    assistantRateLimiter: limiter({
+      windowMs: assistantWindowMs,
+      max: assistantMax,
+      limiterType: 'patient_assistant',
+      event: 'ASSISTANT_RATE_LIMITED',
+      store: storeFactory('patient_assistant'),
+      keyGenerator: request => `patient:${request.authUser.user_profile_id}`,
     }),
   };
 }

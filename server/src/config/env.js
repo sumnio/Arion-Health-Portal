@@ -248,5 +248,8 @@ export function loadConfig(environment = process.env) {
     forgotPasswordRateLimitMax: parsePositiveInteger(environment.FORGOT_PASSWORD_RATE_LIMIT_MAX, 5, 'FORGOT_PASSWORD_RATE_LIMIT_MAX'),
     passwordResetRateLimitWindowMs: parsePositiveInteger(environment.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000, 'PASSWORD_RESET_RATE_LIMIT_WINDOW_MS'),
     passwordResetRateLimitMax: parsePositiveInteger(environment.PASSWORD_RESET_RATE_LIMIT_MAX, 5, 'PASSWORD_RESET_RATE_LIMIT_MAX'),
+    assistantMaxMessageLength: parsePositiveInteger(environment.ASSISTANT_MAX_MESSAGE_LENGTH, 800, 'ASSISTANT_MAX_MESSAGE_LENGTH'),
+    assistantRateLimitWindowMs: parsePositiveInteger(environment.ASSISTANT_RATE_LIMIT_WINDOW_MS, 60_000, 'ASSISTANT_RATE_LIMIT_WINDOW_MS'),
+    assistantRateLimitMax: parsePositiveInteger(environment.ASSISTANT_RATE_LIMIT_MAX, 10, 'ASSISTANT_RATE_LIMIT_MAX'),
   };
 }

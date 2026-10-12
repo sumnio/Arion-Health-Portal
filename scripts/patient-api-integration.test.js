@@ -158,6 +158,17 @@ test('Patient profile starts read-only, requires Edit Profile, and shows save fe
   assert.match(source, /visible to your related Doctor/);
 });
 
+test('Patient Profile Change Password opens the existing recovery route without submitting profile data', async () => {
+  const source = await readFile(new URL('../src/pages/patient/PatientProfile.jsx', import.meta.url), 'utf8');
+  assert.match(source, /useNavigate/);
+  assert.match(source, />Change Password</);
+  assert.match(source, /onClick=\{\(\) => navigate\('\/forgot-password'\)\}/);
+  assert.match(source, /Password changes are handled securely through email account recovery\./);
+  assert.doesNotMatch(source, /Change Password<\/button>.*(?:forgotPassword|resetPassword|patientApiService\.updateProfile)/s);
+  assert.match(source, />Edit Profile</);
+  assert.match(source, /disabled=\{!editing\}/);
+});
+
 test('Patient pages no longer import feature mock services or advertise mock clinical data', async () => {
   const paths = ['PatientDashboard.jsx', 'PatientProfile.jsx', 'PatientBooking.jsx', 'PatientAppointments.jsx', 'PatientAppointmentDetail.jsx', 'PatientRecords.jsx', 'PatientRecordDetail.jsx', 'PatientCertificates.jsx', 'PatientCertificateDetail.jsx'];
   for (const path of paths) {

@@ -194,6 +194,9 @@ test('rate-limit configuration has safe defaults and validates positive integers
   assert.equal(defaults.verificationResendRateLimitMax, 3);
   assert.equal(defaults.forgotPasswordRateLimitMax, 5);
   assert.equal(defaults.passwordResetRateLimitMax, 5);
+  assert.equal(defaults.assistantMaxMessageLength, 800);
+  assert.equal(defaults.assistantRateLimitWindowMs, 60_000);
+  assert.equal(defaults.assistantRateLimitMax, 10);
 
   const configured = loadConfig({
     AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: '1000',
@@ -204,10 +207,17 @@ test('rate-limit configuration has safe defaults and validates positive integers
     ADMIN_PROVISION_RATE_LIMIT_MAX: '4',
     MFA_VERIFY_RATE_LIMIT_WINDOW_MS: '4000',
     MFA_VERIFY_RATE_LIMIT_MAX: '6',
+    ASSISTANT_MAX_MESSAGE_LENGTH: '600',
+    ASSISTANT_RATE_LIMIT_WINDOW_MS: '5000',
+    ASSISTANT_RATE_LIMIT_MAX: '7',
   });
   assert.equal(configured.loginRateLimitMax, 2);
   assert.equal(configured.registerRateLimitMax, 3);
   assert.equal(configured.adminProvisionRateLimitMax, 4);
   assert.equal(configured.mfaVerifyRateLimitMax, 6);
+  assert.equal(configured.assistantMaxMessageLength, 600);
+  assert.equal(configured.assistantRateLimitWindowMs, 5000);
+  assert.equal(configured.assistantRateLimitMax, 7);
   assert.throws(() => loadConfig({ AUTH_LOGIN_RATE_LIMIT_MAX: '0' }), /positive integer/);
+  assert.throws(() => loadConfig({ ASSISTANT_RATE_LIMIT_MAX: '0' }), /positive integer/);
 });

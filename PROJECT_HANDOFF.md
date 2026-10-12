@@ -2,7 +2,7 @@
 
 ## Final project status
 
-Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestones 1.25–1.27 add the local email/account-token foundation, Patient registration email OTP verification, and Patient-only secure password recovery. None of these post-MVP milestones has been deployed.
+Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestones 1.25–1.28 add the local email/account-token foundation, Patient registration email OTP verification, Patient-only secure password recovery, and the internal Arion Assistant privacy foundation. None of these post-MVP milestones has been deployed.
 
 | Layer | Final technology |
 | --- | --- |
@@ -38,6 +38,7 @@ Milestones 13–23, 24.1–24.7, and 25.1–25.8 are complete. Any new feature w
 | Post-MVP Milestone 1.25 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 | Post-MVP Milestone 1.26 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 | Post-MVP Milestone 1.27 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
+| Post-MVP Milestone 1.28 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 
 ## Architecture
 
@@ -61,6 +62,10 @@ Production, Preview, development, and E2E data must remain isolated. Production 
 The backend contains a fixed-template transactional email service, an isolated native-fetch Resend adapter, and a silent fake provider for tests/local use. No arbitrary email-sending endpoint exists. New public Patient registrations require a six-digit email OTP before login. Existing accounts remain compatible because `AuthAccount.email_verification_required` defaults false. Verification uses a random opaque HttpOnly cookie; OTPs expire in ten minutes, allow five challenge attempts, are single-use, and are replaced on resend.
 
 Milestone 1.26 adds `/verify-email`, registration redirect, verification status, OTP submission, resend, and unverified-Patient login enforcement. Milestone 1.27 adds `/forgot-password` and `/reset-password` for active Patients only. Forgot responses are identical for every address; reset links contain one-use 32-byte tokens derived only from `APP_BASE_URL`, are exchanged immediately for a fifteen-minute HttpOnly cookie, and are removed from the visible URL. Successful reset updates the password, revokes older authenticated JWTs through `auth_session_version`, preserves email-verification state, and never auto-authenticates. Staff, Doctor, Admin, inactive-account handling, and Admin MFA are unchanged. Production/Preview environment variables, databases, and deployments were not modified. Before deployment, configure and validate `EMAIL_PROVIDER=resend`, an approved sender/domain, provider credentials, `APP_BASE_URL`, and the separate account-token secret in the correct isolated environment.
+
+### Post-MVP Arion Assistant privacy foundation
+
+Milestone 1.28 adds the backend-only `POST /api/patient/assistant/message` foundation for authenticated active Patients. It is text-only, stateless, read-only, and fully internal: a conservative deterministic privacy gateway routes a small set of portal, account, and appointment-help intents; health/clinical and emergency-sensitive text receives fixed safety responses; ambiguous and injection-style requests fail closed. Personalized appointment questions do not query live data and instead direct the Patient to My Appointments. There is no Gemini, Ollama, hosted provider, Patient-data tool, chatbot UI, or chat-history storage. Raw messages and replies are not logged. The dedicated limit is 10 requests per minute per authenticated Patient through the existing shared limiter infrastructure. No deployment or Production/Preview configuration changed.
 
 ## Roles and permission boundaries
 
@@ -114,7 +119,7 @@ No reminder job, email/SMS/push delivery, preferences, delete/archive/mark-unrea
 
 This is a point-in-time baseline. Re-run the appropriate checks after application, dependency, configuration, or infrastructure changes.
 
-Milestone 1.25 local validation recorded **371/371 backend tests passed**, **149/149 frontend tests passed**, and a successful Production frontend build. Milestone 1.26 local validation records **378/378 backend tests**, **151/151 frontend tests** using sequential per-file execution required by the restricted Windows sandbox, **72/72 Playwright browser journeys**, a successful Production frontend build, clean whitespace validation, and **0 known frontend or backend dependency vulnerabilities**. Milestone 1.27 local validation records **386/386 backend tests**, **153/153 frontend tests** using the same per-file method, **76/76 Playwright browser journeys**, a successful Production frontend build, clean whitespace validation, and **0 known frontend or backend dependency vulnerabilities**. No Preview or Production validation/deployment was performed for these post-MVP milestones.
+Milestone 1.25 local validation recorded **371/371 backend tests passed**, **149/149 frontend tests passed**, and a successful Production frontend build. Milestone 1.26 local validation records **378/378 backend tests**, **151/151 frontend tests** using sequential per-file execution required by the restricted Windows sandbox, **72/72 Playwright browser journeys**, a successful Production frontend build, clean whitespace validation, and **0 known frontend or backend dependency vulnerabilities**. Milestone 1.27 local validation records **386/386 backend tests**, **153/153 frontend tests** using the same per-file method, **76/76 Playwright browser journeys**, a successful Production frontend build, clean whitespace validation, and **0 known frontend or backend dependency vulnerabilities**. Milestone 1.28 local validation records **396/396 backend tests**, **155/155 frontend tests** using the same per-file method, a successful Production frontend build, clean whitespace validation, and a clean assistant provider/secret scan. Playwright was not rerun because 1.28 adds no UI. No Preview or Production validation/deployment was performed for these post-MVP milestones.
 
 ## Production restrictions and data policy
 
@@ -162,7 +167,7 @@ Environment variable names, without values:
 | --- | --- |
 | Backend required before deploying the 1.25 foundation | `MONGODB_URI`, `MONGODB_DB_NAME`, `NODE_ENV`, `CORS_ORIGIN`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, `ACCOUNT_TOKEN_HMAC_SECRET`, `CLINIC_NAME`, `CLINIC_LOCATION`, `CLINIC_TIME_ZONE` |
 | Backend email verification delivery (required before deploying 1.26) | `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL` |
-| Backend optional/configured when approved | `CLINIC_OPEN_TIME`, `CLINIC_CLOSE_TIME`, `CERTIFICATE_ISSUANCE_ENABLED`, `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_RATE_LIMIT_MAX`, `AUTH_REGISTER_RATE_LIMIT_WINDOW_MS`, `AUTH_REGISTER_RATE_LIMIT_MAX`, `ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS`, `ADMIN_PROVISION_RATE_LIMIT_MAX`, `MFA_VERIFY_RATE_LIMIT_WINDOW_MS`, `MFA_VERIFY_RATE_LIMIT_MAX`, `EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_WINDOW_MS`, `EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_MAX`, `EMAIL_VERIFICATION_RESEND_RATE_LIMIT_WINDOW_MS`, `EMAIL_VERIFICATION_RESEND_RATE_LIMIT_MAX`, `FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS`, `FORGOT_PASSWORD_RATE_LIMIT_MAX`, `PASSWORD_RESET_RATE_LIMIT_WINDOW_MS`, `PASSWORD_RESET_RATE_LIMIT_MAX` |
+| Backend optional/configured when approved | `CLINIC_OPEN_TIME`, `CLINIC_CLOSE_TIME`, `CERTIFICATE_ISSUANCE_ENABLED`, `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_RATE_LIMIT_MAX`, `AUTH_REGISTER_RATE_LIMIT_WINDOW_MS`, `AUTH_REGISTER_RATE_LIMIT_MAX`, `ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS`, `ADMIN_PROVISION_RATE_LIMIT_MAX`, `MFA_VERIFY_RATE_LIMIT_WINDOW_MS`, `MFA_VERIFY_RATE_LIMIT_MAX`, `EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_WINDOW_MS`, `EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_MAX`, `EMAIL_VERIFICATION_RESEND_RATE_LIMIT_WINDOW_MS`, `EMAIL_VERIFICATION_RESEND_RATE_LIMIT_MAX`, `FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS`, `FORGOT_PASSWORD_RATE_LIMIT_MAX`, `PASSWORD_RESET_RATE_LIMIT_WINDOW_MS`, `PASSWORD_RESET_RATE_LIMIT_MAX`, `ASSISTANT_MAX_MESSAGE_LENGTH`, `ASSISTANT_RATE_LIMIT_WINDOW_MS`, `ASSISTANT_RATE_LIMIT_MAX` |
 | Frontend public | `VITE_API_BASE_URL`, `VITE_CERTIFICATE_ISSUANCE_ENABLED` |
 | One-time bootstrap only | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_DISPLAY_NAME`, `ADMIN_CONTACT_NUMBER` |
 

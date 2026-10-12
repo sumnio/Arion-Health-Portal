@@ -783,3 +783,9 @@ MongoDB
 ```
 
 The backend choice is not finalized. This section defines the boundary only; it does not design Express endpoints, MongoDB collections, or provider-specific authentication.
+
+## Arion Assistant 1.28 schema impact
+
+Milestone 1.28 adds no application collection, entity, relationship, field, index, migration, or persisted conversation. The Patient-only assistant request is stateless and uses no Patient, Appointment, Doctor, Notification, MedicalRecord, Prescription, or MedicalCertificate repository. Only the existing shared `rate_limit_counters` operational store may contain the dedicated `patient_assistant` limiter namespace in Production. It stores limiter keys and expiry/count state, not messages, replies, intent text, chat history, or clinical content.
+
+There is no `AssistantConversation`, `ChatHistory`, assistant-message, embedding, vector, or model-configuration schema. Any later Patient-data tool or persistent assistant feature requires a separately approved schema and authorization review.

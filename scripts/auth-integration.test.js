@@ -171,6 +171,17 @@ test('password recovery UI removes the link token and never stores reset credent
   assert.doesNotMatch(`${forgot}\n${reset}`, /localStorage|sessionStorage|accountId|email_verified_at/);
 });
 
+test('Login and authenticated Patient Profile both reach the existing Forgot Password page', () => {
+  const router = readFileSync(new URL('../src/app/AppRouter.jsx', import.meta.url), 'utf8');
+  const login = readFileSync(new URL('../src/pages/public/LoginPage.jsx', import.meta.url), 'utf8');
+  const profile = readFileSync(new URL('../src/pages/patient/PatientProfile.jsx', import.meta.url), 'utf8');
+  const forgot = readFileSync(new URL('../src/pages/public/ForgotPasswordPage.jsx', import.meta.url), 'utf8');
+  assert.match(login, /<Link to="\/forgot-password">Forgot password\?<\/Link>/);
+  assert.match(profile, /navigate\('\/forgot-password'\)/);
+  assert.doesNotMatch(router, /guestOnlyPaths = \[[^\]]*forgot-password/s);
+  assert.match(forgot, /Send Reset Link/);
+});
+
 test('email verification UI is segmented, numeric, refresh-safe, and contains no browser token store', () => {
   const source = readFileSync(new URL('../src/pages/public/VerifyEmailPage.jsx', import.meta.url), 'utf8');
   assert.match(source, /Verification digit \$\{index \+ 1\}/);
