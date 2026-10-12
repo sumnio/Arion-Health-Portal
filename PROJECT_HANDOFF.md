@@ -2,7 +2,7 @@
 
 ## Final project status
 
-Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestones 1.25–1.28 add the local email/account-token foundation, Patient registration email OTP verification, Patient-only secure password recovery, and the internal Arion Assistant privacy foundation. None of these post-MVP milestones has been deployed.
+Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestones 1.25–1.29 add the local email/account-token foundation, Patient registration email OTP verification, Patient-only secure password recovery, the internal Arion Assistant privacy foundation, and its curated Patient knowledge base. None of these post-MVP milestones has been deployed.
 
 | Layer | Final technology |
 | --- | --- |
@@ -39,6 +39,7 @@ Milestones 13–23, 24.1–24.7, and 25.1–25.8 are complete. Any new feature w
 | Post-MVP Milestone 1.26 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 | Post-MVP Milestone 1.27 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 | Post-MVP Milestone 1.28 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
+| Post-MVP Milestone 1.29 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 
 ## Architecture
 
@@ -66,6 +67,8 @@ Milestone 1.26 adds `/verify-email`, registration redirect, verification status,
 ### Post-MVP Arion Assistant privacy foundation
 
 Milestone 1.28 adds the backend-only `POST /api/patient/assistant/message` foundation for authenticated active Patients. It is text-only, stateless, read-only, and fully internal: a conservative deterministic privacy gateway routes a small set of portal, account, and appointment-help intents; health/clinical and emergency-sensitive text receives fixed safety responses; ambiguous and injection-style requests fail closed. Personalized appointment questions do not query live data and instead direct the Patient to My Appointments. There is no Gemini, Ollama, hosted provider, Patient-data tool, chatbot UI, or chat-history storage. Raw messages and replies are not logged. The dedicated limit is 10 requests per minute per authenticated Patient through the existing shared limiter infrastructure. No deployment or Production/Preview configuration changed.
+
+Milestone 1.29 adds one centralized code-owned knowledge base with Patient-friendly deterministic answers for booking, appointment statuses, rescheduling, cancellation, arrival, queue order, no-show, records, certificates, notifications, email verification, Patient password reset, Profile behavior and privacy, Philippine mobile format, and assistant capabilities. It also keeps an internal suggested-question list for later UI work without exposing another endpoint. Health/clinical/emergency classification and unsafe-request handling run before FAQ matching. Live Patient appointment, Doctor, status, and notification questions still direct the Patient to the appropriate portal page without repository access. The existing endpoint, Patient-only authorization, safe category-only logging, 800-character input limit, and 10-per-minute per-Patient rate limit are unchanged. No provider, outbound AI request, database collection, schema relationship, transcript, UI, dependency, environment configuration, or deployment was added.
 
 ## Roles and permission boundaries
 
@@ -119,7 +122,7 @@ No reminder job, email/SMS/push delivery, preferences, delete/archive/mark-unrea
 
 This is a point-in-time baseline. Re-run the appropriate checks after application, dependency, configuration, or infrastructure changes.
 
-Milestone 1.25 local validation recorded **371/371 backend tests passed**, **149/149 frontend tests passed**, and a successful Production frontend build. Milestone 1.26 local validation records **378/378 backend tests**, **151/151 frontend tests** using sequential per-file execution required by the restricted Windows sandbox, **72/72 Playwright browser journeys**, a successful Production frontend build, clean whitespace validation, and **0 known frontend or backend dependency vulnerabilities**. Milestone 1.27 local validation records **386/386 backend tests**, **153/153 frontend tests** using the same per-file method, **76/76 Playwright browser journeys**, a successful Production frontend build, clean whitespace validation, and **0 known frontend or backend dependency vulnerabilities**. Milestone 1.28 local validation records **396/396 backend tests**, **155/155 frontend tests** using the same per-file method, a successful Production frontend build, clean whitespace validation, and a clean assistant provider/secret scan. Playwright was not rerun because 1.28 adds no UI. No Preview or Production validation/deployment was performed for these post-MVP milestones.
+Milestone 1.25 local validation recorded **371/371 backend tests passed**, **149/149 frontend tests passed**, and a successful Production frontend build. Milestone 1.26 local validation records **378/378 backend tests**, **151/151 frontend tests** using sequential per-file execution required by the restricted Windows sandbox, **72/72 Playwright browser journeys**, a successful Production frontend build, clean whitespace validation, and **0 known frontend or backend dependency vulnerabilities**. Milestone 1.27 local validation records **386/386 backend tests**, **153/153 frontend tests** using the same per-file method, **76/76 Playwright browser journeys**, a successful Production frontend build, clean whitespace validation, and **0 known frontend or backend dependency vulnerabilities**. Milestone 1.28 local validation records **396/396 backend tests**, **155/155 frontend tests** using the same per-file method, a successful Production frontend build, clean whitespace validation, and a clean assistant provider/secret scan. Milestone 1.29 local validation records **416/416 backend tests**, **155/155 frontend tests**, a successful Production frontend build, clean whitespace validation, and clean assistant external-provider, persistence, and sensitive-pattern scans. Playwright was not rerun for 1.28 or 1.29 because neither milestone adds UI. No Preview or Production validation/deployment was performed for these post-MVP milestones.
 
 ## Production restrictions and data policy
 
