@@ -821,7 +821,7 @@ Milestone 1.37 does not change the Milestone 1.36 ownership, lifecycle, storage,
 
 ## Milestone 1.38 Doctor consultation integration
 
-The assigned Doctor can review an appointment's Patient-uploaded supporting documents inside the existing Consultation tab and the existing Add Medical Record form. Both placements use the consultation's exact appointment identifier and the authenticated Doctor appointment-scoped list/download endpoints. The read-only list shows only the original filename, size, upload time, and a keyboard-operable View / Download action. It provides safe loading, empty, download, and failure states without exposing storage identifiers or public URLs.
+The assigned Doctor can review an appointment's Patient-uploaded supporting documents inside the existing Consultation tab and the existing Add Medical Record form. Both placements use the consultation's exact appointment identifier and the authenticated Doctor appointment-scoped list/download endpoints. The read-only list shows only the original filename, size, upload time, and a keyboard-operable View action. Authenticated bytes are displayed in a full-screen, scrollable PDF or image viewer with X and Escape close behavior; the UI provides no download action. It also provides safe loading, empty, opening, and failure states without exposing storage identifiers or public URLs.
 
 There is no Doctor Documents tab, cross-visit document history, combined Patient file library, or document mutation control. A Doctor cannot upload, rename, replace, delete, categorize, annotate, or permanently attach a supporting document. The Medical Record request remains the existing clinical-field payload and stores neither file metadata nor binary content.
 

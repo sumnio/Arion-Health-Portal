@@ -102,7 +102,12 @@ test('Patient books first, uploads a synthetic PDF, and sees it only on that app
   await page.getByRole('link', { name: 'View Details' }).first().click();
   await expect(page.getByRole('heading', { name: 'Supporting Documents', exact: true })).toBeVisible();
   await expect(page.getByText('e2e-lab-result.pdf')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'View / Download' })).toBeEnabled();
+  await page.getByRole('button', { name: 'View' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'e2e-lab-result.pdf' })).toBeVisible();
+  await expect(page.locator('.supporting-document-viewer-content object')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   assertBrowserClean();
 });
 

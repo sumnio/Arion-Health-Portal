@@ -20,15 +20,20 @@ test('Doctor service exposes only safe metadata and read-only operations', async
   assert.deepEqual(Object.keys(service).sort(), ['downloadSupportingDocument', 'listSupportingDocuments']);
 });
 
-test('shared list accepts a role service, downloads through a temporary URL, and has no mutation controls', async () => {
+test('shared list opens an accessible full-screen viewer through a temporary URL with no download or mutation controls', async () => {
   const component = await source('../src/components/documents/SupportingDocumentList.jsx');
   assert.match(component, /documentService = patientSupportingDocumentService/);
   assert.match(component, /documentService\.listSupportingDocuments\(appointmentId\)/);
   assert.match(component, /documentService\.downloadSupportingDocument\(appointmentId, documentItem\.id\)/);
   assert.match(component, /URL\.createObjectURL/);
   assert.match(component, /URL\.revokeObjectURL/);
-  assert.match(component, /View \/ Download/);
-  assert.doesNotMatch(component, /type="file"|uploadSupportingDocuments|deleteSupportingDocument|replaceSupportingDocument|renameSupportingDocument|localStorage|sessionStorage/);
+  assert.match(component, /role="dialog"/);
+  assert.match(component, /aria-modal="true"/);
+  assert.match(component, /Close document viewer/);
+  assert.match(component, /event\.key === 'Escape'/);
+  assert.match(component, /toolbar=0&navpanes=0&scrollbar=1/);
+  assert.match(component, /<img src=\{preview\.url\}/);
+  assert.doesNotMatch(component, /View \/ Download|anchor\.download|type="file"|uploadSupportingDocuments|deleteSupportingDocument|replaceSupportingDocument|renameSupportingDocument|localStorage|sessionStorage/);
 });
 
 test('Consultation places exact-appointment documents in the existing tab and hides them for an existing record', async () => {
@@ -64,6 +69,8 @@ test('document styles preserve focus, wrapping, and narrow-screen usability', as
   const styles = await source('../src/styles/supporting-documents.css');
   assert.match(styles, /overflow-wrap:\s*anywhere/);
   assert.match(styles, /:focus-visible/);
+  assert.match(styles, /background:\s*rgba\(0, 0, 0, 0\.84\)/);
+  assert.match(styles, /supporting-document-viewer-content[^}]*overflow:\s*auto/);
   assert.match(styles, /@media \(max-width: 500px\)/);
   assert.match(styles, /width:\s*100%/);
 });

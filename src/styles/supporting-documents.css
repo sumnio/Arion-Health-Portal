@@ -10,4 +10,12 @@
 .supporting-document-list .action-link { margin: 0; white-space: normal; }
 .supporting-document-list button:disabled { color: #8997a8; cursor: not-allowed; }
 .supporting-documents-panel :is(button):focus-visible { outline: 3px solid #86b5f4; outline-offset: 2px; }
+.supporting-document-viewer { position: fixed; inset: 0; z-index: 1000; display: grid; grid-template-rows: auto minmax(0, 1fr); background: rgba(0, 0, 0, 0.84); color: #fff; }
+.supporting-document-viewer header { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 16px; background: transparent; }
+.supporting-document-viewer h2 { display: flex; align-items: center; min-width: 0; min-height: 40px; margin: 0; color: #fff; font-size: 17px; font-weight: 400; line-height: 1.2; overflow-wrap: anywhere; }
+.supporting-document-viewer-close { flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border: 0; background: transparent; color: #fff; font-size: 32px; font-weight: 300; line-height: 1; cursor: pointer; }
+.supporting-document-viewer-content { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 12px 5vw 28px; text-align: center; }
+.supporting-document-viewer-content object { display: block; width: min(1100px, 100%); height: calc(100vh - 96px); min-height: 500px; margin: 0 auto; border: 0; background: #fff; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45); }
+.supporting-document-viewer-content img { display: block; max-width: min(1100px, 100%); height: auto; margin: 0 auto; background: #fff; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45); object-fit: contain; }
 @media (max-width: 500px) { .supporting-document-list li { grid-template-columns: auto minmax(0, 1fr); } .supporting-document-list .action-link { grid-column: 1 / -1; width: 100%; text-align: center; } }
+@media (max-width: 500px) { .supporting-document-viewer header { padding: 6px 8px; } .supporting-document-viewer h2 { font-size: 15px; } .supporting-document-viewer-content { padding: 8px 10px 18px; } .supporting-document-viewer-content object { height: calc(100vh - 72px); min-height: 420px; } }

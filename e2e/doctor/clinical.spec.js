@@ -141,8 +141,15 @@ test('Doctor reviews only current consultation documents until the Medical Recor
   await expect(page.getByRole('heading', { name: 'Patient Supporting Documents' })).toBeVisible();
   await expect(page.getByText('current-consultation.pdf')).toBeVisible();
   await expect(page.getByText('other-consultation.pdf')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'View / Download' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View' })).toBeVisible();
   await expect(page.getByLabel(/upload/i)).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'View' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'current-consultation.pdf' })).toBeVisible();
+  await expect(page.locator('.supporting-document-viewer-content object')).toBeVisible();
+  await page.getByRole('button', { name: 'Close document viewer' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   const download = await page.request.get(`${apiURL}/api/doctor/appointments/${currentAppointment.appointmentId}/supporting-documents/${currentDocumentId}`);
   expect(download.ok()).toBe(true);
@@ -153,7 +160,7 @@ test('Doctor reviews only current consultation documents until the Medical Recor
   expect((await download.body()).subarray(0, 4).toString()).toBe('%PDF');
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole('button', { name: 'View / Download' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View' })).toBeVisible();
   await page.getByRole('link', { name: 'Add Medical Record' }).click();
   await expect(page.getByRole('heading', { name: 'Supporting Documents for this Consultation' })).toBeVisible();
   await expect(page.getByText('current-consultation.pdf')).toBeVisible();
