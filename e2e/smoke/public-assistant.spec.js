@@ -98,18 +98,20 @@ test('public assistant sends only the message contract and displays safe failure
   expect(requestCount).toBe(1);
 });
 
-test('public assistant stays usable inside a 320-pixel viewport', async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto('/login');
-  const panel = await openAssistant(page);
-  const box = await panel.boundingBox();
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(320);
-  expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.y + box.height).toBeLessThanOrEqual(640);
-  await expect(panel.getByRole('textbox', { name: 'Message Arion Assistant' })).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Getting Started' })).toBeVisible();
-  await panel.getByRole('button', { name: 'Queue & Clinic Process' }).click();
-  await expect(panel.getByRole('button', { name: 'What does Senior/PWD priority mean?' })).toBeVisible();
-  expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+test('public assistant stays usable inside tablet and 320-pixel viewports', async ({ page }) => {
+  for (const viewport of [{ width: 768, height: 1024 }, { width: 320, height: 640 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/login');
+    const panel = await openAssistant(page);
+    const box = await panel.boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    await expect(panel.getByRole('textbox', { name: 'Message Arion Assistant' })).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Getting Started' })).toBeVisible();
+    await panel.getByRole('button', { name: 'Queue & Clinic Process' }).click();
+    await expect(panel.getByRole('button', { name: 'What does Senior/PWD priority mean?' })).toBeVisible();
+    expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
 });

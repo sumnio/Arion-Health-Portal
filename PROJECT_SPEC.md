@@ -753,3 +753,46 @@ The deterministic knowledge layer now recognizes additional natural wording and 
 The public privacy boundary is deterministic and provider-free. Emergency and health/clinical wording takes precedence over public FAQ matching; prompt injection, impersonation, database, secret, broad-data, and cross-account requests fail closed. The public module has no Patient tool, repository, model, provider, or external HTTP dependency. It cannot book, change, cancel, check in, mark status, access records, perform account actions, diagnose, prescribe, or interpret clinical information.
 
 Public requests have a separate five-requests-per-60-seconds per-IP limit and Production shared-store namespace. Structured events contain only safe category, result class, route, outcome, and latency; raw prompts, replies, account content, actor identity, and IP are excluded. Conversation state remains in the mounted React component only, with no browser or server persistence. No database schema, collection, dependency, external-AI setting, cloud resource, or deployment changes in this milestone.
+
+## Arion Assistant — Final Architecture
+
+### Public Assistant
+
+The Public Assistant provides general clinic and portal guidance on the landing, Login, Register, and Forgot Password pages. It uses a separate deterministic public knowledge base, never reads Patient data, and never calls GPT or another external AI provider. Personal questions direct the visitor to sign in instead of attempting a lookup.
+
+### Patient Assistant
+
+The Patient Assistant is available only to an authenticated active Patient. It answers approved FAQs internally and may use ownership-scoped, read-only tools for that Patient's bounded appointment and notification information. An optional external GPT path exists only for the three canonical tasks `EXPLAIN_APPOINTMENT_PROCESS_SIMPLY`, `COMPARE_PENDING_CONFIRMED_SIMPLY`, and `EXPLAIN_PORTAL_FOR_NEW_PATIENT`; external AI is off by default.
+
+### Privacy model
+
+Safety and privacy classification happens inside Arion before any tool or provider decision. Health, clinical, emergency, unsafe, injection, broad-data, and cross-Patient requests remain internal. Live Patient data, raw Patient messages, contact or account details, and chat history are never sent to GPT. Patient ownership comes from the authenticated session, not from a request-body identifier.
+
+### Cost model
+
+The assistant is internal-first. Guided category questions, aliases, FAQ answers, public help, safety responses, and live Patient tools do not use GPT. GPT is optional and limited to three small canonical prompts, while deterministic fallback keeps the assistant usable when the provider is disabled, unavailable, rate-limited, or misconfigured.
+
+### Safety
+
+Arion Assistant does not diagnose, prescribe, recommend treatment, perform appointment actions, modify clinical records, or access another Patient. Emergency wording receives a fixed escalation response without a diagnosis or triage conclusion. All live capabilities are read-only and return bounded Patient-facing summaries.
+
+### Defense-ready example flows
+
+- **Public FAQ:** Visitor asks “How do appointments work?” → Public Assistant → deterministic public knowledge → answer.
+- **Personal appointment:** Patient asks “When is my next appointment?” → authenticated Patient boundary → ownership-scoped internal tool → fixed server response.
+- **Broad question:** Patient asks “appointments help me” → internal alias/general-help intent → deterministic answer.
+- **GPT-eligible:** Patient asks “Explain Pending and Confirmed in a simpler way.” → privacy check → canonical safe task → optional GPT when enabled → deterministic fallback when unavailable.
+- **Sensitive health:** Patient asks “I have chest pain. What medicine should I take?” → health/emergency detection → internal safety response → no GPT.
+
+### Known v1 limitations
+
+- Curated intent matching rather than open-ended language understanding.
+- Text only; no voice and no file or image upload.
+- No persistent chat history.
+- Read-only; no appointment actions or clinical-record modification.
+- No clinical advice.
+- Only bounded Patient live data is available.
+- GPT is limited to three safe canonical tasks.
+- Real OpenAI model and account access has not been Production-validated.
+- Visitors behind the same public IP may share the Public Assistant rate limit.
+- The existing large JavaScript chunk warning remains unrelated and non-blocking.

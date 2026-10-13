@@ -32,6 +32,8 @@ test('assistant service rejects malformed replies and maps errors without leakin
   const service = createPatientAssistantApiService({ async request() { return { reply: '' }; } });
   await assert.rejects(() => service.sendMessage('Hello'), error => error instanceof ApiError && error.code === 'INVALID_ASSISTANT_RESPONSE');
   assert.equal(assistantErrorMessage(new ApiError('Provider detail', { status: 429 })), ASSISTANT_RATE_LIMIT_ERROR);
+  assert.equal(assistantErrorMessage(new ApiError('Server detail', { status: 500 })), ASSISTANT_TEMPORARY_ERROR);
+  assert.equal(assistantErrorMessage(new ApiError('Expired session', { status: 401 })), ASSISTANT_TEMPORARY_ERROR);
   assert.equal(assistantErrorMessage(new Error('Secret upstream failure')), ASSISTANT_TEMPORARY_ERROR);
   assert.equal(ASSISTANT_MESSAGE_MAX_LENGTH, 800);
 });
