@@ -38,26 +38,26 @@ export function setUnauthorizedHandler(handler) {
 }
 
 export function createApiClient({ baseUrl = API_BASE_URL, fetchImpl = globalThis.fetch } = {}) {
-  async function request(path, options = {}) {
-    const { body, headers = {}, skipUnauthorizedHandling = false, ...requestOptions } = options;
+  async function perform(path, options = {}, responseType = 'json') {
+    const { body, formData, headers = {}, skipUnauthorizedHandling = false, ...requestOptions } = options;
     let response;
     try {
       response = await fetchImpl(`${baseUrl}${path}`, {
         ...requestOptions,
         credentials: 'include',
         headers: {
-          Accept: 'application/json',
+          Accept: responseType === 'blob' ? 'application/pdf, image/png, image/jpeg' : 'application/json',
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...headers,
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: formData ?? (body === undefined ? undefined : JSON.stringify(body)),
       });
     } catch {
       throw new ApiError('Unable to connect to the server. Please try again.', { code: 'NETWORK_ERROR' });
     }
 
     const contentType = response.headers.get('content-type') || '';
-    const payload = contentType.includes('application/json') ? await response.json() : null;
+    const payload = !response.ok && contentType.includes('application/json') ? await response.json() : null;
     if (!response.ok) {
       const error = new ApiError(
         response.status === 429 ? RATE_LIMIT_MESSAGE : payload?.error?.message || 'The request could not be completed. Please try again.',
@@ -66,9 +66,20 @@ export function createApiClient({ baseUrl = API_BASE_URL, fetchImpl = globalThis
       if (response.status === 401 && !skipUnauthorizedHandling) unauthorizedHandler?.(error);
       throw error;
     }
-    return payload;
+    if (responseType === 'blob') {
+      return {
+        blob: await response.blob(),
+        contentType,
+        contentDisposition: response.headers.get('content-disposition') || '',
+      };
+    }
+    return contentType.includes('application/json') ? await response.json() : null;
   }
-  return { request };
+  return {
+    request(path, options) { return perform(path, options); },
+    upload(path, formData, options = {}) { return perform(path, { ...options, formData }); },
+    download(path, options = {}) { return perform(path, options, 'blob'); },
+  };
 }
 
 export const apiClient = createApiClient();

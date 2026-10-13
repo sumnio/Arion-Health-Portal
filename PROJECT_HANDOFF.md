@@ -2,7 +2,7 @@
 
 ## Final project status
 
-Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestones 1.25–1.33 add the local email/account-token foundation, Patient registration email OTP verification, Patient-only secure password recovery, the internal Arion Assistant privacy foundation, its curated Patient knowledge base, narrowly scoped read-only Patient tools, an optional internal-first GPT integration foundation, the Patient floating assistant UI, and a separate provider-free public assistant safe mode. None of these post-MVP milestones has been deployed.
+Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestones 1.25–1.37 add the local email/account-token foundation, Patient registration email OTP verification, Patient-only secure password recovery, the Arion Assistant v1 feature set and acceptance gate, the secure consultation supporting-document backend foundation, and Patient booking upload with visit-specific display. None of these post-MVP milestones has been deployed.
 
 | Layer | Final technology |
 | --- | --- |
@@ -47,6 +47,7 @@ Milestones 13–23, 24.1–24.7, and 25.1–25.8 are complete. Any new feature w
 | Post-MVP Milestone 1.34 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 | Post-MVP Milestone 1.35 | **ACCEPTANCE COMPLETE LOCALLY — NOT DEPLOYED** |
 | Post-MVP Milestone 1.36 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
+| Post-MVP Milestone 1.37 | **IMPLEMENTED LOCALLY — NOT DEPLOYED** |
 
 ## Architecture
 
@@ -90,6 +91,10 @@ Milestone 1.34 replaces the flat suggestion chips in both assistant modes with c
 Milestone 1.35 performs the final local Arion Assistant v1 safety and acceptance gate without adding features. The completed review confirms separate public and authenticated Patient modes, Patient-only RBAC and ownership-derived live reads, deterministic internal-first routing, sensitive/emergency/injection precedence, the three-task optional GPT allowlist, read-only behavior, session-only UI state, separate rate-limit namespaces, and content-free logging. The final architecture, defense-ready flows, and known v1 limitations are documented in `PROJECT_SPEC.md`. External AI remained disabled, no real provider request was made, no database/schema/dependency/environment change occurred, and nothing was deployed.
 
 Milestone 1.36 adds the backend/storage foundation for appointment-bound **Consultation Supporting Documents**. Active Patients may upload PDF, JPG/JPEG, or PNG files only to their own Pending or Confirmed appointment before a Medical Record exists, with actual file-signature validation, 5 MB per-file, five-file, and 25 MB appointment limits. Binary data is privately stored in MongoDB GridFS and minimal ownership metadata is stored in `consultation_supporting_documents`; generated storage names and authenticated Patient/Doctor streaming avoid public URLs. Patients retain access after record creation, while the assigned Doctor's temporary consultation access ends when the Medical Record exists; Staff, Admin, unrelated Doctors, and other Patients have no content access. Uploaded files are immutable, never enter MedicalRecord, and are isolated from Arion Assistant, GPT, OCR, email, and other providers. The later booking UI will select files without categories and upload them only after appointment creation; no UI, deletion/replacement flow, deployment, or Production configuration was added here.
+
+Milestone 1.37 adds the Patient-facing portion of consultation supporting documents. The Book Appointment page accepts optional PDF/JPG/JPEG/PNG selection with local removal and the existing five-file, 5 MB each, 25 MB combined limits. It has no category or description field. Appointment creation always happens first; selected files upload only after creation succeeds. An upload failure leaves the appointment intact and produces a clear partial-success confirmation.
+
+Patient Appointment Details lists the authenticated Patient's documents for that exact appointment. Medical Record Details lists only documents attached to the record's linked visit. Downloads use the existing authenticated appointment-scoped backend route, with no public URL or browser persistence. There is no global document page or history. Doctor, Staff, and Admin frontend behavior remains unchanged; Doctor backend access remains governed by the Milestone 1.36 assignment and Medical Record cutoff. No OCR, AI file access, summarization, delete/replace UI, schema change, new storage provider, dependency, environment change, or deployment is part of 1.37.
 
 ## Roles and permission boundaries
 
@@ -148,6 +153,8 @@ Milestone 1.25 local validation recorded **371/371 backend tests passed**, **149
 Milestone 1.35 final local acceptance records **494/494 backend tests**, **166/166 frontend tests**, and a clean isolated Playwright run with **86 passed, 1 time-dependent same-day-slot test skipped, and 0 failed** using fake email and external AI disabled. The Production frontend build passed with the existing non-blocking large-chunk warning. Final whitespace, secret/provider boundary, mode-isolation, persistence, logging, mutation, schema, and dependency-change reviews passed. Real OpenAI access was intentionally not exercised and remains a separate Production-readiness prerequisite. No deployment was performed.
 
 Milestone 1.36 local validation records **526/526 backend tests**, including **31/31 focused supporting-document tests**, and **166/166 frontend tests**. The Production frontend build passed with the existing non-blocking large-chunk warning. Frontend and backend dependency audits report zero known vulnerabilities. Secret, public-storage URL, cloud-storage SDK, AI coupling, route mutation/access-boundary, and whitespace scans passed; the AWS credential-provider name that remains in the backend lockfile is an uninstalled optional MongoDB-driver entry, not an added storage provider. Playwright was not run because 1.36 adds no UI. No deployment was performed.
+
+Milestone 1.37 local validation records **179/179 frontend tests**, **526/526 backend tests**, including **13/13 focused frontend workflow/API tests** and **31/31 focused supporting-document backend tests**, and a clean **91/91 Playwright** run with the required fake-email test provider. The Production frontend build passed with the existing non-blocking large-chunk warning. Both dependency audits report zero known vulnerabilities. Whitespace and supporting-document privacy/boundary scans passed. No schema, dependency, environment, cloud, or deployment change was made.
 
 ## Production restrictions and data policy
 

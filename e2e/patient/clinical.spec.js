@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures/test.js';
 import { loginAsPatient } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
+import { e2eApiUrl } from '../helpers/browserApi.js';
 
 async function clinicalScenario(patientScenario, patient) {
   const doctor = await patientScenario.createDoctor();
@@ -130,5 +131,23 @@ test('Patient cannot open another Patient medical record in the browser', async 
   await page.goto(`/patient/records/${record.recordId}`);
   await expect(page.getByRole('heading', { name: 'Medical record not found' })).toBeVisible();
   await expect(page.getByText(record.diagnosis)).toHaveCount(0);
+  assertBrowserClean();
+});
+
+test('Medical Record Details shows only supporting documents from its exact visit', async ({ page, patientScenario, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const doctor = await patientScenario.createDoctor();
+  const firstAppointment = await patientScenario.createAppointment({ patient: seededPatient, doctor, slot: patientScenario.slotFor(patientScenario.futureDate(1), '13:00'), status: 'confirmed' });
+  const otherAppointment = await patientScenario.createAppointment({ patient: seededPatient, doctor, slot: patientScenario.slotFor(patientScenario.futureDate(2), '14:00'), status: 'confirmed' });
+  await loginAsPatient(page, seededPatient);
+  for (const [appointment, filename] of [[firstAppointment, 'matching-visit.pdf'], [otherAppointment, 'other-visit.pdf']]) {
+    const response = await page.request.post(`${e2eApiUrl}/api/patient/appointments/${appointment.appointmentId}/supporting-documents`, { multipart: { files: { name: filename, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF') } } });
+    expect(response.ok()).toBe(true);
+  }
+  const record = await patientScenario.createRecord({ patient: seededPatient, doctor, appointment: firstAppointment });
+  await page.goto(`/patient/records/${record.recordId}`);
+  await expect(page.getByRole('heading', { name: 'Supporting Documents from this Visit' })).toBeVisible();
+  await expect(page.getByText('matching-visit.pdf')).toBeVisible();
+  await expect(page.getByText('other-visit.pdf')).toHaveCount(0);
   assertBrowserClean();
 });

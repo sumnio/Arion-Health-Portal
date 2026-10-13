@@ -87,3 +87,53 @@ test('Patient reason dropdown uses approved options and requires Other concern d
   await expect(page.locator('.booking-summary')).toContainText('Routine health check');
   assertBrowserClean();
 });
+
+test('Patient books first, uploads a synthetic PDF, and sees it only on that appointment', async ({ page, patientScenario, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const doctor = await patientScenario.createDoctor();
+  const slot = await patientScenario.createBookableSlot({ doctor });
+  await loginAsPatient(page, seededPatient);
+  await selectBooking(page, doctor, slot, 'Laboratory results discussion');
+  await page.getByLabel('Choose supporting documents').setInputFiles({ name: 'e2e-lab-result.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF') });
+  await expect(page.getByText('e2e-lab-result.pdf')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm Appointment' }).click();
+  await expect(page.getByText('Appointment booked successfully. Your supporting documents were also uploaded.')).toBeVisible();
+  await page.getByRole('link', { name: 'View My Appointments' }).click();
+  await page.getByRole('link', { name: 'View Details' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Supporting Documents', exact: true })).toBeVisible();
+  await expect(page.getByText('e2e-lab-result.pdf')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View / Download' })).toBeEnabled();
+  assertBrowserClean();
+});
+
+test('Patient can remove a local image and sees limits on a 320px viewport', async ({ page, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await loginAsPatient(page, seededPatient);
+  await page.goto('/patient/book');
+  const picker = page.getByLabel('Choose supporting documents');
+  await picker.setInputFiles({ name: 'visible-concern.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]) });
+  await expect(page.getByText('visible-concern.png')).toBeVisible();
+  await page.getByRole('button', { name: 'Remove visible-concern.png' }).click();
+  await expect(page.getByText('visible-concern.png')).toHaveCount(0);
+  await picker.setInputFiles(Array.from({ length: 6 }, (_, index) => ({ name: `file-${index}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-') })));
+  await expect(page.getByRole('alert')).toContainText('You can upload up to 5 files.');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  assertBrowserClean();
+});
+
+test('appointment stays booked when supporting-document upload fails', async ({ page, patientScenario, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page, { allowedStatuses: [503] });
+  const doctor = await patientScenario.createDoctor();
+  const slot = await patientScenario.createBookableSlot({ doctor });
+  const reason = 'Medical clearance consultation';
+  await loginAsPatient(page, seededPatient);
+  await selectBooking(page, doctor, slot, reason);
+  await page.getByLabel('Choose supporting documents').setInputFiles({ name: 'e2e-upload-failure.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
+  await page.route('**/api/patient/appointments/*/supporting-documents', async route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'SUPPORTING_DOCUMENT_UPLOAD_UNAVAILABLE', message: 'Upload unavailable.' } }) }));
+  await page.getByRole('button', { name: 'Confirm Appointment' }).click();
+  await expect(page.getByText(/appointment was booked successfully, but/i)).toBeVisible();
+  await page.getByRole('link', { name: 'View My Appointments' }).click();
+  await expect(page.getByText(reason)).toBeVisible();
+  assertBrowserClean();
+});

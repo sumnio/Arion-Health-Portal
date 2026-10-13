@@ -3,6 +3,7 @@ import {
   Appointment,
   AppointmentPriorityAudit,
   AuthAccount,
+  ConsultationSupportingDocument,
   Doctor,
   DoctorAvailability,
   DoctorBlockedTime,
@@ -15,6 +16,7 @@ import {
   Staff,
   UserProfile,
 } from '../../server/src/models/index.js';
+import { createGridFsSupportingDocumentStorage } from '../../server/src/services/supportingDocumentStorage.js';
 import { authRepository } from '../../server/src/repositories/authRepository.js';
 import { passwordService } from '../../server/src/services/passwordService.js';
 import {
@@ -274,6 +276,12 @@ export class PatientScenario {
     if (certificateQuery.$or.length) await MedicalCertificate.deleteMany(certificateQuery);
     if (recordIds.length) await Prescription.deleteMany({ medical_record_id: { $in: recordIds } });
     if (recordQuery.$or.length) await MedicalRecord.deleteMany(recordQuery);
+    if (appointmentIds.length) {
+      const supportingDocuments = await ConsultationSupportingDocument.find({ appointment_id: { $in: appointmentIds } }).lean();
+      const storage = createGridFsSupportingDocumentStorage();
+      await Promise.allSettled(supportingDocuments.map((item) => storage.delete(item.storage_file_id)));
+      await ConsultationSupportingDocument.deleteMany({ appointment_id: { $in: appointmentIds } });
+    }
     if (appointmentIds.length) await AppointmentPriorityAudit.deleteMany({ appointment_id: { $in: appointmentIds } });
     if (appointmentQuery.$or.length) await Appointment.deleteMany(appointmentQuery);
     if (doctorIds.length) {
