@@ -1,6 +1,6 @@
-import { Appointment, MedicalCertificate, MedicalRecord, Prescription } from '../../server/src/models/index.js';
+import { Appointment, ConsultationSupportingDocument, MedicalCertificate, MedicalRecord, Prescription } from '../../server/src/models/index.js';
 import { test, expect } from '../fixtures/test.js';
-import { loginAsDoctor } from '../helpers/auth.js';
+import { loginAsDoctor, loginAsPatient, logoutThroughUi } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
 import { DEFAULT_E2E_API_URL, loadE2eEnvironment } from '../../server/scripts/e2eEnvironment.js';
 
@@ -116,6 +116,67 @@ test('Doctor completion without a MedicalRecord fails safely and preserves statu
   expect(result.status).toBe(409);
   expect(result.body.error.code).toBe('MEDICAL_RECORD_REQUIRED');
   expect((await Appointment.findById(appointment.appointmentId).lean()).status).toBe('confirmed');
+  assertBrowserClean();
+});
+
+test('Doctor reviews only current consultation documents until the Medical Record is saved while Patient access remains', async ({ page, patientScenario, seededDoctor }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const patient = await patientScenario.createPatient();
+  const currentAppointment = await patientScenario.createAppointment({ patient, doctor: seededDoctor, slot: patientScenario.slotFor(patientScenario.futureDate(1), '09:00'), status: 'confirmed', check_in_at: new Date(), reason: 'Current consultation' });
+  const otherAppointment = await patientScenario.createAppointment({ patient, doctor: seededDoctor, slot: patientScenario.slotFor(patientScenario.futureDate(2), '10:00'), status: 'confirmed', reason: 'Other consultation' });
+
+  await loginAsPatient(page, patient);
+  let currentDocumentId;
+  for (const [appointment, filename] of [[currentAppointment, 'current-consultation.pdf'], [otherAppointment, 'other-consultation.pdf']]) {
+    const response = await page.request.post(`${apiURL}/api/patient/appointments/${appointment.appointmentId}/supporting-documents`, { multipart: { files: { name: filename, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF') } } });
+    expect(response.ok()).toBe(true);
+    const body = await response.json();
+    if (appointment === currentAppointment) currentDocumentId = body.supporting_documents[0].id;
+  }
+  await logoutThroughUi(page);
+
+  await loginAsDoctor(page, seededDoctor);
+  await page.goto(`/doctor/patients/${patient.patientId}`);
+  await page.getByRole('tab', { name: 'Consultation' }).click();
+  await expect(page.getByRole('heading', { name: 'Patient Supporting Documents' })).toBeVisible();
+  await expect(page.getByText('current-consultation.pdf')).toBeVisible();
+  await expect(page.getByText('other-consultation.pdf')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'View / Download' })).toBeVisible();
+  await expect(page.getByLabel(/upload/i)).toHaveCount(0);
+
+  const download = await page.request.get(`${apiURL}/api/doctor/appointments/${currentAppointment.appointmentId}/supporting-documents/${currentDocumentId}`);
+  expect(download.ok()).toBe(true);
+  expect(download.headers()['content-type']).toBe('application/pdf');
+  expect(download.headers()['content-disposition']).toContain('current-consultation.pdf');
+  expect(download.headers()['cache-control']).toBe('private, no-store');
+  expect(download.headers()['x-content-type-options']).toBe('nosniff');
+  expect((await download.body()).subarray(0, 4).toString()).toBe('%PDF');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('button', { name: 'View / Download' })).toBeVisible();
+  await page.getByRole('link', { name: 'Add Medical Record' }).click();
+  await expect(page.getByRole('heading', { name: 'Supporting Documents for this Consultation' })).toBeVisible();
+  await expect(page.getByText('current-consultation.pdf')).toBeVisible();
+  await expect(page.getByText('other-consultation.pdf')).toHaveCount(0);
+  await page.getByLabel('Diagnosis *').fill('E2E document-supported consultation');
+  await page.getByRole('button', { name: 'Save Medical Record' }).click();
+  await expect(page.getByRole('heading', { name: 'Medical Record Saved' })).toBeVisible();
+  await expect(page.getByText('current-consultation.pdf')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Supporting Documents for this Consultation' })).toHaveCount(0);
+
+  const record = await MedicalRecord.findOne({ appointment_id: currentAppointment.appointmentId }).lean();
+  expect(record).toBeTruthy();
+  expect(record).not.toHaveProperty('supporting_documents');
+  expect(await ConsultationSupportingDocument.countDocuments({ appointment_id: currentAppointment.appointmentId })).toBe(1);
+  expect((await page.request.get(`${apiURL}/api/doctor/appointments/${currentAppointment.appointmentId}/supporting-documents/${currentDocumentId}`)).status()).toBe(403);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await logoutThroughUi(page);
+  await loginAsPatient(page, patient);
+  await page.goto(`/patient/records/${record._id}`);
+  await expect(page.getByRole('heading', { name: 'Supporting Documents from this Visit' })).toBeVisible();
+  await expect(page.getByText('current-consultation.pdf')).toBeVisible();
+  await expect(page.getByText('other-consultation.pdf')).toHaveCount(0);
   assertBrowserClean();
 });
 

@@ -78,10 +78,10 @@ export function createPatientSupportingDocumentService(repository = patientApiRe
     async uploadSupportingDocuments(appointmentId, files) {
       return (await repository.uploadSupportingDocuments(appointmentId, files)).map(normalize);
     },
-    async listMySupportingDocuments(appointmentId) {
+    async listSupportingDocuments(appointmentId) {
       return (await repository.listSupportingDocuments(appointmentId)).map(normalize);
     },
-    async downloadMySupportingDocument(appointmentId, documentId) {
+    async downloadSupportingDocument(appointmentId, documentId) {
       return repository.downloadSupportingDocument(appointmentId, documentId);
     },
   });

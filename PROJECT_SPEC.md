@@ -818,3 +818,13 @@ Booking is deliberately appointment-first. The frontend creates the appointment 
 Patient Appointment Details lists only documents for that exact appointment. Medical Record Details uses the record's linked appointment and displays only documents from that visit. Both views use authenticated appointment-scoped list and download requests; stored filenames are rendered as text, file bytes are not placed in browser storage, and no public storage URL is exposed. Empty, loading, error, and downloading states are present, with mobile layouts covered down to 320 px.
 
 Milestone 1.37 does not change the Milestone 1.36 ownership, lifecycle, storage, audit, or route policy. Patient access remains available for the Patient's own visit documents. No Doctor, Staff, or Admin document interface is added. No post-upload delete/replace, OCR, AI file reading, summarization, storage provider, database schema, dependency, environment, or deployment change is included.
+
+## Milestone 1.38 Doctor consultation integration
+
+The assigned Doctor can review an appointment's Patient-uploaded supporting documents inside the existing Consultation tab and the existing Add Medical Record form. Both placements use the consultation's exact appointment identifier and the authenticated Doctor appointment-scoped list/download endpoints. The read-only list shows only the original filename, size, upload time, and a keyboard-operable View / Download action. It provides safe loading, empty, download, and failure states without exposing storage identifiers or public URLs.
+
+There is no Doctor Documents tab, cross-visit document history, combined Patient file library, or document mutation control. A Doctor cannot upload, rename, replace, delete, categorize, annotate, or permanently attach a supporting document. The Medical Record request remains the existing clinical-field payload and stores neither file metadata nor binary content.
+
+Doctor access ends as soon as a Medical Record exists for the appointment. The successful save view unmounts the supporting-document component immediately, an existing-record consultation never renders filenames or counts, and the backend continues to deny list/download attempts after the cutoff. The Patient retains appointment-scoped access and can see the same files on the matching Medical Record Details page. Staff, Admin, unrelated Doctors, other Patients, and mismatched appointment/document requests remain blocked.
+
+Supporting documents remain separate from Arion Assistant, GPT, OCR, extraction, summarization, email, and other providers. Milestone 1.38 adds no schema, storage, dependency, environment, or deployment change.

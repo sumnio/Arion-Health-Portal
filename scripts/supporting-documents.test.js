@@ -84,7 +84,7 @@ test('API client keeps multipart boundaries browser-owned and downloads private 
 
 test('service normalizes only Patient-safe document metadata', async () => {
   const service = createPatientSupportingDocumentService({ async listSupportingDocuments() { return [{ id: 'd1', appointment_id: 'a1', original_filename: '<img>.png', mime_type: 'image/png', file_size: 12, uploaded_at: '2026-10-13T00:00:00.000Z', storage_file_id: 'hidden' }]; } });
-  const [item] = await service.listMySupportingDocuments('a1');
+  const [item] = await service.listSupportingDocuments('a1');
   assert.deepEqual(item, { id: 'd1', appointmentId: 'a1', filename: '<img>.png', mimeType: 'image/png', size: 12, uploadedAt: '2026-10-13T00:00:00.000Z' }); assert.equal('storage_file_id' in item, false);
 });
 
@@ -95,10 +95,10 @@ test('booking UI has optional multi-file selection, removal, no categories, and 
 
 test('appointment and Medical Record details use exact appointment-scoped secure document component', async () => {
   const appointmentSource = await readFile(new URL('../src/pages/patient/PatientAppointmentDetail.jsx', import.meta.url), 'utf8'); const recordSource = await readFile(new URL('../src/pages/patient/PatientRecordDetail.jsx', import.meta.url), 'utf8'); const componentSource = await readFile(new URL('../src/components/documents/SupportingDocumentList.jsx', import.meta.url), 'utf8');
-  assert.match(appointmentSource, /appointmentId=\{item\.id\}/); assert.match(recordSource, /appointmentId=\{record\.appointment_id\}/); assert.match(recordSource, /Supporting Documents from this Visit/); assert.match(componentSource, /downloadMySupportingDocument\(appointmentId, documentItem\.id\)/); assert.match(componentSource, /URL\.createObjectURL/); assert.match(componentSource, /URL\.revokeObjectURL/); assert.doesNotMatch(componentSource, /localStorage|sessionStorage|dangerouslySetInnerHTML|https?:\/\//);
+  assert.match(appointmentSource, /appointmentId=\{item\.id\}/); assert.match(recordSource, /appointmentId=\{record\.appointment_id\}/); assert.match(recordSource, /Supporting Documents from this Visit/); assert.match(componentSource, /downloadSupportingDocument\(appointmentId, documentItem\.id\)/); assert.match(componentSource, /URL\.createObjectURL/); assert.match(componentSource, /URL\.revokeObjectURL/); assert.doesNotMatch(componentSource, /localStorage|sessionStorage|dangerouslySetInnerHTML|https?:\/\//);
 });
 
-test('supporting-document UI is Patient-only and absent from other role pages', async () => {
-  const paths = ['../src/pages/doctor/DoctorPatientDetail.jsx', '../src/pages/staff/StaffPatientDetail.jsx', '../src/pages/admin/ManagePatients.jsx'];
+test('supporting-document UI remains absent from Staff and Admin pages', async () => {
+  const paths = ['../src/pages/staff/StaffPatientDetail.jsx', '../src/pages/admin/ManagePatients.jsx'];
   for (const path of paths) assert.doesNotMatch(await readFile(new URL(path, import.meta.url), 'utf8'), /SupportingDocument|supporting document/i);
 });
