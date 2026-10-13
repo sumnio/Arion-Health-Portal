@@ -21,7 +21,8 @@ test('only future, active appointments without check-in are manageable', () => {
   assert.ok(appointmentService.cancel(completed.id).error);
   assert.ok(appointmentService.reschedule(completed.id, '2030-01-01', '10:00').error);
 });
-test('booking, rescheduling, and cancellation share occupancy and preserve appointment identity', () => {
+test('booking, rescheduling, and cancellation share occupancy and preserve appointment identity', (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-18T00:00:00.000Z') });
   const values = { ...futureSlot(), service: 'general_consultation', reason: 'Session test' };
   bookingService.confirm(values);
   const item = appointmentService.list().find(item => item.reason === values.reason);

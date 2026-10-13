@@ -6,6 +6,7 @@ import {
   Appointment,
   AppointmentPriorityAudit,
   AuthAccount,
+  ConsultationSupportingDocument,
   EmailVerificationChallenge,
   Doctor,
   DoctorAvailability,
@@ -46,6 +47,7 @@ test('all domain models load with their intended collection names', () => {
       Prescription,
       MedicalCertificate,
       Notification,
+      ConsultationSupportingDocument,
     ].map((model) => model.collection.collectionName),
     [
       'user_profiles',
@@ -64,6 +66,7 @@ test('all domain models load with their intended collection names', () => {
       'prescriptions',
       'medical_certificates',
       'notifications',
+      'consultation_supporting_documents',
     ],
   );
 });
@@ -153,9 +156,45 @@ test('a complete set of valid related documents passes model validation', async 
       title: 'Account security notice',
       message: 'A security-related account update is available.',
     }),
+    new ConsultationSupportingDocument({
+      appointment_id: appointmentId,
+      patient_id: patientId,
+      storage_file_id: objectId(),
+      slot: 0,
+      original_filename: 'laboratory-result.pdf',
+      stored_filename: 'generated.pdf',
+      mime_type: 'application/pdf',
+      file_size: 1024,
+    }),
   ];
 
   await Promise.all(documents.map((document) => document.validate()));
+});
+
+test('supporting document metadata is bounded and declares appointment slot ownership indexes', async () => {
+  const valid = new ConsultationSupportingDocument({
+    appointment_id: objectId(),
+    patient_id: objectId(),
+    storage_file_id: objectId(),
+    slot: 4,
+    original_filename: 'photo.jpeg',
+    stored_filename: 'generated.jpg',
+    mime_type: 'image/jpeg',
+    file_size: 5 * 1024 * 1024,
+  });
+  await valid.validate();
+  await assert.rejects(new ConsultationSupportingDocument({
+    appointment_id: objectId(),
+    patient_id: objectId(),
+    storage_file_id: objectId(),
+    slot: 5,
+    original_filename: 'payload.svg',
+    stored_filename: 'generated.svg',
+    mime_type: 'image/svg+xml',
+    file_size: 5 * 1024 * 1024 + 1,
+  }).validate());
+  assert.ok(indexByName(ConsultationSupportingDocument, 'unique_supporting_document_slot'));
+  assert.ok(indexByName(ConsultationSupportingDocument, 'patient_appointment_supporting_documents'));
 });
 
 test('UserProfile accepts approved roles and statuses', async () => {

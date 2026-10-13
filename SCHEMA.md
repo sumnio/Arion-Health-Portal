@@ -797,3 +797,28 @@ Milestone 1.30 adds no schema. Its read-only tool layer reuses the authenticated
 Milestone 1.31 adds no schema, collection, field, index, migration, model configuration document, prompt record, provider-response record, usage record, cache, transcript, vector, or embedding. An eligible request produces one stateless OpenAI Responses API call with `store: false`; Arion persists neither the canonical prompt nor the reply. Existing rate-limit storage remains content-free. Provider telemetry is emitted only as transient content-free event metadata and contains no Patient identifier or provider payload.
 
 Milestone 1.32 adds no schema, collection, document, field, index, migration, transcript, preference, or UI-session record. The visible conversation is an in-memory React array owned by the mounted Patient component and is not written to browser storage or the backend. Clear chat is a local state reset and does not call a deletion endpoint. The existing content-free assistant rate-limit storage is unchanged.
+
+## ConsultationSupportingDocument (Milestone 1.36)
+
+Collection: `consultation_supporting_documents`
+
+| Field | Type | Rules |
+|---|---|---|
+| `_id` | ObjectId | Primary identifier |
+| `appointment_id` | ObjectId | Required reference to Appointment |
+| `patient_id` | ObjectId | Required reference to the owning Patient |
+| `storage_file_id` | ObjectId | Required unique reference to a private GridFS file |
+| `slot` | Number | Required integer position from 0 through 4 |
+| `original_filename` | String | Required, sanitized, maximum 120 characters |
+| `stored_filename` | String | Required generated storage name, maximum 100 characters |
+| `mime_type` | String | `application/pdf`, `image/png`, or `image/jpeg` only |
+| `file_size` | Number | Required, 1 byte through 5 MB |
+| `uploaded_at` | Date | Required server timestamp |
+
+Indexes:
+
+- unique `storage_file_id`
+- unique compound `(appointment_id, slot)`, which provides no more than five stable document slots per appointment
+- `(patient_id, appointment_id, uploaded_at)` for ownership-scoped ordered listing
+
+Binary content is stored separately in MongoDB GridFS bucket `consultation_supporting_files`. GridFS creates its standard files and chunks collections. No public URL, external-object-storage identifier, AI/vector field, MedicalRecord binary field, mutable version, or deletion flag is added. The metadata references the existing Appointment and Patient; a MedicalRecord existence check controls upload and Doctor access but the document is not embedded in or owned by MedicalRecord.

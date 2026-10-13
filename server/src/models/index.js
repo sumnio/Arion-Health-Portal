@@ -17,6 +17,10 @@ export { DoctorAvailability } from './DoctorAvailability.js';
 export { DoctorPublishedAvailability } from './DoctorPublishedAvailability.js';
 export { DoctorBlockedTime } from './DoctorBlockedTime.js';
 export { MedicalRecord } from './MedicalRecord.js';
+export {
+  ConsultationSupportingDocument,
+  SUPPORTING_DOCUMENT_FILENAME_MAX,
+} from './ConsultationSupportingDocument.js';
 export { Prescription } from './Prescription.js';
 export { MedicalCertificate } from './MedicalCertificate.js';
 export {

@@ -723,6 +723,10 @@ MedicalRecord 1 -> zero-or-many MedicalCertificate
 
 Patient 1 -> many MedicalCertificate
 Doctor 1 -> many MedicalCertificate
+
+Patient 1 -> many ConsultationSupportingDocument
+Appointment 1 -> zero-to-5 ConsultationSupportingDocument
+ConsultationSupportingDocument 1 -> 1 private GridFS file
 ```
 
 Admin provisioning creates the existing linked AuthAccount, UserProfile, and Doctor/Staff records without introducing another account entity. Deactivate/reactivate changes only `UserProfile.status`; it does not remove or replace any node or relationship in this diagram. A walk-in Patient with no UserProfile link has no portal lifecycle operation.
@@ -784,3 +788,9 @@ Milestone 1.30 introduces no node or relationship. For approved live intents onl
 Milestone 1.31 introduces no ERD node or relationship. The optional provider adapter receives only a server-owned canonical task and approved non-sensitive fact fragment after local safety and internal-answer routing; it never receives or traverses UserProfile, Patient, Appointment, Doctor, Notification, MedicalRecord, Prescription, MedicalCertificate, or authentication relationships. No prompt, reply, usage, provider session, conversation, or external-tool entity is persisted.
 
 Milestone 1.32 introduces no ERD node or relationship. Its Patient-only React panel holds transient display messages in memory and sends one text message at a time through the existing authenticated assistant endpoint. It does not create a conversation, message, preference, attachment, or transcript entity, and Clear chat performs no database operation.
+
+## Milestone 1.36 relationship impact
+
+`ConsultationSupportingDocument` belongs to exactly one existing Appointment and records that Appointment's owning Patient. Its `storage_file_id` points to one binary object in the private `consultation_supporting_files` GridFS bucket. An Appointment may have zero through five supporting documents. A document cannot be moved to another Appointment and is not embedded in a MedicalRecord.
+
+Patient access follows `authenticated UserProfile -> Patient -> owned Appointment -> ConsultationSupportingDocument`. Doctor access follows `authenticated UserProfile -> Doctor -> assigned Pending/Confirmed Appointment -> ConsultationSupportingDocument` and ends when a MedicalRecord exists or the appointment leaves the eligible status set. Staff and Admin have no traversal or content route. The relationship adds no assistant, provider, transcript, external-storage, or public-link node.

@@ -796,3 +796,15 @@ Arion Assistant does not diagnose, prescribe, recommend treatment, perform appoi
 - Real OpenAI model and account access has not been Production-validated.
 - Visitors behind the same public IP may share the Public Assistant rate limit.
 - The existing large JavaScript chunk warning remains unrelated and non-blocking.
+
+## Milestone 1.36 secure consultation supporting documents
+
+An authenticated active Patient may attach up to five consultation-supporting documents to an appointment that belongs to that Patient while the appointment is Pending or Confirmed and before its Medical Record exists. The accepted formats are PDF, JPG, JPEG, and PNG. Validation uses the actual file signature together with the filename extension; the browser-provided MIME type is not trusted. Each file is limited to 5 MB and the appointment total is limited to 25 MB. A complete batch is validated before storage, and failed storage or metadata writes are cleaned up without changing the Appointment.
+
+There is no Patient-selected category or free-form document metadata. In the later booking UI, files will be selected as part of booking, the Appointment will be created first, and only then will the selected files upload against that Appointment. A document-upload failure never rolls back or changes a successfully created Appointment.
+
+Files are stored in the private MongoDB GridFS bucket `consultation_supporting_files`; metadata is stored in `consultation_supporting_documents`. Generated storage names are used internally, while sanitized original filenames are returned for display and authenticated download. No public file URL or generic file-serving route exists. Responses use an allowlisted content type, attachment disposition, `nosniff`, and private no-store caching.
+
+The Patient retains read-only access to documents for their own appointment after the consultation record is created. Only the Doctor assigned to that appointment may list or download the documents, and only while the appointment is Pending or Confirmed and before its Medical Record exists. Staff, Admin, unrelated Doctors, inactive accounts, and cross-Patient requests have no document access. Documents are immutable through this milestone: there is no replace, edit, delete, transfer, or appointment-action endpoint.
+
+Supporting documents are not sent to Arion Assistant, GPT, another AI provider, email, or an external file service. Filenames, file content, and raw bytes are excluded from security logs. Milestone 1.36 is backend/storage foundation only; it adds no upload UI, preview UI, Doctor document interface, assistant file feature, cloud configuration, or deployment.

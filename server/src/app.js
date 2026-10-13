@@ -25,6 +25,7 @@ import { createNotificationModule } from './services/notificationModule.js';
 import { createAssistantModule } from './services/assistantModule.js';
 import { createPublicAssistantModule } from './services/publicAssistantModule.js';
 import { createPublicAssistantRouter } from './routes/publicAssistantRoutes.js';
+import { createSupportingDocumentModule } from './services/supportingDocumentModule.js';
 import { createNotificationRouter } from './routes/notificationRoutes.js';
 import { createE2eEmailCaptureRouter } from './routes/e2eEmailCaptureRoutes.js';
 import { notFound } from './middleware/notFound.js';
@@ -192,6 +193,7 @@ export function createApp(
   const publicAssistantModule = dependencies.publicAssistantModule ?? createPublicAssistantModule({
     maxMessageLength: assistantMaxMessageLength,
   });
+  const supportingDocumentModule = dependencies.supportingDocumentModule ?? createSupportingDocumentModule();
   app.use('/api/health', healthRouter);
   app.use('/api/public/assistant', createPublicAssistantRouter({ publicAssistantModule, rateLimiters }));
   if (
@@ -207,10 +209,10 @@ export function createApp(
   }
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv, rateLimiters }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
-  app.use('/api/doctor', createDoctorClinicalRouter({ authModule, clinicalModule }));
+  app.use('/api/doctor', createDoctorClinicalRouter({ authModule, clinicalModule, supportingDocumentModule }));
   app.use(
     '/api/patient',
-    createPatientRouter({ authModule, patientAppointmentModule, assistantModule, rateLimiters }),
+    createPatientRouter({ authModule, patientAppointmentModule, assistantModule, supportingDocumentModule, rateLimiters }),
   );
   app.use('/api/patient', createPatientClinicalRouter({ authModule, clinicalModule }));
   app.use(
