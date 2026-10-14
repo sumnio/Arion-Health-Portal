@@ -22,6 +22,8 @@ export const RATE_LIMIT_DEFAULTS = Object.freeze({
   assistantMax: 10,
   publicAssistantWindowMs: 60 * 1000,
   publicAssistantMax: 5,
+  smsSchedulerWindowMs: 60 * 60 * 1000,
+  smsSchedulerMax: 30,
 });
 
 const rateLimitedResponse = Object.freeze({
@@ -73,6 +75,8 @@ export function createRateLimiters({
   assistantMax = RATE_LIMIT_DEFAULTS.assistantMax,
   publicAssistantWindowMs = RATE_LIMIT_DEFAULTS.publicAssistantWindowMs,
   publicAssistantMax = RATE_LIMIT_DEFAULTS.publicAssistantMax,
+  smsSchedulerWindowMs = RATE_LIMIT_DEFAULTS.smsSchedulerWindowMs,
+  smsSchedulerMax = RATE_LIMIT_DEFAULTS.smsSchedulerMax,
   storeFactory = () => undefined,
 } = {}) {
   return {
@@ -143,6 +147,13 @@ export function createRateLimiters({
       limiterType: 'public_assistant',
       event: 'PUBLIC_ASSISTANT_RATE_LIMITED',
       store: storeFactory('public_assistant'),
+    }),
+    smsSchedulerRateLimiter: limiter({
+      windowMs: smsSchedulerWindowMs,
+      max: smsSchedulerMax,
+      limiterType: 'sms_scheduler',
+      event: 'SMS_SCHEDULER_RATE_LIMITED',
+      store: storeFactory('sms_scheduler'),
     }),
   };
 }

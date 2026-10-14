@@ -794,3 +794,14 @@ Milestone 1.32 introduces no ERD node or relationship. Its Patient-only React pa
 `ConsultationSupportingDocument` belongs to exactly one existing Appointment and records that Appointment's owning Patient. Its `storage_file_id` points to one binary object in the private `consultation_supporting_files` GridFS bucket. An Appointment may have zero through five supporting documents. A document cannot be moved to another Appointment and is not embedded in a MedicalRecord.
 
 Patient access follows `authenticated UserProfile -> Patient -> owned Appointment -> ConsultationSupportingDocument`. Doctor access follows `authenticated UserProfile -> Doctor -> assigned Pending/Confirmed Appointment -> ConsultationSupportingDocument` and ends when a MedicalRecord exists or the appointment leaves the eligible status set. Staff and Admin have no traversal or content route. The relationship adds no assistant, provider, transcript, external-storage, or public-link node.
+
+## Milestone 1.39 SMS reminder relationship
+
+```text
+Appointment 1 ─── 0..many AppointmentSmsReminder
+Patient     1 ─── 0..many AppointmentSmsReminder
+```
+
+Each `AppointmentSmsReminder` belongs to one existing Appointment and records that Appointment's Patient. Its logical identity is `(appointment_id, reminder_type, schedule_version)`, which prevents duplicates while allowing immutable history for later schedule versions. The reminder contains no SMS body, phone snapshot, name, visit reason, clinical content, or secret. Delivery resolves the matching Appointment and current Patient contact only inside the backend after an atomic `scheduled -> processing` claim.
+
+The statuses are `scheduled`, `processing`, `sent`, `failed`, and `invalidated`. A stale processing claim becomes terminal failed and is not automatically resent. The relationship does not change Appointment, Patient, MedicalRecord, SupportingDocument, Notification, or assistant ownership. No Appointment workflow creates reminder nodes in Milestone 1.39; the model and protected scheduler processing boundary are foundation only.

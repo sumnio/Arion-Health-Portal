@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { ASSISTANT_AI_DEFAULTS } from './assistantAiConfig.js';
+import { SMS_DEFAULTS, SMS_PROVIDERS } from './smsConfig.js';
 
 const envPath = fileURLToPath(new URL('../../.env', import.meta.url));
 dotenv.config({ path: envPath, quiet: true });
@@ -11,6 +12,7 @@ export const ACCOUNT_TOKEN_HMAC_SECRET_MIN_LENGTH = 32;
 export const DEFAULT_DEVELOPMENT_ORIGIN = 'http://127.0.0.1:5173';
 const allowedNodeEnvironments = new Set(['development', 'test', 'production']);
 const allowedEmailProviders = new Set(['fake', 'resend']);
+const allowedSmsProviders = new Set(SMS_PROVIDERS);
 const placeholderSecrets = new Set([
   'secret',
   'changeme',
@@ -158,6 +160,22 @@ function parseEmailProvider(value, nodeEnv) {
   return provider;
 }
 
+function parseSmsProvider(value) {
+  const provider = value?.trim().toLowerCase() || SMS_DEFAULTS.provider;
+  if (!allowedSmsProviders.has(provider)) throw new Error('SMS_PROVIDER must be fake or unisms.');
+  return provider;
+}
+
+function parseCronReminderSecret(value) {
+  const secret = value?.trim() || '';
+  if (!secret) return '';
+  const normalized = secret.toLowerCase();
+  if (secret.length < AUTH_SECRET_MIN_LENGTH || placeholderSecrets.has(normalized) || normalized.includes('replace-with')) {
+    throw new Error(`CRON_REMINDER_SECRET must be a non-placeholder value of at least ${AUTH_SECRET_MIN_LENGTH} characters.`);
+  }
+  return secret;
+}
+
 function parseAppBaseUrl(value, nodeEnv) {
   const raw = value?.trim() || (nodeEnv === 'production' ? '' : DEFAULT_DEVELOPMENT_ORIGIN);
   if (!raw) return '';
@@ -241,6 +259,15 @@ export function loadConfig(environment = process.env) {
       nodeEnv !== 'production',
       'CERTIFICATE_ISSUANCE_ENABLED',
     ),
+    smsEnabled: parseBoolean(environment.SMS_ENABLED, SMS_DEFAULTS.enabled, 'SMS_ENABLED'),
+    smsProvider: parseSmsProvider(environment.SMS_PROVIDER),
+    uniSmsApiKey: environment.UNISMS_API_KEY?.trim() || '',
+    uniSmsSenderId: environment.UNISMS_SENDER_ID?.trim() || '',
+    cronReminderSecret: parseCronReminderSecret(environment.CRON_REMINDER_SECRET),
+    smsProviderTimeoutMs: parseIntegerRange(environment.SMS_PROVIDER_TIMEOUT_MS, SMS_DEFAULTS.providerTimeoutMs, 'SMS_PROVIDER_TIMEOUT_MS', 100, 30_000),
+    smsSchedulerRateLimitWindowMs: parsePositiveInteger(environment.SMS_SCHEDULER_RATE_LIMIT_WINDOW_MS, SMS_DEFAULTS.schedulerRateLimitWindowMs, 'SMS_SCHEDULER_RATE_LIMIT_WINDOW_MS'),
+    smsSchedulerRateLimitMax: parsePositiveInteger(environment.SMS_SCHEDULER_RATE_LIMIT_MAX, SMS_DEFAULTS.schedulerRateLimitMax, 'SMS_SCHEDULER_RATE_LIMIT_MAX'),
+    smsStaleProcessingMs: parsePositiveInteger(environment.SMS_STALE_PROCESSING_MS, SMS_DEFAULTS.staleProcessingMs, 'SMS_STALE_PROCESSING_MS'),
     loginRateLimitWindowMs: parsePositiveInteger(environment.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000, 'AUTH_LOGIN_RATE_LIMIT_WINDOW_MS'),
     loginRateLimitMax: parsePositiveInteger(environment.AUTH_LOGIN_RATE_LIMIT_MAX, 10, 'AUTH_LOGIN_RATE_LIMIT_MAX'),
     registerRateLimitWindowMs: parsePositiveInteger(environment.AUTH_REGISTER_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000, 'AUTH_REGISTER_RATE_LIMIT_WINDOW_MS'),

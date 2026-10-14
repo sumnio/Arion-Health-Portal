@@ -32,3 +32,9 @@ export {
   NOTIFICATION_TITLE_MAX,
   NOTIFICATION_TYPES,
 } from './Notification.js';
+export {
+  AppointmentSmsReminder,
+  SMS_FAILURE_CATEGORIES,
+  SMS_REMINDER_STATUSES,
+  SMS_REMINDER_TYPES,
+} from './AppointmentSmsReminder.js';

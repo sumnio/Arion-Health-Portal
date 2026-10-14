@@ -18,7 +18,7 @@ test('frontend environment files expose only approved public configuration', () 
   for (const name of ['.env', '.env.example']) {
     const keys = envKeys(`${root}${name}`);
     assert.ok(keys.every(key => approved.has(key)));
-    assert.ok(keys.every(key => !/(SECRET|PASSWORD|TOKEN|PRIVATE|MONGO|ADMIN)/i.test(key)));
+    assert.ok(keys.every(key => !/(SECRET|PASSWORD|TOKEN|PRIVATE|MONGO|ADMIN|SMS|UNISMS|CRON)/i.test(key)));
   }
 });
 
@@ -32,6 +32,11 @@ test('backend example contains placeholders and gitignore protects real environm
   assert.match(example, /^AI_EXTERNAL_ENABLED=false$/m);
   assert.match(example, /^OPENAI_API_KEY=\s*$/m);
   assert.match(example, /^OPENAI_MODEL=gpt-5\.6-luna$/m);
+  assert.match(example, /^SMS_ENABLED=false$/m);
+  assert.match(example, /^SMS_PROVIDER=unisms$/m);
+  assert.match(example, /^UNISMS_API_KEY=\s*$/m);
+  assert.match(example, /^UNISMS_SENDER_ID=\s*$/m);
+  assert.match(example, /^CRON_REMINDER_SECRET=\s*$/m);
   assert.match(example, /^ADMIN_PASSWORD=\s*$/m);
   assert.doesNotMatch(example, /mongodb(?:\+srv)?:\/\/[^\s:@]+:[^\s@]+@/i);
 

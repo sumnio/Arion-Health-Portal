@@ -822,3 +822,29 @@ Indexes:
 - `(patient_id, appointment_id, uploaded_at)` for ownership-scoped ordered listing
 
 Binary content is stored separately in MongoDB GridFS bucket `consultation_supporting_files`. GridFS creates its standard files and chunks collections. No public URL, external-object-storage identifier, AI/vector field, MedicalRecord binary field, mutable version, or deletion flag is added. The metadata references the existing Appointment and Patient; a MedicalRecord existence check controls upload and Doctor access but the document is not embedded in or owned by MedicalRecord.
+
+## AppointmentSmsReminder (Milestone 1.39)
+
+Collection: `appointment_sms_reminders`
+
+| Field | Type | Rules |
+|---|---|---|
+| `_id` | ObjectId | Primary identifier |
+| `appointment_id` | ObjectId | Required immutable Appointment reference |
+| `patient_id` | ObjectId | Required immutable Patient reference |
+| `reminder_type` | enum | `booking_immediate`, `reminder_24h`, `reminder_1h`, `reschedule_immediate`, or `cancellation_immediate` |
+| `scheduled_for` | Date | Required immutable due time |
+| `status` | enum | `scheduled`, `processing`, `sent`, `failed`, or `invalidated` |
+| `schedule_version` | Number | Required immutable integer, minimum 1 |
+| `provider` | enum, nullable | `fake` or `unisms` after processing |
+| `provider_reference_id` | String, nullable | Bounded normalized provider reference after accepted send |
+| `processing_started_at` | Date, nullable | Atomic-claim timestamp |
+| `sent_at` | Date, nullable | Successful provider-acceptance timestamp |
+| `failed_at` | Date, nullable | Terminal failure timestamp |
+| `invalidated_at` | Date, nullable | Future scheduling-rule invalidation timestamp |
+| `failure_category` | enum, nullable | Safe category only; no raw provider response |
+| `created_at`, `updated_at` | Date | Mongoose timestamps |
+
+Indexes are unique `(appointment_id, reminder_type, schedule_version)`, due-queue `(status, scheduled_for)`, and lookup `(appointment_id, status)`. The logical identity keeps old schedule-version history separate instead of rewriting it. Milestone 1.39 does not add a schedule-version field to Appointment and does not yet create or invalidate reminders from Appointment transitions.
+
+The collection never stores an SMS message body, phone-number snapshot, Patient name, Doctor name, visit reason, clinical content, or provider secret. The delivery service resolves the current matching Appointment/Patient contact and Doctor display name only after an atomic claim. Stale `processing` records become terminal `failed` with `stale_processing`; no automatic retry is implemented.

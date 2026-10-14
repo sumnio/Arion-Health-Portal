@@ -208,6 +208,7 @@ Environment variable names, without values:
 | Backend required before deploying the 1.25 foundation | `MONGODB_URI`, `MONGODB_DB_NAME`, `NODE_ENV`, `CORS_ORIGIN`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, `ACCOUNT_TOKEN_HMAC_SECRET`, `CLINIC_NAME`, `CLINIC_LOCATION`, `CLINIC_TIME_ZONE` |
 | Backend email verification delivery (required before deploying 1.26) | `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL` |
 | Backend optional/configured when approved | `CLINIC_OPEN_TIME`, `CLINIC_CLOSE_TIME`, `CERTIFICATE_ISSUANCE_ENABLED`, `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`, `AUTH_LOGIN_RATE_LIMIT_MAX`, `AUTH_REGISTER_RATE_LIMIT_WINDOW_MS`, `AUTH_REGISTER_RATE_LIMIT_MAX`, `ADMIN_PROVISION_RATE_LIMIT_WINDOW_MS`, `ADMIN_PROVISION_RATE_LIMIT_MAX`, `MFA_VERIFY_RATE_LIMIT_WINDOW_MS`, `MFA_VERIFY_RATE_LIMIT_MAX`, `EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_WINDOW_MS`, `EMAIL_VERIFICATION_ATTEMPT_RATE_LIMIT_MAX`, `EMAIL_VERIFICATION_RESEND_RATE_LIMIT_WINDOW_MS`, `EMAIL_VERIFICATION_RESEND_RATE_LIMIT_MAX`, `FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS`, `FORGOT_PASSWORD_RATE_LIMIT_MAX`, `PASSWORD_RESET_RATE_LIMIT_WINDOW_MS`, `PASSWORD_RESET_RATE_LIMIT_MAX`, `ASSISTANT_MAX_MESSAGE_LENGTH`, `ASSISTANT_RATE_LIMIT_WINDOW_MS`, `ASSISTANT_RATE_LIMIT_MAX` |
+| Backend SMS foundation (disabled until separately activated) | `SMS_ENABLED`, `SMS_PROVIDER`, `UNISMS_API_KEY`, `UNISMS_SENDER_ID`, `CRON_REMINDER_SECRET`, `SMS_PROVIDER_TIMEOUT_MS`, `SMS_SCHEDULER_RATE_LIMIT_WINDOW_MS`, `SMS_SCHEDULER_RATE_LIMIT_MAX`, `SMS_STALE_PROCESSING_MS` |
 | Frontend public | `VITE_API_BASE_URL`, `VITE_CERTIFICATE_ISSUANCE_ENABLED` |
 | One-time bootstrap only | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_DISPLAY_NAME`, `ADMIN_CONTACT_NUMBER` |
 
@@ -260,6 +261,10 @@ Suggested post-MVP backlog, not approved implementation work:
 - real-data migration planning only after authorization for clinical use.
 
 ## Future-session handoff
+
+Milestone 1.39 adds the provider-neutral SMS foundation, UniSMS and fake adapters, strict Philippine E.164 conversion, private reminder persistence, duplicate prevention, atomic due-work claims, conservative stale-processing failure, and the secret-protected internal scheduler endpoint. SMS remains off by default. No Appointment workflow creates reminders yet, no real SMS was sent, no cron-job.org job was configured, and no deployment occurred. Milestone 1.40 may connect approved scheduling and invalidation rules only after review of the 1.39 foundation.
+
+The `appointment_sms_reminders` collection contains no message body. The scheduler response and logs contain no Patient name, phone number, SMS text, or secret. Failed reminders are terminal in this milestone; stale processing is failed rather than automatically resent. Production activation requires separately approved secrets, Sender ID, scheduler setup, operational ownership, and restricted-Production review.
 
 For a new development session, begin with:
 

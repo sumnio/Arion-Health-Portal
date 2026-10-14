@@ -26,6 +26,8 @@ import { createAssistantModule } from './services/assistantModule.js';
 import { createPublicAssistantModule } from './services/publicAssistantModule.js';
 import { createPublicAssistantRouter } from './routes/publicAssistantRoutes.js';
 import { createSupportingDocumentModule } from './services/supportingDocumentModule.js';
+import { createSmsModule } from './services/smsModule.js';
+import { createInternalSmsReminderRouter } from './routes/internalSmsReminderRoutes.js';
 import { createNotificationRouter } from './routes/notificationRoutes.js';
 import { createE2eEmailCaptureRouter } from './routes/e2eEmailCaptureRoutes.js';
 import { notFound } from './middleware/notFound.js';
@@ -103,6 +105,15 @@ export function createApp(
     openAiModel = ASSISTANT_AI_DEFAULTS.model,
     aiProviderTimeoutMs = ASSISTANT_AI_DEFAULTS.timeoutMs,
     aiMaxOutputTokens = ASSISTANT_AI_DEFAULTS.maxOutputTokens,
+    smsEnabled = false,
+    smsProvider = 'unisms',
+    uniSmsApiKey = '',
+    uniSmsSenderId = '',
+    cronReminderSecret = '',
+    smsProviderTimeoutMs = 5_000,
+    smsSchedulerRateLimitWindowMs = RATE_LIMIT_DEFAULTS.smsSchedulerWindowMs,
+    smsSchedulerRateLimitMax = RATE_LIMIT_DEFAULTS.smsSchedulerMax,
+    smsStaleProcessingMs = 10 * 60 * 1000,
   } = {},
   dependencies = {},
 ) {
@@ -138,6 +149,8 @@ export function createApp(
     assistantMax: assistantRateLimitMax,
     publicAssistantWindowMs: publicAssistantRateLimitWindowMs,
     publicAssistantMax: publicAssistantRateLimitMax,
+    smsSchedulerWindowMs: smsSchedulerRateLimitWindowMs,
+    smsSchedulerMax: smsSchedulerRateLimitMax,
     securityLogger,
     storeFactory: dependencies.rateLimitStoreFactory,
   });
@@ -194,7 +207,22 @@ export function createApp(
     maxMessageLength: assistantMaxMessageLength,
   });
   const supportingDocumentModule = dependencies.supportingDocumentModule ?? createSupportingDocumentModule();
+  const smsModule = dependencies.smsModule ?? createSmsModule({
+    smsEnabled,
+    smsProvider,
+    uniSmsApiKey,
+    uniSmsSenderId,
+    smsProviderTimeoutMs,
+    clinicTimeZone,
+    staleProcessingMs: smsStaleProcessingMs,
+    logger: securityLogger,
+  });
   app.use('/api/health', healthRouter);
+  app.use('/api/internal/sms-reminders', createInternalSmsReminderRouter({
+    smsModule,
+    cronReminderSecret,
+    rateLimiters,
+  }));
   app.use('/api/public/assistant', createPublicAssistantRouter({ publicAssistantModule, rateLimiters }));
   if (
     nodeEnv === 'test' &&
