@@ -59,6 +59,7 @@ const notificationSchema = new mongoose.Schema(
     appointment_at: { type: Date, default: null, immutable: true },
     is_read: { type: Boolean, required: true, default: false },
     read_at: { type: Date, default: null },
+    dismissed_at: { type: Date, default: null },
   },
   modelOptions,
 );
@@ -76,6 +77,14 @@ notificationSchema.index(
 notificationSchema.index(
   { recipient_user_profile_id: 1, is_read: 1, created_at: -1 },
   { name: 'notification_recipient_unread' },
+);
+notificationSchema.index(
+  { recipient_user_profile_id: 1, recipient_role: 1, dismissed_at: 1, created_at: -1 },
+  { name: 'notification_recipient_visible_history' },
+);
+notificationSchema.index(
+  { recipient_user_profile_id: 1, recipient_role: 1, dismissed_at: 1, is_read: 1, created_at: -1 },
+  { name: 'notification_recipient_visible_unread' },
 );
 
 export const Notification =

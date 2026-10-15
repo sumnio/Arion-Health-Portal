@@ -11,6 +11,7 @@ export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const [state, setState] = useState(initialState);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -56,8 +57,24 @@ export default function NotificationsPage() {
     } finally { setSubmitting(false); }
   }
 
+  async function clearAll() {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await notificationApiService.clearAll();
+      setUnreadCount(0);
+      setConfirmingClear(false);
+      setFilter('all');
+      setPage(1);
+      await load();
+    } catch (error) {
+      setState(old => ({ ...old, error: notificationApiErrorMessage(error, 'Unable to clear notifications.') }));
+    } finally { setSubmitting(false); }
+  }
+
   return <div className="notifications-page">
-    <header className="notifications-heading"><div><h1>Notifications</h1><p>Appointment and clinic workflow updates for your account.</p></div><button type="button" className="notification-mark-all" disabled={submitting || unreadCount === 0} onClick={markAllRead}>{submitting ? 'Updating…' : 'Mark all as read'}</button></header>
+    <header className="notifications-heading"><div><h1>Notifications</h1><p>Appointment and clinic workflow updates for your account.</p></div><div className="notification-heading-actions"><button type="button" className="notification-clear-all" disabled={submitting || state.loading || (filter === 'all' && state.total === 0)} onClick={() => setConfirmingClear(true)}>Clear notifications</button><button type="button" className="notification-mark-all" disabled={submitting || unreadCount === 0} onClick={markAllRead}>{submitting ? 'Updating…' : 'Mark all as read'}</button></div></header>
+    {confirmingClear && <section className="notification-clear-confirmation" role="alertdialog" aria-labelledby="clear-notifications-title" aria-describedby="clear-notifications-description"><div><h2 id="clear-notifications-title">Clear all notifications?</h2><p id="clear-notifications-description">They will be removed from your inbox, but the clinic’s notification history will be retained.</p></div><div className="notification-clear-actions"><button type="button" className="notification-clear-confirm" disabled={submitting} onClick={clearAll}>{submitting ? 'Clearing…' : 'Yes, clear notifications'}</button><button type="button" className="action-link" disabled={submitting} onClick={() => setConfirmingClear(false)}>Keep notifications</button></div></section>}
     <nav className="notification-filters" aria-label="Notification filters"><button type="button" aria-pressed={filter === 'all'} onClick={() => changeFilter('all')}>All</button><button type="button" aria-pressed={filter === 'unread'} onClick={() => changeFilter('unread')}>Unread{unreadCount ? ` (${unreadCount})` : ''}</button></nav>
     <section className="notifications-card" aria-label={`${filter === 'unread' ? 'Unread' : 'All'} notifications`}>
       {state.loading ? <p role="status">Loading notifications…</p> : state.error ? <div className="notification-feedback"><p role="alert">{state.error}</p><button type="button" className="action-link" onClick={load}>Try again</button></div> : state.items.length ? <><p className="notification-total">{state.total} {filter === 'unread' ? 'unread ' : ''}{state.total === 1 ? 'notification' : 'notifications'} · Newest first</p><ul className="notification-list notification-page-list">{state.items.map(item => <NotificationListItem key={item.id} notification={item} onOpen={markRead} disabled={submitting} detailed />)}</ul></> : <div className="notification-empty"><h2>{filter === 'unread' ? 'You have no unread notifications.' : 'No notifications yet.'}</h2><p>{filter === 'unread' ? 'You’re all caught up.' : 'Account notifications will appear here when clinic workflows create them.'}</p></div>}

@@ -574,12 +574,17 @@ The MedicalCertificate fields match `SCHEMA.md`:
 | recommendation | text, nullable | Doctor-controlled recommendation, maximum 500 characters; nullable for legacy certificates |
 | valid_until | date, nullable | Optional expiration date |
 | status | enum | `draft`, `issued` |
+| pdf_storage_file_id | ObjectId, nullable, immutable | Private immutable PDF artifact; null for legacy certificates |
+| pdf_sha256 | text, nullable, immutable | Artifact integrity hash |
+| pdf_file_size | integer, nullable, immutable | Artifact byte count |
+| pdf_render_version | text, nullable, immutable | Certificate renderer version |
+| pdf_generated_at | timestamptz, nullable, immutable | Artifact creation time |
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
 The certificate number is unique; its format is deferred. Patient and Doctor links are required. The MedicalRecord link remains optional and points to the related record when present.
 
-Certificate display reads `Doctor.license_number`, `Doctor.ptr_number`, and the protected signature image referenced by `Doctor.signature_path` from the linked Doctor. These values are not duplicated in MedicalCertificate for the current MVP. `Doctor.signature_path` stores only a path/reference to an image held in protected object/file storage; signature access must not be publicly exposed outside the intended certificate flow.
+New issuance reads the linked Doctor profile and active private DoctorSignature exactly once, embeds that signature in the final server-generated PDF, stores the immutable bytes in the private `medical_certificate_files` GridFS bucket, and records the artifact reference/hash on MedicalCertificate. The artifact is not related to the mutable active DoctorSignature after issuance. Legacy certificates have no artifact relationship and use a signature-free compatibility PDF.
 
 Clinic location is simple application/global configuration used for certificate display/generation. It is not a MedicalCertificate field and does not create a clinic-management entity.
 
@@ -589,7 +594,12 @@ For new certificates, `purpose_code` is limited to Sick Leave, School Absence, F
 
 The current backend creation endpoint directly persists `issued`, matching the approved UI submission. Certificate numbers are generated server-side and database-unique. Doctor and Patient read endpoints filter by the stored relationship IDs. Responses resolve Doctor credentials and signature availability without exposing the protected `signature_path`.
 
-Issued certificates can be downloaded as PDFs from authenticated Doctor and Patient views using the authorized certificate response. QR verification, public certificate verification, external sharing, advanced digital signatures, payment integration, and server-side PDF generation remain future scope.
+Issued certificates can be downloaded only through authenticated owner-scoped Doctor and Patient routes. QR verification, public certificate verification, external sharing, advanced cryptographic signing, and payment integration remain future scope.
+
+```text
+MedicalCertificate 0..1 ─── 1 private GridFS PDF artifact
+DoctorSignature (current) ── used once at issuance; no historical back-reference
+```
 
 A MedicalRecord can have zero or multiple medical certificates.
 
@@ -645,13 +655,13 @@ Each Notification belongs to exactly one authenticated UserProfile recipient. A 
 UserProfile 1 ─── 0..* Notification
 ```
 
-Notification stores immutable `recipient_user_profile_id`, recipient-role snapshot, allowlisted type, bounded plain-text title/message, optional paired allowlisted related-resource type and ID, optional server-derived `patient_display_name`, `doctor_display_name`, and `appointment_at`, read state, and server timestamps. The related-resource reference is navigation metadata only and never proves authorization to the referenced Appointment, Patient, or Doctor. The three rich-context fields are optional for backward compatibility and require no migration.
+Notification stores immutable `recipient_user_profile_id`, recipient-role snapshot, allowlisted type, bounded plain-text title/message, optional paired allowlisted related-resource type and ID, optional server-derived `patient_display_name`, `doctor_display_name`, and `appointment_at`, read state, an optional recipient dismissal timestamp, and server timestamps. The related-resource reference is navigation metadata only and never proves authorization to the referenced Appointment, Patient, or Doctor. The rich-context and dismissal fields are optional for backward compatibility and require no migration.
 
-Recipient ownership is authoritative for every list and update query. Patient, Staff, Doctor, and fully MFA-authenticated Admin accounts may access only their own inbox; Admin cannot browse another account's notifications. New notifications begin with `is_read = false` and `read_at = null`; recipient-only mark-read operations set the server timestamp and are idempotent. Creation is internal-only, with no public POST route, arbitrary metadata, HTML, clinical content, delivery channels, UI, TTL, or automatic deletion.
+Recipient ownership is authoritative for every list and update query. Patient, Staff, Doctor, and fully MFA-authenticated Admin accounts may access only their own inbox; Admin cannot browse another account's notifications. New notifications begin with `is_read = false`, `read_at = null`, and `dismissed_at = null`; recipient-only mark-read and clear-all operations set server timestamps and are idempotent. Clear-all soft-dismisses the recipient's visible records and marks them read without hard deletion. Creation is internal-only, with no public POST route, arbitrary metadata, HTML, clinical content, delivery channels, TTL, automatic deletion, or restore operation.
 
 Approved Appointment workflow triggers derive recipients through the existing Patient-to-UserProfile and Doctor-to-UserProfile relationships plus active Staff UserProfile lookup. They resolve safe context from the related Appointment after its successful mutation. Patient records omit Patient name, Staff records may include Patient and Doctor names, Doctor records omit Doctor name, and Admin receives no routine Appointment event. Unlinked walk-ins and inactive profiles receive no portal notification; Admin is never a routine workflow recipient. Notification creation remains a best-effort side effect and does not alter the Appointment, Patient, Doctor, or clinical relationships shown here. Every generated event references its Appointment only as navigation metadata.
 
-The collection indexes `(recipient_user_profile_id, created_at DESC)` and `(recipient_user_profile_id, is_read, created_at DESC)` support newest-first inbox and unread queries without over-indexing.
+The collection retains its history and unread indexes and adds recipient-role plus `dismissed_at` visible-inbox indexes for newest-first and unread queries.
 
 ---
 

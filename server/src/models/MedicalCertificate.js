@@ -41,6 +41,11 @@ const medicalCertificateSchema = new mongoose.Schema(
       enum: ['draft', 'issued'],
       default: 'draft',
     },
+    pdf_storage_file_id: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
+    pdf_sha256: { type: String, default: null, immutable: true, match: /^[a-f0-9]{64}$/ },
+    pdf_file_size: { type: Number, default: null, immutable: true, min: 1 },
+    pdf_render_version: { type: String, default: null, immutable: true, trim: true },
+    pdf_generated_at: { type: Date, default: null, immutable: true },
   },
   modelOptions,
 );

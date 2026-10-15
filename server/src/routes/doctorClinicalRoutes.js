@@ -18,7 +18,9 @@ export function createDoctorClinicalRouter({ authModule, clinicalModule, support
   router.patch('/appointments/:appointmentId/complete', requirePermission(PERMISSIONS.CONSULTATION_COMPLETE), controller.complete);
   router.get('/patients/:patientId/records', controller.patientRecords);
   router.get('/records/:recordId', controller.record);
+  router.post('/records/:recordId/certificates/preview', requirePermission(PERMISSIONS.CERTIFICATE_ISSUE), controller.previewCertificate);
   router.post('/records/:recordId/certificates', requirePermission(PERMISSIONS.CERTIFICATE_ISSUE), controller.createCertificate);
   router.get('/certificates/:certificateId', controller.certificate);
+  router.get('/certificates/:certificateId/pdf', controller.certificatePdf);
   return router;
 }

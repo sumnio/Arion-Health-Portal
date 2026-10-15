@@ -1,4 +1,20 @@
 export const clinicTimeZone = 'Asia/Manila';
+export const RECENT_APPOINTMENT_LIMIT = 10;
+
+export function newestAppointmentsFirst(items, limit = items.length) {
+  return [...items]
+    .sort((left, right) => new Date(right.appointment_at) - new Date(left.appointment_at)
+      || String(right.id ?? '').localeCompare(String(left.id ?? '')))
+    .slice(0, limit);
+}
+
+export function appointmentListPage(items, page = 1, pageSize = RECENT_APPOINTMENT_LIMIT) {
+  const ordered = newestAppointmentsFirst(items);
+  const pageCount = Math.max(1, Math.ceil(ordered.length / pageSize));
+  const currentPage = Math.min(pageCount, Math.max(1, page));
+  const start = (currentPage - 1) * pageSize;
+  return { items: ordered.slice(start, start + pageSize), page: currentPage, pageCount, total: ordered.length, start };
+}
 
 export function clinicToday(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: clinicTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);

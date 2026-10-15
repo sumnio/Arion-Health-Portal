@@ -178,7 +178,7 @@ export const ASSISTANT_KNOWLEDGE_BASE = Object.freeze([
     category: ASSISTANT_INTENTS.PORTAL_HELP,
     phrases: ['notification read and unread', 'mark notifications read', 'unread notifications'],
     patterns: [/\bnotifications?\b.*\b(?:read|unread|mark)\b/i, /\b(?:read|unread|mark)\b.*\bnotifications?\b/i],
-    response: 'Notifications can be unread or read. Open Notifications to review them or mark them as read; notification history is read-only and cannot be edited.',
+    response: 'Notifications can be unread or read. Open Notifications to review them, mark them as read, or clear them from your inbox. Clearing removes them from view without changing the related appointment or the clinic’s retained notification history.',
   }),
   knowledgeEntry({
     id: 'notifications',

@@ -21,6 +21,9 @@ export function createNotificationApiRepository(client = apiClient) {
     async markAllRead() {
       return (await client.request('/api/notifications/read-all', { method: 'PATCH' })).updated_count;
     },
+    async clearAll() {
+      return (await client.request('/api/notifications/clear-all', { method: 'PATCH' })).dismissed_count;
+    },
   });
 }
 

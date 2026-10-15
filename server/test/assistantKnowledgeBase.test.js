@@ -113,7 +113,8 @@ test('notification knowledge explains portal history and read state without unsu
   const readState = reply('How do I mark unread notifications as read?');
   assert.match(readState, /unread or read/);
   assert.match(readState, /mark them as read/);
-  assert.match(readState, /history is read-only/);
+  assert.match(readState, /clear them from your inbox/);
+  assert.match(readState, /retained notification history/);
 });
 
 test('email verification knowledge safely explains OTP length, expiry, and resend invalidation', () => {

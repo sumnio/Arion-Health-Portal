@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../../components/dashboard/StatusBadge.jsx';
-import { clinicToday, formatBookingDate } from '../../services/dateTimeService.js';
+import { clinicToday, formatBookingDate, newestAppointmentsFirst } from '../../services/dateTimeService.js';
 import { PRIORITY_REASON_MAX_LENGTH, staffApiErrorMessage, staffApiService, staffListPage, staffQueueActions, urgentReasonOptions } from '../../services/staffApiService.js';
 import '../../styles/staff-queue.css';
 
@@ -11,7 +11,7 @@ export default function StaffQueue(){
   const load=useCallback(async()=>{setState(old=>({...old,loading:true,error:''}));try{const [appointments,waiting]=await Promise.all([staffApiService.getAppointments(clinicToday()),staffApiService.getQueue()]);setState({loading:false,appointments,waiting,error:''});}catch(error){setState({loading:false,appointments:[],waiting:[],error:staffApiErrorMessage(error,'Unable to load the queue.')});}},[]); useEffect(()=>{load();},[load]);
   useEffect(()=>{const timer=setInterval(()=>setCurrentTime(new Date()),1000);return()=>clearInterval(timer);},[]);
   useEffect(()=>{let active=true;if(!selectedId){setPriorityHistory({loading:false,items:[],error:''});return()=>{active=false;};}setPriorityHistory({loading:true,items:[],error:''});staffApiService.getPriorityHistory(selectedId).then(items=>active&&setPriorityHistory({loading:false,items,error:''})).catch(error=>active&&setPriorityHistory({loading:false,items:[],error:staffApiErrorMessage(error,'Unable to load priority history.')}));return()=>{active=false;};},[selectedId]);
-  const selected=[...state.waiting,...state.appointments].find(item=>item.id===selectedId); const actions=staffQueueActions(selected,currentTime); const waitingIds=new Set(state.waiting.map(item=>item.id)); const notCheckedIn=state.appointments.filter(item=>!item.check_in_at&&['pending','confirmed'].includes(item.status)); const finished=state.appointments.filter(item=>['completed','cancelled','no_show'].includes(item.status));
+  const selected=[...state.waiting,...state.appointments].find(item=>item.id===selectedId); const actions=staffQueueActions(selected,currentTime); const waitingIds=new Set(state.waiting.map(item=>item.id)); const notCheckedIn=state.appointments.filter(item=>!item.check_in_at&&['pending','confirmed'].includes(item.status)); const finished=newestAppointmentsFirst(state.appointments.filter(item=>['completed','cancelled','no_show'].includes(item.status)));
   const queueViews={active:{label:'Active Queue',title:'Active Queue',items:state.waiting,empty:'No patients currently waiting.',waiting:true},scheduled:{label:'Scheduled',title:'Scheduled / Not Yet Arrived',items:notCheckedIn,empty:'No scheduled arrivals remaining today.',waiting:false},finished:{label:'Completed / Cancelled / No-show',title:'Completed / Cancelled / No-show',items:finished,empty:'No completed, cancelled, or no-show appointments today.',waiting:false}}; const currentView=queueViews[view]; const currentPage=staffListPage(currentView.items,page);
   const priorityReady=priorityMode==='urgent'?Boolean(priorityForm.urgency_reason&&(priorityForm.urgency_reason!=='Other urgent concern'||priorityForm.explanation.trim())):priorityMode==='normal'?Boolean(priorityForm.correction_reason.trim()):false;
   function resetPriority(){setPriorityMode(null);setPriorityForm({urgency_reason:'',explanation:'',correction_reason:''});}

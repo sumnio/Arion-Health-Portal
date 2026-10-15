@@ -27,7 +27,9 @@ export function createDoctorApiRepository(client = apiClient) {
     async getRecord(recordId) { return (await request(`/api/doctor/records/${encodeURIComponent(recordId)}`)).medical_record; },
     async createMedicalRecord(appointmentId, payload) { return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/medical-record`, { method: 'POST', body: payload })).medical_record; },
     async createCertificate(recordId, payload) { return (await request(`/api/doctor/records/${encodeURIComponent(recordId)}/certificates`, { method: 'POST', body: payload })).medical_certificate; },
+    async previewCertificatePdf(recordId, payload, options = {}) { return client.download(`/api/doctor/records/${encodeURIComponent(recordId)}/certificates/preview`, { ...options, method: 'POST', body: payload }); },
     async getCertificate(certificateId) { return (await request(`/api/doctor/certificates/${encodeURIComponent(certificateId)}`)).medical_certificate; },
+    async downloadCertificatePdf(certificateId, options = {}) { return client.download(`/api/doctor/certificates/${encodeURIComponent(certificateId)}/pdf`, options); },
     async completeAppointment(appointmentId) { return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/complete`, { method: 'PATCH' })).appointment; },
   };
 }

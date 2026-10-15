@@ -430,6 +430,16 @@ test('account challenge models protect token hashes and declare lookup indexes w
   assert.equal(PasswordResetToken.schema.indexes().some(([, options]) => 'expireAfterSeconds' in options), false);
 });
 
+test('MedicalCertificate PDF artifact metadata is immutable', () => {
+  for (const field of [
+    'pdf_storage_file_id',
+    'pdf_sha256',
+    'pdf_file_size',
+    'pdf_render_version',
+    'pdf_generated_at',
+  ]) assert.equal(MedicalCertificate.schema.path(field).options.immutable, true);
+});
+
 test('priority audit requires approved append-only transition evidence', async () => {
   const valid = new AppointmentPriorityAudit({ appointment_id: objectId(), previous_priority: 'normal', new_priority: 'urgent', urgency_reason: 'Other urgent concern', explanation: 'Prompt operational review required.', staff_actor_user_profile_id: objectId() });
   await valid.validate();

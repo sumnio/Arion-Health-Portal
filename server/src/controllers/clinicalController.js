@@ -1,5 +1,19 @@
 import { validateEmptyBody } from '../validation/inputValidation.js';
 
+function sendCertificatePdf(response, artifact, { disposition = 'attachment' } = {}) {
+  response.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `${disposition}; filename="${artifact.filename}"`,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+    ...(artifact.size ? { 'Content-Length': String(artifact.size) } : {}),
+    ...(artifact.sha256 ? { ETag: `"sha256-${artifact.sha256}"` } : {}),
+  });
+  if (artifact.buffer) return response.send(artifact.buffer);
+  artifact.stream.once('error', () => { if (!response.headersSent) response.status(503).json({ error: { code: 'CERTIFICATE_PDF_UNAVAILABLE', message: 'The certificate PDF is temporarily unavailable.' } }); else response.destroy(); });
+  return artifact.stream.pipe(response);
+}
+
 export function createDoctorClinicalController({ clinicalService }) {
   return {
     async appointments(request, response) {
@@ -24,8 +38,14 @@ export function createDoctorClinicalController({ clinicalService }) {
     async createCertificate(request, response) {
       response.status(201).json({ medical_certificate: await clinicalService.createCertificate(request.authUser.user_profile_id, request.params.recordId, request.body) });
     },
+    async previewCertificate(request, response) {
+      return sendCertificatePdf(response, await clinicalService.previewCertificate(request.authUser.user_profile_id, request.params.recordId, request.body), { disposition: 'inline' });
+    },
     async certificate(request, response) {
       response.json({ medical_certificate: await clinicalService.getDoctorCertificate(request.authUser.user_profile_id, request.params.certificateId) });
+    },
+    async certificatePdf(request, response) {
+      return sendCertificatePdf(response, await clinicalService.getDoctorCertificatePdf(request.authUser.user_profile_id, request.params.certificateId));
     },
     async complete(request, response) {
       validateEmptyBody(request.body);
@@ -47,6 +67,9 @@ export function createPatientClinicalController({ clinicalService }) {
     },
     async certificate(request, response) {
       response.json({ medical_certificate: await clinicalService.getPatientCertificate(request.authUser.user_profile_id, request.params.certificateId) });
+    },
+    async certificatePdf(request, response) {
+      return sendCertificatePdf(response, await clinicalService.getPatientCertificatePdf(request.authUser.user_profile_id, request.params.certificateId));
     },
   };
 }

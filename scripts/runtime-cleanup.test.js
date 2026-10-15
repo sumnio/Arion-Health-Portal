@@ -75,12 +75,7 @@ test('API repositories share the credentialed client and auth has no browser tok
 });
 
 test('certificate PDF output excludes protected storage paths', async () => {
-  const { buildCertificatePdf } = await import('../src/services/certificatePdfService.js');
-  const pdf = new TextDecoder().decode(buildCertificatePdf({
-    medical_certificate_number: 'MC-2026-0099', patientName: 'Patient', purpose: 'Check-up',
-    diagnosis_summary: 'Cleared', date_issued: '2026-09-25', status: 'issued', doctor: 'Doctor',
-    license_number: 'LIC-1', ptr_number: 'PTR-1', signature_available: true,
-    signature_path: 'protected/signatures/doctor.png', clinic: { name: 'Arion Health Clinic', location: 'Clinic' },
-  }));
-  assert.doesNotMatch(pdf, /signature_path|protected\/signatures|doctor\.png/);
+  const source = await readFile(path.join(srcRoot, 'services', 'certificatePdfService.js'), 'utf8');
+  assert.match(source, /fetchPdf\(certificate\.id\)/);
+  assert.doesNotMatch(source, /signature_path|storage_file_id|GridFS|public_url/);
 });

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { generateCertificateNumber } from '../utils/certificateNumber.js';
 import { httpError } from '../utils/httpError.js';
 import {
@@ -10,6 +11,7 @@ import { addDays, clinicDate, dateOnlyToUtc, isValidDateOnly, zonedDateTimeToUtc
 import { buildCertificateStatement, certificatePurposeDisplay } from './certificateContent.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
 import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
+import { CERTIFICATE_PDF_RENDER_VERSION, buildCertificatePdf } from './certificatePdfService.js';
 
 function id(value) {
   const resolved = value?._id ?? value?.id ?? value;
@@ -18,6 +20,15 @@ function id(value) {
 function duplicateKey(error) { return error?.code === 11000; }
 function iso(value) { return value ? new Date(value).toISOString() : null; }
 function date(value) { return value ? new Date(value).toISOString().slice(0, 10) : null; }
+async function streamBuffer(stream, maximum = 2 * 1024 * 1024) {
+  const chunks = []; let size = 0;
+  for await (const chunk of stream) {
+    size += chunk.length;
+    if (size > maximum) throw httpError(422, 'DOCTOR_SIGNATURE_INVALID', 'The configured Doctor signature cannot be used.');
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
 function priorityAuditView(item) {
   return {
     id: id(item), appointment_id: id(item.appointment_id), previous_priority: item.previous_priority,
@@ -28,14 +39,14 @@ function priorityAuditView(item) {
   };
 }
 
-function doctorView(doctor) {
+function doctorView(doctor, signatureAvailable = Boolean(doctor?.signature_path)) {
   return {
     id: id(doctor),
     display_name: doctor?.user_profile_id?.display_name ?? null,
     specialty: doctor?.specialty ?? null,
     license_number: doctor?.license_number ?? null,
     ptr_number: doctor?.ptr_number ?? null,
-    signature_available: Boolean(doctor?.signature_path),
+    signature_available: signatureAvailable,
   };
 }
 
@@ -77,18 +88,38 @@ function presentCertificate(item, clinic) {
   const purpose = certificatePurposeDisplay({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose });
   return {
     id: id(item), medical_certificate_number: item.medical_certificate_number,
-    patient_id: id(item.patient_id), doctor: doctorView(item.doctor_id), medical_record_id: id(item.medical_record_id),
+    patient_id: id(item.patient_id), doctor: doctorView(item.doctor_id, Boolean(item.pdf_storage_file_id) || Boolean(item.doctor_id?.signature_path)), medical_record_id: id(item.medical_record_id),
     date_issued: date(item.date_issued), purpose, purpose_code: item.purpose_code ?? null,
     custom_purpose: item.custom_purpose ?? null, diagnosis_summary: item.diagnosis_summary,
     recommendation: item.recommendation ?? null,
     statement: buildCertificateStatement({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose }),
     consultation_date: appointment?.appointment_at ? clinicDate(new Date(appointment.appointment_at), timeZone) : null,
     valid_until: date(item.valid_until), status: item.status, clinic,
+    pdf_available: Boolean(item.pdf_storage_file_id), legacy_pdf: !item.pdf_storage_file_id,
     created_at: iso(item.created_at), updated_at: iso(item.updated_at),
   };
 }
 
-export function createClinicalService({ repository, clinic, notificationTriggers, smsReminders, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
+function certificatePdfData(item, clinic) {
+  const record = item.medical_record_id;
+  const appointment = record?.appointment_id;
+  const patient = item.patient_id ?? record?.patient_id;
+  const doctor = item.doctor_id;
+  return {
+    medical_certificate_number: item.medical_certificate_number,
+    date_issued: date(item.date_issued),
+    consultation_date: appointment?.appointment_at ? clinicDate(new Date(appointment.appointment_at), clinic.timeZone ?? 'Asia/Manila') : null,
+    valid_until: date(item.valid_until),
+    patient_name: patient?.full_name ?? 'Patient', patient_dob: date(patient?.dob), patient_sex: patient?.sex ?? null,
+    purpose: certificatePurposeDisplay({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose }),
+    statement: buildCertificateStatement({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose }),
+    diagnosis_summary: item.diagnosis_summary, recommendation: item.recommendation,
+    doctor_name: doctor?.user_profile_id?.display_name ?? 'Issuing Doctor', doctor_specialty: doctor?.specialty ?? 'Not available',
+    license_number: doctor?.license_number ?? 'Not available', ptr_number: doctor?.ptr_number ?? 'Not available', clinic,
+  };
+}
+
+export function createClinicalService({ repository, clinic, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, pdfRenderer = buildCertificatePdf, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
   async function doctorFor(profileId) {
     const doctor = await repository.findDoctorByUserProfileId(profileId);
     if (!doctor) throw httpError(403, 'DOCTOR_PROFILE_REQUIRED', 'An active Doctor profile is required.');
@@ -186,6 +217,41 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       return presentRecord(repository, record);
     },
 
+    async previewCertificate(profileId, recordId, body) {
+      if (!certificateIssuanceEnabled) {
+        throw httpError(503, 'CERTIFICATE_ISSUANCE_DISABLED', 'Medical certificate issuance is temporarily unavailable.');
+      }
+      validateClinicalObjectId(recordId, 'recordId');
+      const issueDate = dateOnlyToUtc(clinicDate(now(), clinic.timeZone ?? 'Asia/Manila'));
+      const input = validateCertificateCreate(body, { dateIssued: issueDate });
+      const doctor = await doctorFor(profileId);
+      const record = await repository.findRecordForDoctor(recordId, id(doctor));
+      if (!record) throw httpError(404, 'MEDICAL_RECORD_NOT_FOUND', 'Medical record was not found.');
+      const signature = await doctorSignatureService?.getDoctorSignatureForCertificate(id(doctor));
+      let signatureBuffer = null;
+      if (signature) {
+        try { signatureBuffer = await streamBuffer(signature.stream); }
+        catch (error) { if (error?.status) throw error; throw httpError(422, 'DOCTOR_SIGNATURE_INVALID', 'The configured Doctor signature cannot be used.'); }
+      }
+      const preview = {
+        ...input,
+        medical_certificate_number: 'DRAFT PREVIEW',
+        patient_id: record.patient_id,
+        doctor_id: doctor,
+        medical_record_id: record,
+      };
+      const buffer = pdfRenderer(certificatePdfData(preview, clinic), {
+        signatureBuffer,
+        signatureMissingText: 'Signature not configured - preview only',
+      });
+      return {
+        filename: 'Medical-Certificate-Draft-Preview.pdf',
+        buffer,
+        sha256: createHash('sha256').update(buffer).digest('hex'),
+        size: buffer.length,
+      };
+    },
+
     async createCertificate(profileId, recordId, body) {
       if (!certificateIssuanceEnabled) {
         throw httpError(503, 'CERTIFICATE_ISSUANCE_DISABLED', 'Medical certificate issuance is temporarily unavailable.');
@@ -196,17 +262,34 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const doctor = await doctorFor(profileId);
       const record = await repository.findRecordForDoctor(recordId, id(doctor));
       if (!record) throw httpError(404, 'MEDICAL_RECORD_NOT_FOUND', 'Medical record was not found.');
+      const signature = await doctorSignatureService?.getDoctorSignatureForCertificate(id(doctor));
+      if (!signature) throw httpError(409, 'DOCTOR_SIGNATURE_REQUIRED', 'Configure your Doctor signature before issuing a medical certificate.');
+      let signatureBuffer;
+      try { signatureBuffer = await streamBuffer(signature.stream); }
+      catch (error) { if (error?.status) throw error; throw httpError(422, 'DOCTOR_SIGNATURE_INVALID', 'The configured Doctor signature cannot be used.'); }
       for (let attempt = 0; attempt < 3; attempt += 1) {
+        let storedArtifact = null;
         try {
-          const created = await repository.createCertificate({
-            ...input, medical_certificate_number: numberGenerator(input.date_issued),
+          const medicalCertificateNumber = numberGenerator(input.date_issued);
+          const pending = {
+            ...input, medical_certificate_number: medicalCertificateNumber,
             patient_id: record.patient_id?._id ?? record.patient_id,
             doctor_id: doctor._id ?? doctor.id, medical_record_id: record._id ?? record.id, status: 'issued',
+          };
+          const pdf = pdfRenderer(certificatePdfData({ ...pending, patient_id: record.patient_id, doctor_id: doctor, medical_record_id: record }, clinic), { signatureBuffer });
+          const sha256 = createHash('sha256').update(pdf).digest('hex');
+          try { storedArtifact = await certificateArtifactStorage.upload(pdf); }
+          catch { throw httpError(503, 'CERTIFICATE_PDF_UNAVAILABLE', 'The certificate PDF could not be stored securely.'); }
+          const created = await repository.createCertificate({ ...pending,
+            pdf_storage_file_id: storedArtifact.storageFileId, pdf_sha256: sha256, pdf_file_size: pdf.length,
+            pdf_render_version: CERTIFICATE_PDF_RENDER_VERSION, pdf_generated_at: now(),
           });
           created.doctor_id = doctor;
+          created.patient_id = record.patient_id;
           created.medical_record_id = record;
           return presentCertificate(created, clinic);
         } catch (error) {
+          if (storedArtifact?.storageFileId) await certificateArtifactStorage.delete(storedArtifact.storageFileId).catch(() => {});
           if (!duplicateKey(error)) throw error;
         }
       }
@@ -230,6 +313,20 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
       return presentCertificate(certificate, clinic);
     },
+    async getDoctorCertificatePdf(profileId, certificateId) {
+      validateClinicalObjectId(certificateId, 'certificateId');
+      const doctor = await doctorFor(profileId);
+      const certificate = await repository.findCertificateForDoctor(certificateId, id(doctor));
+      if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
+      return certificatePdf(certificate);
+    },
+    async getPatientCertificatePdf(profileId, certificateId) {
+      validateClinicalObjectId(certificateId, 'certificateId');
+      const patient = await patientFor(profileId);
+      const certificate = await repository.findIssuedCertificateForPatient(certificateId, id(patient));
+      if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
+      return certificatePdf(certificate);
+    },
 
     async completeConsultation(profileId, appointmentId) {
       validateClinicalObjectId(appointmentId, 'appointmentId');
@@ -252,4 +349,16 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       return { id: id(completed), status: completed.status, medical_record_preserved: true };
     },
   };
+
+  function certificatePdf(certificate) {
+    const filename = `Medical-Certificate-${plainCertificateNumber(certificate.medical_certificate_number)}.pdf`;
+    if (certificate.pdf_storage_file_id) return {
+      filename, stream: certificateArtifactStorage.openDownload(certificate.pdf_storage_file_id),
+      sha256: certificate.pdf_sha256, size: certificate.pdf_file_size, legacy: false,
+    };
+    const buffer = pdfRenderer(certificatePdfData(certificate, clinic), { signatureBuffer: null });
+    return { filename, buffer, sha256: createHash('sha256').update(buffer).digest('hex'), size: buffer.length, legacy: true };
+  }
 }
+
+function plainCertificateNumber(value) { return String(value ?? 'certificate').replace(/[^A-Za-z0-9._-]+/g, '-'); }

@@ -17,5 +17,9 @@ export function createNotificationController({ notificationService }) {
       validateEmptyBody(request.body);
       response.json({ updated_count: await notificationService.markAllNotificationsRead(...recipient(request)) });
     },
+    async dismissAll(request, response) {
+      validateEmptyBody(request.body);
+      response.json({ dismissed_count: await notificationService.dismissAllNotifications(...recipient(request)) });
+    },
   };
 }

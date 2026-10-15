@@ -12,24 +12,27 @@ const record = { id: 'r1', patient, doctor, appointment, encounter_at: '2026-09-
 const certificate = { id: 'c1', medical_certificate_number: 'AHC-1', patient_id: 'p1', doctor, medical_record_id: 'r1', date_issued: '2026-09-25', purpose: 'Medical leave', diagnosis_summary: 'Migraine', valid_until: null, status: 'issued', clinic: { name: 'Arion Health Clinic', location: 'Quezon City' } };
 
 test('Doctor repository uses approved live endpoints and keeps scheduling read-only', async () => {
-  const calls = []; const client = { async request(path, options = {}) { calls.push([path, options]); if (path.startsWith('/api/doctor/appointments?')) return { appointments: [appointment] }; if (path.endsWith('/priority-history')) return { priority_history: [] }; if (path === '/api/doctor/availability') return { availability: [] }; if (path === '/api/doctor/published-availability') return { published_availability: [] }; if (path === '/api/doctor/blocked-times') return { blocked_times: [] }; if (path.includes('/patients/')) return { medical_records: [], medical_certificates: [] }; if (path.includes('/medical-record')) return { medical_record: record }; if (path.includes('/certificates') && options.method === 'POST') return { medical_certificate: certificate }; if (path.includes('/certificates/')) return { medical_certificate: certificate }; if (path.endsWith('/complete')) return { appointment: { ...appointment, status: 'completed' } }; throw new Error(path); } };
+  const calls = []; const client = { async request(path, options = {}) { calls.push([path, options]); if (path.startsWith('/api/doctor/appointments?')) return { appointments: [appointment] }; if (path.endsWith('/priority-history')) return { priority_history: [] }; if (path === '/api/doctor/availability') return { availability: [] }; if (path === '/api/doctor/published-availability') return { published_availability: [] }; if (path === '/api/doctor/blocked-times') return { blocked_times: [] }; if (path.includes('/patients/')) return { medical_records: [], medical_certificates: [] }; if (path.includes('/medical-record')) return { medical_record: record }; if (path.includes('/certificates') && options.method === 'POST') return { medical_certificate: certificate }; if (path.includes('/certificates/')) return { medical_certificate: certificate }; if (path.endsWith('/complete')) return { appointment: { ...appointment, status: 'completed' } }; throw new Error(path); }, async download(path, options = {}) { calls.push([path, options]); return { blob: new Blob(['pdf'], { type: 'application/pdf' }) }; } };
   const repository = createDoctorApiRepository(client);
-  await repository.getAppointments({ date: '2026-09-25', patientId: 'p1' }); await repository.getPriorityHistory('a1'); await repository.getRecurringAvailability(); await repository.getPublishedAvailability(); await repository.getBlockedTimes(); await repository.getPatientHistory('p1'); await repository.createMedicalRecord('a1', { diagnosis: 'A' }); await repository.createCertificate('r1', { purpose: 'A' }); await repository.getCertificate('c1'); await repository.completeAppointment('a1');
+  await repository.getAppointments({ date: '2026-09-25', patientId: 'p1' }); await repository.getPriorityHistory('a1'); await repository.getRecurringAvailability(); await repository.getPublishedAvailability(); await repository.getBlockedTimes(); await repository.getPatientHistory('p1'); await repository.createMedicalRecord('a1', { diagnosis: 'A' }); await repository.createCertificate('r1', { purpose: 'A' }); await repository.previewCertificatePdf('r1', { purpose: 'A' }); await repository.getCertificate('c1'); await repository.completeAppointment('a1');
   assert(calls.every(([, options]) => !options.body || !('doctor_id' in options.body)));
   assert(calls.some(([path]) => path === '/api/doctor/appointments?date=2026-09-25&patient_id=p1'));
   assert(calls.filter(([path]) => path.includes('/api/doctor/availability') || path.includes('/published-availability') || path.includes('/blocked-times')).every(([, options]) => !options.method || options.method === 'GET'));
   assert(calls.some(([path, options]) => path === '/api/doctor/appointments/a1/complete' && options.method === 'PATCH'));
+  assert(calls.some(([path, options]) => path === '/api/doctor/records/r1/certificates/preview' && options.method === 'POST'));
 });
 
 test('Doctor service normalizes consultation context and submits prescriptions without ownership fields', async () => {
-  let recordPayload; let certificatePayload; let refreshedCertificate = false;
-  const repository = { async getAppointments() { return [appointment]; }, async getPriorityHistory() { return [{ id: 'pa1', urgency_reason: 'Severe pain or discomfort' }]; }, async getPatientHistory() { return { medical_records: [], medical_certificates: [] }; }, async createMedicalRecord(_id, payload) { recordPayload = payload; return record; }, async createCertificate(_id, payload) { certificatePayload = payload; return certificate; }, async getCertificate() { refreshedCertificate = true; return certificate; } };
+  let recordPayload; let certificatePayload; let previewPayload; let refreshedCertificate = false;
+  const repository = { async getAppointments() { return [appointment]; }, async getPriorityHistory() { return [{ id: 'pa1', urgency_reason: 'Severe pain or discomfort' }]; }, async getPatientHistory() { return { medical_records: [], medical_certificates: [] }; }, async createMedicalRecord(_id, payload) { recordPayload = payload; return record; }, async createCertificate(_id, payload) { certificatePayload = payload; return certificate; }, async previewCertificatePdf(_id, payload) { previewPayload = payload; return { blob: new Blob(['pdf']) }; }, async getCertificate() { refreshedCertificate = true; return certificate; } };
   const service = createDoctorApiService(repository); const context = await service.getPatientContext('p1', { appointmentId: 'a1' }); assert.equal(context.patient.full_name, 'Alex Patient'); assert.equal(context.canAddRecord, true); assert.equal(context.priorityHistory[0].urgency_reason,'Severe pain or discomfort');
   await service.createMedicalRecord('a1', { diagnosis: ' Migraine ', notes: '', follow_up: '', prescriptions: [{ medicine: ' Drug ', dosage: ' 5 mg ', instructions: '' }] });
   assert.deepEqual(recordPayload, { diagnosis: 'Migraine', notes: null, follow_up: null, prescriptions: [{ medicine: 'Drug', dosage: '5 mg', instructions: null }] });
   const issued = await service.issueCertificate('r1', { purpose: 'Work Clearance', custom_purpose: '', diagnosis_summary: ' Well ', recommendation: ' Rest ', valid_until: '' }, 'Alex Patient');
   assert.deepEqual(certificatePayload, { purpose: 'Work Clearance', diagnosis_summary: 'Well', recommendation: 'Rest', valid_until: null });
   assert.equal(certificatePayload.medical_certificate_number, undefined); assert.equal(certificatePayload.status, undefined); assert.equal(refreshedCertificate, true); assert.equal(issued.medical_certificate_number, 'AHC-1'); assert.equal('signature_path' in issued, false);
+  await service.previewCertificatePdf('r1', { purpose: 'Other', custom_purpose: ' Insurance ', diagnosis_summary: ' Well ', recommendation: ' Rest ', valid_until: '' });
+  assert.deepEqual(previewPayload, { purpose: 'Other', custom_purpose: 'Insurance', diagnosis_summary: 'Well', recommendation: 'Rest', valid_until: null });
 });
 
 test('Doctor API errors expose safe backend business messages', () => { assert.equal(doctorApiErrorMessage(new ApiError('Blocked time overlaps an existing active appointment.', { status: 409, code: 'BLOCK_OVERLAPS_APPOINTMENT' })), 'Blocked time overlaps an existing active appointment.'); });
@@ -63,6 +66,9 @@ test('Doctor pages use the live Doctor API service and contain no feature mock f
   const detail = await readFile(new URL('../src/pages/doctor/DoctorPatientDetail.jsx', import.meta.url), 'utf8');
   for (const tab of ['Overview', 'Consultation', 'Medical Records', 'Certificates']) assert.match(detail, new RegExp(tab));
   assert.match(detail, /onClick=\{completeConsultation\}/);
+  assert.match(detail, /Issue Medical Certificate/);
+  assert.match(detail, /View Issued Certificate/);
+  assert.match(detail, /certificate\.medical_record_id === existingRecord\.id/);
   assert.doesNotMatch(detail, /Confirm Completion|Keep Confirmed|completion-confirm/);
   const apiService = await readFile(new URL('../src/services/doctorApiService.js', import.meta.url), 'utf8');
   assert.match(apiService, /Mark the consultation completed when it is finished/);
@@ -70,4 +76,14 @@ test('Doctor pages use the live Doctor API service and contain no feature mock f
   const patients = await readFile(new URL('../src/pages/doctor/DoctorPatients.jsx', import.meta.url), 'utf8');
   assert.match(patients, /getRelatedPatients/);
   assert.match(patients, /No related patients found/);
+  const dashboard = await readFile(new URL('../src/pages/doctor/DoctorDashboard.jsx', import.meta.url), 'utf8');
+  const schedule = await readFile(new URL('../src/pages/doctor/DoctorSchedule.jsx', import.meta.url), 'utf8');
+  for (const source of [dashboard, schedule]) {
+    assert.match(source, /appointmentListPage/);
+    assert.match(source, /RECENT_APPOINTMENT_LIMIT/);
+    assert.match(source, /doctor-list-pagination/);
+    assert.match(source, />Previous<\/button>/);
+    assert.match(source, />Next<\/button>/);
+  }
+  assert.match(schedule, /setPage\(1\); \}, \[date\]\)/);
 });

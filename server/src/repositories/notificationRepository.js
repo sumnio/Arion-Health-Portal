@@ -7,6 +7,10 @@ function recipientScope(recipient) {
   };
 }
 
+function visibleRecipientScope(recipient) {
+  return { ...recipientScope(recipient), dismissed_at: null };
+}
+
 export const notificationRepository = {
   async findRecipientProfile(userProfileId) {
     return UserProfile.findById(userProfileId).select('role status').lean();
@@ -67,7 +71,7 @@ export const notificationRepository = {
   },
 
   async listForRecipient(recipient, { unread_only: unreadOnly, page, limit }) {
-    const scope = recipientScope(recipient);
+    const scope = visibleRecipientScope(recipient);
     const filter = unreadOnly ? { ...scope, is_read: false } : scope;
     const [items, total, unreadCount] = await Promise.all([
       Notification.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
@@ -78,11 +82,11 @@ export const notificationRepository = {
   },
 
   async countUnreadForRecipient(recipient) {
-    return Notification.countDocuments({ ...recipientScope(recipient), is_read: false });
+    return Notification.countDocuments({ ...visibleRecipientScope(recipient), is_read: false });
   },
 
   async markReadForRecipient(notificationId, recipient, readAt) {
-    const scope = { _id: notificationId, ...recipientScope(recipient) };
+    const scope = { _id: notificationId, ...visibleRecipientScope(recipient) };
     const updated = await Notification.findOneAndUpdate(
       { ...scope, is_read: false },
       { $set: { is_read: true, read_at: readAt } },
@@ -93,8 +97,17 @@ export const notificationRepository = {
 
   async markAllReadForRecipient(recipient, readAt) {
     const result = await Notification.updateMany(
-      { ...recipientScope(recipient), is_read: false },
+      { ...visibleRecipientScope(recipient), is_read: false },
       { $set: { is_read: true, read_at: readAt } },
+      { runValidators: true },
+    );
+    return result.modifiedCount;
+  },
+
+  async dismissAllForRecipient(recipient, dismissedAt) {
+    const result = await Notification.updateMany(
+      visibleRecipientScope(recipient),
+      { $set: { dismissed_at: dismissedAt, is_read: true, read_at: dismissedAt } },
       { runValidators: true },
     );
     return result.modifiedCount;

@@ -21,6 +21,7 @@ async function browserApi(page, path, { method = 'GET', body } = {}) {
 
 test('Doctor completes the assigned record, Prescription, certificate, PDF, and consultation journey', async ({ page, patientScenario, seededDoctor }) => {
   const assertBrowserClean = observeBrowser(page);
+  await patientScenario.createDoctorSignature(seededDoctor);
   const patient = await patientScenario.createPatient();
   const appointment = await patientScenario.createAppointment({
     patient,
@@ -64,25 +65,41 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.getByRole('link', { name: 'Issue Medical Certificate' }).click();
   await page.getByLabel('Purpose *').selectOption('Fit to Return');
   await page.getByLabel('Recommendation *').fill('May return to regular duties on the date stated.');
-  await expect(page.getByText(/may return to regular duties as stated in the recommendation below/)).toBeVisible();
+  await expect(page.locator('iframe[title="Draft medical certificate PDF preview"]')).toBeVisible();
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toBe('You have unsaved certificate changes. Leave without issuing?');
+    await dialog.accept();
+  });
+  await page.getByRole('link', { name: 'Back to Patient Details' }).click();
+  await expect(page.getByRole('tab', { name: 'Consultation' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('link', { name: 'Issue Medical Certificate' })).toBeVisible();
+  await page.getByRole('link', { name: 'Issue Medical Certificate' }).click();
+  await page.getByLabel('Purpose *').selectOption('Fit to Return');
+  await page.getByLabel('Recommendation *').fill('May return to regular duties on the date stated.');
   await page.getByRole('button', { name: 'Issue Certificate' }).click();
   await expect(page.getByRole('heading', { name: 'Medical Certificate Issued' })).toBeVisible();
   await expect(page.getByText('Successfully issued. This certificate cannot be edited, deleted, or reissued here.')).toBeVisible();
+  const issuedPreview = page.locator('iframe[title="Issued medical certificate PDF"]');
+  await expect(issuedPreview).toBeVisible();
+  await expect(issuedPreview).toHaveAttribute('src', /^blob:/);
   const certificate = await MedicalCertificate.findOne({ medical_record_id: record._id }).lean();
   expect(certificate).toMatchObject({ purpose: 'Fit to Return', purpose_code: 'Fit to Return', recommendation: 'May return to regular duties on the date stated.', status: 'issued' });
   expect(certificate.medical_certificate_number).toBeTruthy();
+  const storedPdf = await page.request.get(`${apiURL}/api/doctor/certificates/${certificate._id}/pdf`);
+  expect(storedPdf.ok()).toBe(true);
+  expect((await storedPdf.body()).toString('latin1')).toContain(`(${seededDoctor.display_name})`);
 
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
+  const [pdfResponse] = await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith(`/api/doctor/certificates/${certificate._id}/pdf`) && response.request().method() === 'GET'),
     page.getByRole('button', { name: 'Download PDF' }).click(),
   ]);
-  expect(download.suggestedFilename()).toBe(`Medical-Certificate-${certificate.medical_certificate_number}.pdf`);
-  const stream = await download.createReadStream();
-  const chunks = [];
-  for await (const chunk of stream) chunks.push(chunk);
-  expect(Buffer.concat(chunks).subarray(0, 4).toString()).toBe('%PDF');
+  expect(pdfResponse.headers()['content-type']).toBe('application/pdf');
+  expect(pdfResponse.headers()['content-disposition']).toContain(`Medical-Certificate-${certificate.medical_certificate_number}.pdf`);
 
   await page.getByRole('link', { name: 'Back to Patient Details' }).click();
+  await expect(page.getByRole('tab', { name: 'Consultation' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: 'View Issued Certificate' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark Consultation Completed' })).toBeVisible();
   await page.getByRole('tab', { name: 'Medical Records' }).click();
   await expect(page.getByText('E2E acute bronchitis').first()).toBeVisible();
   await page.getByText('View record').click();

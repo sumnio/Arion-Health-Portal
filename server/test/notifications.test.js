@@ -37,16 +37,17 @@ function memoryRepository(profiles) {
     async listForRecipient(recipient, { unread_only: unreadOnly, page, limit }) {
       const owned = items
         .filter(item => String(item.recipient_user_profile_id) === String(recipient.user_profile_id) && item.recipient_role === recipient.role)
+        .filter(item => !item.dismissed_at)
         .filter(item => !unreadOnly || !item.is_read)
         .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
-      const unread = items.filter(item => String(item.recipient_user_profile_id) === String(recipient.user_profile_id) && item.recipient_role === recipient.role && !item.is_read).length;
+      const unread = items.filter(item => String(item.recipient_user_profile_id) === String(recipient.user_profile_id) && item.recipient_role === recipient.role && !item.dismissed_at && !item.is_read).length;
       return { items: clone(owned.slice((page - 1) * limit, page * limit)), total: owned.length, unread_count: unread };
     },
     async countUnreadForRecipient(recipient) {
-      return items.filter(item => String(item.recipient_user_profile_id) === String(recipient.user_profile_id) && item.recipient_role === recipient.role && !item.is_read).length;
+      return items.filter(item => String(item.recipient_user_profile_id) === String(recipient.user_profile_id) && item.recipient_role === recipient.role && !item.dismissed_at && !item.is_read).length;
     },
     async markReadForRecipient(notificationId, recipient, readAt) {
-      const item = items.find(value => String(value._id) === String(notificationId) && String(value.recipient_user_profile_id) === String(recipient.user_profile_id) && value.recipient_role === recipient.role);
+      const item = items.find(value => String(value._id) === String(notificationId) && String(value.recipient_user_profile_id) === String(recipient.user_profile_id) && value.recipient_role === recipient.role && !value.dismissed_at);
       if (!item) return null;
       if (!item.is_read) { item.is_read = true; item.read_at = readAt; }
       return clone(item);
@@ -54,8 +55,20 @@ function memoryRepository(profiles) {
     async markAllReadForRecipient(recipient, readAt) {
       let count = 0;
       for (const item of items) {
-        if (String(item.recipient_user_profile_id) === String(recipient.user_profile_id) && item.recipient_role === recipient.role && !item.is_read) {
+        if (String(item.recipient_user_profile_id) === String(recipient.user_profile_id) && item.recipient_role === recipient.role && !item.dismissed_at && !item.is_read) {
           item.is_read = true; item.read_at = readAt; count += 1;
+        }
+      }
+      return count;
+    },
+    async dismissAllForRecipient(recipient, dismissedAt) {
+      let count = 0;
+      for (const item of items) {
+        if (String(item.recipient_user_profile_id) === String(recipient.user_profile_id) && item.recipient_role === recipient.role && !item.dismissed_at) {
+          item.dismissed_at = dismissedAt;
+          item.is_read = true;
+          item.read_at = dismissedAt;
+          count += 1;
         }
       }
       return count;
@@ -92,6 +105,7 @@ test('Notification model declares safe defaults, relationships, enums, and recip
   await item.validate();
   assert.equal(item.is_read, false);
   assert.equal(item.read_at, null);
+  assert.equal(item.dismissed_at, null);
   assert.equal(Notification.schema.path('recipient_user_profile_id').options.ref, 'UserProfile');
   assert.equal(Notification.schema.path('recipient_user_profile_id').options.immutable, true);
   assert.equal(Notification.schema.path('patient_display_name').options.immutable, true);
@@ -100,6 +114,8 @@ test('Notification model declares safe defaults, relationships, enums, and recip
   const names = Notification.schema.indexes().map(([, options]) => options.name);
   assert.ok(names.includes('notification_recipient_history'));
   assert.ok(names.includes('notification_recipient_unread'));
+  assert.ok(names.includes('notification_recipient_visible_history'));
+  assert.ok(names.includes('notification_recipient_visible_unread'));
   assert.equal(names.some(name => /ttl|expire/i.test(name)), false);
   await assert.rejects(new Notification(input({ recipient_role: 'owner' })).validate(), /enum/i);
   await assert.rejects(new Notification(input({ type: 'clinical_result' })).validate(), /enum/i);
@@ -193,6 +209,23 @@ test('mark all affects only the authenticated recipient', async () => {
   assert.equal(await service.countUnreadForRecipient(ids.otherPatient, 'patient'), 1);
 });
 
+test('clear all soft-dismisses only the authenticated recipient and is idempotent', async () => {
+  const repository = memoryRepository(profiles());
+  const dismissedAt = new Date('2026-10-09T07:00:00.000Z');
+  const service = createNotificationModule({ repository, now: () => dismissedAt }).notificationService;
+  await service.createNotification(input({ title: 'One' }));
+  await service.createNotification(input({ title: 'Two' }));
+  await service.createNotification(input({ recipient_user_profile_id: ids.otherPatient, title: 'Other' }));
+  assert.equal(await service.dismissAllNotifications(ids.patient, 'patient'), 2);
+  assert.equal(await service.dismissAllNotifications(ids.patient, 'patient'), 0);
+  assert.equal((await service.listNotificationsForRecipient(ids.patient, 'patient', {})).total, 0);
+  assert.equal(await service.countUnreadForRecipient(ids.patient, 'patient'), 0);
+  assert.equal((await service.listNotificationsForRecipient(ids.otherPatient, 'patient', {})).total, 1);
+  const retained = repository.items.filter(item => String(item.recipient_user_profile_id) === ids.patient);
+  assert.equal(retained.length, 2);
+  assert.ok(retained.every(item => item.dismissed_at?.toISOString() === dismissedAt.toISOString()));
+});
+
 async function withServer(app, check) {
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
@@ -280,5 +313,23 @@ test('notification API supports unread count, owned read operations, read-all, a
     assert.equal((await request(base, '/api/notifications', { method: 'POST', cookie: patientCookie, body: input() })).status, 404);
     assert.equal((await request(base, `/api/notifications/${patientItem._id}/read`, { method: 'PATCH', cookie: patientCookie, body: { is_read: true } })).status, 400);
     assert.equal((await request(base, '/api/notifications?limit=51', { cookie: patientCookie })).status, 400);
+  });
+});
+
+test('notification API lets every role clear only its own inbox without deleting history', async () => {
+  const context = await apiContext();
+  await withServer(context.app, async base => {
+    for (const [role, profileId] of [['patient', ids.patient], ['staff', ids.staff], ['doctor', ids.doctor], ['admin', ids.admin]]) {
+      const response = await request(base, '/api/notifications/clear-all', { method: 'PATCH', cookie: context.cookie(profileId), body: {} });
+      assert.equal(response.status, 200, role);
+      assert.deepEqual(await response.json(), { dismissed_count: 1 });
+      const list = await request(base, '/api/notifications', { cookie: context.cookie(profileId) });
+      assert.equal((await list.json()).notifications.total, 0);
+    }
+    assert.equal(context.repository.items.length, 4);
+    assert.ok(context.repository.items.every(item => item.dismissed_at));
+    const repeated = await request(base, '/api/notifications/clear-all', { method: 'PATCH', cookie: context.cookie(ids.patient), body: {} });
+    assert.deepEqual(await repeated.json(), { dismissed_count: 0 });
+    assert.equal((await request(base, '/api/notifications/clear-all', { method: 'PATCH', cookie: context.cookie(ids.patient), body: { force: true } })).status, 400);
   });
 });

@@ -13,6 +13,7 @@ test('notification repository uses only the approved credentialed inbox endpoint
     calls.push({ path, options });
     if (path.includes('unread-count')) return { unread_count: 3 };
     if (path.includes('read-all')) return { updated_count: 3 };
+    if (path.includes('clear-all')) return { dismissed_count: 4 };
     if (path.includes('/read')) return { notification: { ...raw, is_read: true } };
     return { notifications: { items: [raw], page: 2, limit: 20, total: 21, unread_count: 3 } };
   } });
@@ -20,6 +21,7 @@ test('notification repository uses only the approved credentialed inbox endpoint
   await repository.unreadCount();
   await repository.markRead('notification/1');
   await repository.markAllRead();
+  await repository.clearAll();
   assert.match(calls[0].path, /^\/api\/notifications\?/);
   assert.match(calls[0].path, /unread_only=true/);
   assert.match(calls[0].path, /page=2/);
@@ -27,6 +29,8 @@ test('notification repository uses only the approved credentialed inbox endpoint
   assert.equal(calls[2].path, '/api/notifications/notification%2F1/read');
   assert.equal(calls[2].options.method, 'PATCH');
   assert.equal(calls[3].path, '/api/notifications/read-all');
+  assert.equal(calls[4].path, '/api/notifications/clear-all');
+  assert.equal(calls[4].options.method, 'PATCH');
   assert.equal(calls.some(call => call.options?.method === 'POST'), false);
 });
 
@@ -36,6 +40,7 @@ test('notification service normalizes recipient-safe responses and pagination', 
     async unreadCount() { return 3; },
     async markRead() { return { ...raw, is_read: true, read_at: '2026-10-09T01:31:00.000Z' }; },
     async markAllRead() { return 3; },
+    async clearAll() { return 4; },
   });
   const result = await service.list({ page: 2 });
   assert.equal(result.pageCount, 2);
@@ -46,6 +51,7 @@ test('notification service normalizes recipient-safe responses and pagination', 
   assert.equal(result.items[0].appointmentAt, '2026-10-12T06:00:00.000Z');
   assert.equal(result.items[0].isRead, false);
   assert.equal((await service.markRead(raw.id)).isRead, true);
+  assert.equal(await service.clearAll(), 4);
 });
 
 test('badge shows exact counts through 99 and caps larger counts', () => {
@@ -74,6 +80,9 @@ test('all protected roles expose a notification page and share the notification 
   assert.match(page, /aria-label="Notification filters"/);
   assert.match(page, /NOTIFICATION_PAGE_SIZE/);
   assert.match(page, /notification-mark-all/);
+  assert.match(page, /Clear notifications/);
+  assert.match(page, /Yes, clear notifications/);
+  assert.match(page, /notificationApiService\.clearAll/);
   assert.match(page, /detailed/);
   assert.match(page, /You have no unread notifications\./);
   assert.match(page, /Try again/);

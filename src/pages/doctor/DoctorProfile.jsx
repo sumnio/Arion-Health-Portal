@@ -89,9 +89,12 @@ export default function DoctorProfile({ signatureService = doctorSignatureApiSer
         {status.configured && <p className="signature-meta">Last updated {formatDate(status.uploaded_at)} · {status.width}×{status.height} pixels</p>}
       </>}
       <form onSubmit={submit}>
-        <label htmlFor="doctor-signature">{status.configured ? 'Replace signature' : 'Choose signature'}</label>
-        <input ref={inputRef} id="doctor-signature" name="signature" type="file" accept="image/png,.png" onChange={choose} />
-        {selected && <p className="signature-selection">Selected: {selected.name}</p>}
+        <span className="signature-file-label">{status.configured ? 'Replace signature' : 'Choose signature'}</span>
+        <input ref={inputRef} className="signature-file-input" id="doctor-signature" name="signature" type="file" accept="image/png,.png" onChange={choose} aria-label={status.configured ? 'Replace signature' : 'Choose signature'} aria-describedby="doctor-signature-selection" />
+        <div className="signature-file-control">
+          <label className="signature-file-trigger" htmlFor="doctor-signature">Choose PNG File</label>
+          <span id="doctor-signature-selection" className="signature-selection" aria-live="polite">{selected?.name ?? 'No file selected'}</span>
+        </div>
         {error && <p className="form-error" role="alert">{error}</p>}
         {message && <p className="form-success" role="status">{message}</p>}
         <button className="primary-action" type="submit" disabled={saving || !selected || Boolean(error)}>{saving ? 'Saving…' : status.configured ? 'Replace Signature' : 'Upload Signature'}</button>

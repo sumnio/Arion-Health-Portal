@@ -237,6 +237,7 @@ export function createPatientApiService(repository = patientApiRepository) {
       }
       return normalizeCertificate(item, { patientName: profile.full_name, relatedRecord });
     },
+    downloadCertificatePdf: (id, options) => repository.downloadCertificatePdf(id, options),
     async getDashboard() {
       const [profile, appointments, records] = await Promise.all([service.getProfile(), service.getAppointments(), service.getRecords()]);
       const now = new Date();

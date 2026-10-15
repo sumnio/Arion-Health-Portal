@@ -489,6 +489,11 @@ MedicalRecord
 | recommendation | text, nullable | Doctor-controlled certificate recommendation, at most 500 characters; nullable for legacy records |
 | valid_until | date, nullable | Optional expiration date |
 | status | enum | `draft`, `issued` |
+| pdf_storage_file_id | ObjectId, nullable, immutable | Private GridFS object in `medical_certificate_files`; null only for legacy certificates |
+| pdf_sha256 | text, nullable, immutable | SHA-256 of the frozen PDF artifact; null on legacy certificates |
+| pdf_file_size | integer, nullable, immutable | Stored artifact size in bytes |
+| pdf_render_version | text, nullable, immutable | Renderer version used at issuance |
+| pdf_generated_at | timestamptz, nullable, immutable | Trusted artifact-generation instant |
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
@@ -496,7 +501,7 @@ MedicalRecord
 
 Patient and Doctor relationships are required and must be preserved. `medical_record_id` remains nullable; when present, it links the certificate to the related MedicalRecord. A single MedicalRecord may produce multiple certificates if necessary.
 
-Certificate display/generation reads `Doctor.license_number`, `Doctor.ptr_number`, and the signature image referenced by `Doctor.signature_path` from the linked Doctor. Do not duplicate those values inside MedicalCertificate for the current MVP. `signature_path` remains a reference only; raw image binary is not stored in Doctor. The real image must be held in protected object/file storage, and access must be restricted to the intended authenticated certificate flow rather than publicly exposed.
+New issuance resolves the Doctor profile and current private `DoctorSignature` once, generates the final PDF server-side, embeds the signature bytes, and stores the immutable result in the private `medical_certificate_files` GridFS bucket. The MedicalCertificate keeps only the immutable artifact reference, SHA-256, byte size, render version, and generation time. Replacing the Doctor's active signature cannot alter an already issued artifact. No raw signature identifier, file path, or public URL is exposed.
 
 Clinic location is required for certificate display/generation and is treated as simple application/global configuration for the MVP. Do not add a clinic-management entity or duplicate clinic location in MedicalCertificate.
 
@@ -508,8 +513,8 @@ Certificate lifecycle rules:
 - Patients and Staff cannot edit certificates. Admin cannot edit certificate clinical content. Doctors issue certificates only through the approved creation flow.
 
 New certificate creation uses a controlled purpose allowlist and requires a concise Recommendation. The backend assigns `date_issued` from the configured clinic date and derives the consultation date from the linked MedicalRecord's Appointment. A centralized purpose-based helper generates the formal certification statement deterministically from `purpose_code` and `custom_purpose`; the statement is not accepted from the client and is not separately persisted. Legacy certificates with only `purpose` remain readable through a neutral generated statement. Certificate output excludes prescriptions, full Doctor notes, follow-up notes, supporting documents, allergies, emergency contacts, and queue data.
-- Issued certificates may be downloaded as PDFs from authenticated Doctor and Patient views. The current frontend generates the file from the authorized certificate API response; it does not expose a public certificate route or use an external PDF service.
-- QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and server-side PDF generation remain future scope.
+- Issued certificates may be downloaded only through ownership-scoped authenticated Doctor and Patient PDF routes. New certificates stream the exact stored artifact. Legacy certificates without artifact metadata use a signature-free compatibility renderer and never adopt the Doctor's current signature.
+- QR verification, public certificate verification, external sharing, advanced cryptographic signing, and payment integration remain future scope.
 
 The current backend endpoint directly creates the certificate as `issued`, matching the approved Doctor UI submission behavior. `medical_certificate_number` is generated server-side and protected by the unique database index. Patient reads filter to the authenticated Patient's issued certificates; Doctor reads filter to certificates issued by the authenticated Doctor. The protected `signature_path` is not returned directly; API responses expose signature availability with the Doctor's display name, specialty, license number, and PTR number.
 
@@ -543,6 +548,7 @@ Recipient-private, non-clinical operational messages are stored in the `notifica
 | appointment_at | timestamp, nullable | Optional immutable scheduled Appointment time used for safe operational display |
 | is_read | boolean | Defaults to `false` |
 | read_at | timestamp, nullable | Defaults to null; set from server time when first marked read |
+| dismissed_at | timestamp, nullable | Defaults to null; a server timestamp soft-hides the Notification from that recipient's inbox without deleting history |
 | created_at | timestamp | Server-generated creation time |
 | updated_at | timestamp | Server-maintained update time |
 
@@ -550,9 +556,9 @@ The fixed type contract is: `appointment_created`, `appointment_confirmed`, `app
 
 Creation is available only to trusted backend code through the notification service. There is no user-facing notification creation endpoint and no arbitrary metadata field. The three optional rich-context fields are resolved from the related Appointment and are role-minimized: Patient notifications may contain Doctor name and schedule, Staff notifications may contain Patient name, Doctor name, and schedule, and Doctor notifications may contain Patient name and schedule. Admin receives no routine Appointment context. Text must contain only short operational wording and must never include visit reason, diagnosis, MedicalRecord notes, Prescription or certificate clinical details, urgent explanations, contact details, DOB, address, private notes, credentials, MFA material, tokens, or environment values. A related-resource reference is navigation metadata only and does not grant resource access.
 
-All inbox reads and read-state updates are scoped by authenticated `recipient_user_profile_id` and matching role. Admin has no override to browse another recipient's notifications, and Admin access requires a full MFA-authenticated session. Newest-first listing supports `unread_only`, page numbers from 1, a default limit of 20, and a maximum limit of 50. Marking one or all notifications read is idempotent; there is no mark-unread operation.
+All inbox reads, read-state updates, and clear-all operations are scoped by authenticated `recipient_user_profile_id` and matching role. Admin has no override to browse another recipient's notifications, and Admin access requires a full MFA-authenticated session. Newest-first listing supports `unread_only`, page numbers from 1, a default limit of 20, and a maximum limit of 50. Visible queries include `dismissed_at = null`, which also matches legacy documents where the field is absent. Marking one or all notifications read and clearing the inbox are idempotent; there is no mark-unread or restore operation.
 
-Indexes are `recipient_user_profile_id + created_at` descending and `recipient_user_profile_id + is_read + created_at` descending. No TTL or automatic deletion is configured. The optional context fields require no migration; older documents without them remain valid and render with their original title, message, and event time. Workflow integration creates one Notification per derived active recipient after successful guarded transitions, skips unlinked/inactive recipients, and treats delivery failure as a safely logged non-transactional side effect. No action path, delivery channel, reminder scheduler, or retention/archive process is implemented.
+Existing indexes remain `recipient_user_profile_id + created_at` descending and `recipient_user_profile_id + is_read + created_at` descending. Additional visible-inbox indexes include recipient profile, recipient role, `dismissed_at`, creation time, and read state where applicable. No TTL or automatic deletion is configured. The optional context and dismissal fields require no migration; older documents without them remain visible and valid. Workflow integration creates one Notification per derived active recipient after successful guarded transitions, skips unlinked/inactive recipients, and treats delivery failure as a safely logged non-transactional side effect. No action path, delivery channel, reminder scheduler, hard deletion, or restoration process is implemented.
 
 ---
 

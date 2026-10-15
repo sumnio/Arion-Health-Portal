@@ -18,12 +18,15 @@ const patientPopulation = { path: 'patient_id', select: 'full_name dob sex conta
 const recordPopulation = [doctorPopulation, patientPopulation, { path: 'appointment_id', select: 'appointment_at status visit_type reason check_in_at' }];
 const certificatePopulation = [
   doctorPopulation,
-  { path: 'medical_record_id', select: 'appointment_id', populate: { path: 'appointment_id', select: 'appointment_at' } },
+  patientPopulation,
+  { path: 'medical_record_id', select: 'appointment_id patient_id', populate: { path: 'appointment_id', select: 'appointment_at' } },
 ];
 
 export const clinicalRepository = {
   async findDoctorByUserProfileId(userProfileId) {
-    return Doctor.findOne({ user_profile_id: userProfileId }).lean();
+    return Doctor.findOne({ user_profile_id: userProfileId })
+      .populate({ path: 'user_profile_id', select: 'display_name' })
+      .lean();
   },
   async findPatientByUserProfileId(userProfileId) {
     return Patient.findOne({ user_profile_id: userProfileId }).lean();

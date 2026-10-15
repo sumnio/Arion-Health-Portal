@@ -52,6 +52,10 @@ test('Doctor Profile provides preview, replace flow, accessibility, and object U
   assert.match(page, /URL\.revokeObjectURL/);
   assert.match(page, /alt="Your certificate signature preview"/);
   assert.match(page, /Replace Signature/);
+  assert.match(page, /signature-file-trigger/);
+  assert.match(page, /Choose PNG File/);
+  assert.match(page, /No file selected/);
+  assert.match(page, /aria-live="polite"/);
   assert.doesNotMatch(page, /storage_file_id|https?:\/\//i);
 });
 
@@ -72,4 +76,7 @@ test('signature UI remains usable on narrow screens', async () => {
   assert.match(styles, /max-width:\s*520px/);
   assert.match(styles, /max-width:\s*100%/);
   assert.match(styles, /width:\s*100%/);
+  assert.match(styles, /signature-file-control/);
+  assert.match(styles, /signature-file-trigger/);
+  assert.match(styles, /focus-visible/);
 });

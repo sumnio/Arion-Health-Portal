@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../../components/dashboard/StatusBadge.jsx';
-import { clinicToday, formatBookingDate, shiftCalendarDate } from '../../services/dateTimeService.js';
+import { clinicToday, formatBookingDate, newestAppointmentsFirst, shiftCalendarDate } from '../../services/dateTimeService.js';
 import { staffApiErrorMessage, staffApiService, staffCalendarActions } from '../../services/staffApiService.js';
 import '../../styles/staff-calendar.css';
 
@@ -21,7 +21,7 @@ export default function StaffCalendar() {
   const load=useCallback(async()=>{setLoading(true);setError('');try{setAppointments(await staffApiService.getAppointments(date));}catch(reason){setAppointments([]);setError(staffApiErrorMessage(reason,'Unable to load appointments for this date.'));}finally{setLoading(false);}},[date]);
   useEffect(()=>{load();},[load]);
   useEffect(()=>{const timer=setInterval(()=>setCurrentTime(new Date()),1000);return()=>clearInterval(timer);},[]);
-  const doctors=[...new Map(appointments.map(item=>[item.doctor_id,item.doctorName])).entries()]; const shown=appointments.filter(item=>(!doctor||item.doctor_id===doctor)&&(!status||item.status===status)); const visibleDoctors=doctors.filter(([id])=>shown.some(item=>item.doctor_id===id)); const mobileIndex=Math.max(0,visibleDoctors.findIndex(([id])=>id===mobileDoctor)); const selected=appointments.find(item=>item.id===selectedId); const actions=staffCalendarActions(selected,today,currentTime);
+  const doctors=[...new Map(appointments.map(item=>[item.doctor_id,item.doctorName])).entries()]; const shown=newestAppointmentsFirst(appointments.filter(item=>(!doctor||item.doctor_id===doctor)&&(!status||item.status===status))); const visibleDoctors=doctors.filter(([id])=>shown.some(item=>item.doctor_id===id)); const mobileIndex=Math.max(0,visibleDoctors.findIndex(([id])=>id===mobileDoctor)); const selected=appointments.find(item=>item.id===selectedId); const actions=staffCalendarActions(selected,today,currentTime);
   function resetSelectionState(){setCancelling(false);setConfirmingNoShow(false);}
   function changeDate(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return;setDate(value);setDoctor('');setMobileDoctor(null);setSelectedId(null);setMessage('');setError('');resetSelectionState();}
   async function update(action){setSubmitting(true);setError('');try{if(action==='arrival')await staffApiService.checkIn(selected.id);else if(action==='noShow')await staffApiService.noShow(selected.id);else await staffApiService.cancel(selected.id);setMessage(action==='arrival'?'Arrival confirmed. Patient added to the active queue.':action==='noShow'?'Appointment marked No-show.':'Appointment cancelled.');setSelectedId(null);resetSelectionState();await load();}catch(reason){setError(staffApiErrorMessage(reason,action==='arrival'?'Unable to confirm arrival. Refresh and try again.':action==='noShow'?'Unable to mark this appointment No-show. Refresh and try again.':'Unable to update this appointment.'));}finally{setSubmitting(false);}}

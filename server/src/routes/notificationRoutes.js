@@ -15,6 +15,7 @@ export function createNotificationRouter({ authModule, notificationModule }) {
   router.get('/', controller.list);
   router.get('/unread-count', controller.unreadCount);
   router.patch('/read-all', controller.markAllRead);
+  router.patch('/clear-all', controller.dismissAll);
   router.patch('/:notificationId/read', controller.markRead);
   return router;
 }

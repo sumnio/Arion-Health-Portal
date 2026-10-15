@@ -41,6 +41,7 @@ export function createNotificationService({ repository, now = () => new Date() }
         ...input,
         is_read: false,
         read_at: null,
+        dismissed_at: null,
         created_at: now(),
       }));
     },
@@ -70,6 +71,10 @@ export function createNotificationService({ repository, now = () => new Date() }
 
     async markAllNotificationsRead(userProfileId, role) {
       return repository.markAllReadForRecipient(recipient(userProfileId, role), now());
+    },
+
+    async dismissAllNotifications(userProfileId, role) {
+      return repository.dismissAllForRecipient(recipient(userProfileId, role), now());
     },
   });
 }

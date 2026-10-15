@@ -109,7 +109,17 @@ export function createDoctorApiService(repository = doctorApiRepository) {
       });
       return normalizeCertificate(await repository.getCertificate(created.id), patientName);
     },
+    previewCertificatePdf(recordId, values, options) {
+      return repository.previewCertificatePdf(recordId, {
+        purpose: values.purpose,
+        ...(values.purpose === 'Other' ? { custom_purpose: values.custom_purpose.trim() } : {}),
+        diagnosis_summary: values.diagnosis_summary.trim(),
+        recommendation: values.recommendation.trim(),
+        valid_until: values.valid_until || null,
+      }, options);
+    },
     async getCertificate(id) { return normalizeCertificate(await repository.getCertificate(id)); },
+    downloadCertificatePdf: (id, options) => repository.downloadCertificatePdf(id, options),
     completeAppointment: (id) => repository.completeAppointment(id),
   };
   return service;

@@ -34,6 +34,10 @@
 .doctor-schedule-page dd { font-weight: 700; margin: 0; }
 .doctor-schedule-page .schedule-empty { text-align: center; padding: 36px 12px; }
 .doctor-schedule-page .schedule-empty svg { width: 45px; margin: 0 auto 16px; color: #7a9d90; }
+.doctor-schedule-page .doctor-list-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; }
+.doctor-schedule-page .doctor-list-pagination button { min-height: 40px; border: 1px solid #b9c8d5; border-radius: 6px; padding: 8px 14px; background: white; color: #165b45; }
+.doctor-schedule-page .doctor-list-pagination button:disabled { color: #8997a8; cursor: not-allowed; }
+.doctor-schedule-page .doctor-list-pagination span { color: #52657b; font-size: 13px; }
 .doctor-schedule-page .availability-manager { margin-top: 20px; }
 .doctor-schedule-page .availability-explainer { max-width: 900px; }
 .doctor-schedule-page .availability-message { padding: 10px 12px; border-radius: 6px; background: #ddf4e9; color: #166447; }

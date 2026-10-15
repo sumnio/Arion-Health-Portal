@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { Readable } from 'node:stream';
 import { createApp } from '../src/app.js';
 import { createClinicalModule } from '../src/services/clinicalModule.js';
 import { createTokenService } from '../src/services/tokenService.js';
@@ -18,7 +19,7 @@ const ids = {
 
 function clone(value) { return value == null ? value : structuredClone(value); }
 
-function createContext({ certificateIssuanceEnabled = true, notificationTriggers, smsReminders, doctorStatus = 'active' } = {}) {
+function createContext({ certificateIssuanceEnabled = true, notificationTriggers, smsReminders, doctorStatus = 'active', missingSignature = false } = {}) {
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
     [ids.otherPatientProfile, { user_profile_id: ids.otherPatientProfile, display_name: 'Other Patient', role: 'patient', status: 'active' }],
@@ -51,6 +52,8 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
   const records = new Map();
   const prescriptions = new Map();
   const certificates = new Map();
+  const certificateArtifacts = new Map();
+  const certificateRuntime = { numberCalls: 0, renders: [] };
   const priorityAudits = [{ _id: '800000000000000000000001', appointment_id: ids.confirmed, previous_priority: 'normal', new_priority: 'urgent', urgency_reason: 'Severe pain or discomfort', explanation: null, correction_reason: null, staff_actor_user_profile_id: { _id: ids.staffProfile, display_name: 'Staff' }, created_at: new Date('2026-09-25T01:50:00Z') }];
   let sequence = 100;
   const nextId = () => (++sequence).toString(16).padStart(24, '0');
@@ -64,6 +67,7 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
     const record = records.get(String(certificate.medical_record_id?._id ?? certificate.medical_record_id));
     return {
       ...clone(certificate),
+      patient_id: clone(patients.get(String(certificate.patient_id?._id ?? certificate.patient_id))),
       doctor_id: clone(doctors.get(String(certificate.doctor_id?._id ?? certificate.doctor_id))),
       medical_record_id: record ? { _id: record._id, appointment_id: clone(appointments.get(String(record.appointment_id))) } : certificate.medical_record_id,
     };
@@ -109,9 +113,17 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
   };
   const tokens = createTokenService(SECRET);
   const authModule = { tokens, service: { async getAuthenticatedUser(profileId) { const found = profiles.get(String(profileId)); if (!found) throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); return clone(found); } } };
-  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City', timeZone: 'Asia/Manila' }, notificationTriggers, smsReminders, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => 'AHC-20260925-ABCDEF12', certificateIssuanceEnabled });
+  const signatureState = { current: Buffer.from('immutable-signature-v1') };
+  const doctorSignatureService = { async getDoctorSignatureForCertificate(doctorId) { return missingSignature || String(doctorId) !== ids.doctor ? null : { metadata: { configured: true }, stream: Readable.from(signatureState.current) }; } };
+  const certificateArtifactStorage = {
+    async upload(buffer) { const storageFileId = nextId(); certificateArtifacts.set(storageFileId, Buffer.from(buffer)); return { storageFileId }; },
+    openDownload(storageFileId) { return Readable.from(certificateArtifacts.get(String(storageFileId))); },
+    async delete(storageFileId) { certificateArtifacts.delete(String(storageFileId)); },
+  };
+  const pdfRenderer = (certificate, { signatureBuffer, signatureMissingText }) => { certificateRuntime.renders.push(clone(certificate)); return Buffer.from(`%PDF-1.4\n${certificate.medical_certificate_number}\n${certificate.patient_name}\n${signatureBuffer?.toString() ?? signatureMissingText ?? 'legacy-no-signature'}\n%%EOF\n`); };
+  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City', timeZone: 'Asia/Manila' }, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, pdfRenderer, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => { certificateRuntime.numberCalls += 1; return 'AHC-20260925-ABCDEF12'; }, certificateIssuanceEnabled });
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, clinicalModule });
-  return { app, appointments, records, prescriptions, certificates, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
+  return { app, appointments, records, prescriptions, certificates, certificateArtifacts, certificateRuntime, signatureState, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
 }
 
 async function withServer(app, callback) {
@@ -159,6 +171,71 @@ test('Patient reads own records with prescriptions but not another Patient recor
 test('Doctor reads only own consultation records', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const id = created.body.medical_record.id; assert.equal((await request(base, `/api/doctor/patients/${ids.patient}/records`, { cookie: context.cookie(ids.doctorProfile) })).status, 200); assert.equal((await request(base, `/api/doctor/records/${id}`, { cookie: context.cookie(ids.doctorProfile) })).status, 200); assert.equal((await request(base, `/api/doctor/records/${id}`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 404); }); });
 
 test('Doctor issues a server-numbered certificate with structured content and trusted dates', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: { ...certificateBody, medical_certificate_number: 'CLIENT' } }); assert.equal(response.status, 400); const issued = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody }); const body = await issued.json(); assert.equal(issued.status, 201); assert.equal(body.medical_certificate.medical_certificate_number, 'AHC-20260925-ABCDEF12'); assert.equal(body.medical_certificate.status, 'issued'); assert.equal(body.medical_certificate.date_issued, '2026-09-25'); assert.equal(body.medical_certificate.consultation_date, '2026-09-25'); assert.equal(body.medical_certificate.purpose_code, 'Fit to Return'); assert.equal(body.medical_certificate.recommendation, certificateBody.recommendation); assert.match(body.medical_certificate.statement, /may return to regular duties as stated in the recommendation below/); assert.equal(body.medical_certificate.doctor.license_number, 'LIC-100'); assert.equal(body.medical_certificate.doctor.ptr_number, 'PTR-100'); assert.equal(body.medical_certificate.doctor.signature_available, true); assert.equal('signature_path' in body.medical_certificate.doctor, false); assert.equal(body.medical_certificate.clinic.location, 'Quezon City'); for (const excluded of ['notes', 'prescriptions', 'supporting_documents']) assert.equal(excluded in body.medical_certificate, false); }); });
+
+test('new issuance requires a configured Doctor signature and stores no partial artifact', async () => {
+  const context = createContext({ missingSignature: true });
+  await withServer(context.app, async base => {
+    const created = await createRecord(context, base);
+    const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody });
+    assert.equal(response.status, 409); assert.equal((await response.json()).error.code, 'DOCTOR_SIGNATURE_REQUIRED');
+  });
+  assert.equal(context.certificates.size, 0); assert.equal(context.certificateArtifacts.size, 0);
+});
+
+test('Doctor draft preview is owner-scoped, branded-state ready, and completely non-persistent', async () => {
+  const context = createContext();
+  await withServer(context.app, async base => {
+    const created = await createRecord(context, base);
+    const path = `/api/doctor/records/${created.body.medical_record.id}/certificates/preview`;
+    const preview = await request(base, path, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody });
+    const bytes = Buffer.from(await preview.arrayBuffer());
+    assert.equal(preview.status, 200); assert.equal(preview.headers.get('content-type'), 'application/pdf');
+    assert.match(preview.headers.get('cache-control'), /private/); assert.match(preview.headers.get('content-disposition'), /^inline/);
+    assert.match(bytes.toString(), /DRAFT PREVIEW/); assert.equal(context.certificateRuntime.renders.at(-1).doctor_name, 'Dr. Maria Santos'); assert.match(bytes.toString(), /immutable-signature-v1/);
+    assert.equal(context.certificates.size, 0); assert.equal(context.certificateArtifacts.size, 0); assert.equal(context.certificateRuntime.numberCalls, 0);
+    assert.equal((await request(base, path, { method: 'POST', cookie: context.cookie(ids.otherDoctorProfile), body: certificateBody })).status, 404);
+    for (const profile of [ids.patientProfile, ids.staffProfile, ids.adminProfile]) assert.equal((await request(base, path, { method: 'POST', cookie: context.cookie(profile), body: certificateBody })).status, 403);
+  });
+});
+
+test('draft preview shows missing signature safely and respects active-account and Production gates', async () => {
+  const missing = createContext({ missingSignature: true });
+  await withServer(missing.app, async base => {
+    const created = await createRecord(missing, base);
+    const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates/preview`, { method: 'POST', cookie: missing.cookie(ids.doctorProfile), body: certificateBody });
+    assert.equal(response.status, 200); assert.match(Buffer.from(await response.arrayBuffer()).toString(), /Signature not configured - preview only/);
+  });
+  const inactive = createContext({ doctorStatus: 'inactive' });
+  await withServer(inactive.app, async base => assert.equal((await request(base, `/api/doctor/records/${ids.confirmed}/certificates/preview`, { method: 'POST', cookie: inactive.cookie(ids.doctorProfile), body: certificateBody })).status, 403));
+  const restricted = createContext({ certificateIssuanceEnabled: false });
+  await withServer(restricted.app, async base => {
+    const created = await createRecord(restricted, base);
+    assert.equal((await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates/preview`, { method: 'POST', cookie: restricted.cookie(ids.doctorProfile), body: certificateBody })).status, 503);
+  });
+  for (const context of [missing, inactive, restricted]) {
+    assert.equal(context.certificates.size, 0); assert.equal(context.certificateArtifacts.size, 0); assert.equal(context.certificateRuntime.numberCalls, 0);
+  }
+});
+
+test('immutable PDF artifact is owner-scoped and survives current-signature replacement unchanged', async () => {
+  const context = createContext();
+  await withServer(context.app, async base => {
+    const created = await createRecord(context, base);
+    const issued = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody });
+    const certificate = (await issued.json()).medical_certificate;
+    assert.equal(context.certificateRuntime.renders.at(-1).doctor_name, 'Dr. Maria Santos');
+    const first = await request(base, `/api/doctor/certificates/${certificate.id}/pdf`, { cookie: context.cookie(ids.doctorProfile) });
+    const original = Buffer.from(await first.arrayBuffer()); assert.equal(first.status, 200); assert.equal(first.headers.get('content-type'), 'application/pdf');
+    assert.match(first.headers.get('cache-control'), /private/); assert.ok(first.headers.get('etag')?.startsWith('"sha256-'));
+    context.signatureState.current = Buffer.from('immutable-signature-v2');
+    const second = await request(base, `/api/patient/certificates/${certificate.id}/pdf`, { cookie: context.cookie(ids.patientProfile) });
+    assert.deepEqual(Buffer.from(await second.arrayBuffer()), original);
+    for (const profile of [ids.otherPatientProfile, ids.otherDoctorProfile, ids.staffProfile, ids.adminProfile]) {
+      const rolePath = profile === ids.otherDoctorProfile ? `/api/doctor/certificates/${certificate.id}/pdf` : `/api/patient/certificates/${certificate.id}/pdf`;
+      assert.ok([403, 404].includes((await request(base, rolePath, { cookie: context.cookie(profile) })).status));
+    }
+  });
+});
 
 test('restricted Production certificate issuance fails closed through the direct API', async () => {
   const context = createContext({ certificateIssuanceEnabled: false });

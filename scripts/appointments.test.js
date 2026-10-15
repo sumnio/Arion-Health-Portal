@@ -2,8 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { appointmentService, canManageAppointment } from '../src/services/appointmentService.js';
 import { bookingService, clinicToday } from '../src/services/bookingService.js';
+import { appointmentListPage, newestAppointmentsFirst, RECENT_APPOINTMENT_LIMIT } from '../src/services/dateTimeService.js';
 
 import { availableFutureSlot as futureSlot } from './availableFutureSlot.js';
+
+test('recent appointment lists are newest-first, capped at ten, and do not mutate API data', () => {
+  const items = Array.from({ length: 12 }, (_, index) => ({ id: String(index + 1), appointment_at: `2026-10-15T${String(index).padStart(2, '0')}:00:00.000Z` }));
+  const ordered = newestAppointmentsFirst(items, RECENT_APPOINTMENT_LIMIT);
+  assert.equal(RECENT_APPOINTMENT_LIMIT, 10);
+  assert.deepEqual(ordered.map((item) => item.id), ['12', '11', '10', '9', '8', '7', '6', '5', '4', '3']);
+  assert.deepEqual(appointmentListPage(items, 2).items.map((item) => item.id), ['2', '1']);
+  assert.deepEqual(appointmentListPage(items, 2), { items: [items[1], items[0]], page: 2, pageCount: 2, total: 12, start: 10 });
+  assert.deepEqual(items.map((item) => item.id), Array.from({ length: 12 }, (_, index) => String(index + 1)));
+});
 
 test('fixtures cover schema statuses; unknown details are handled', () => {
   assert.deepEqual(new Set(appointmentService.list().map(item => item.status)), new Set(['pending', 'confirmed', 'completed', 'cancelled', 'no_show']));

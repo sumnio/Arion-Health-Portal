@@ -1,0 +1,3 @@
+.certificate-preview-state { min-height: 80px; display: grid; place-items: center; text-align: center; }
+.certificate-pdf-preview { display: block; width: 100%; min-height: 720px; border: 1px solid #cbd7e1; border-radius: 6px; background: #eef3f7; }
+@media(max-width: 500px) { .certificate-pdf-preview { min-height: 520px; } }

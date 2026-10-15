@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { deflateSync } from 'node:zlib';
 import {
   Appointment,
   AppointmentPriorityAudit,
@@ -19,6 +20,7 @@ import {
 } from '../../server/src/models/index.js';
 import { createGridFsSupportingDocumentStorage } from '../../server/src/services/supportingDocumentStorage.js';
 import { createGridFsDoctorSignatureStorage } from '../../server/src/services/doctorSignatureStorage.js';
+import { createGridFsCertificateArtifactStorage } from '../../server/src/services/certificateArtifactStorage.js';
 import { authRepository } from '../../server/src/repositories/authRepository.js';
 import { passwordService } from '../../server/src/services/passwordService.js';
 import {
@@ -32,6 +34,21 @@ export const E2E_CLINIC_TIME_ZONE = 'Asia/Manila';
 
 function marked(prefix, marker) {
   return `e2e-${prefix}-${marker}`;
+}
+
+function pngChunk(type, data = Buffer.alloc(0)) {
+  const value = Buffer.alloc(12 + data.length); value.writeUInt32BE(data.length, 0); value.write(type, 4, 4, 'ascii'); data.copy(value, 8); return value;
+}
+
+function syntheticSignaturePng(width = 400, height = 120) {
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(width, 0); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8; ihdr[9] = 6;
+  const rows = [];
+  for (let y = 0; y < height; y += 1) {
+    const row = Buffer.alloc(1 + width * 4, 255); row[0] = 0;
+    for (let x = 0; x < width; x += 1) { const p = 1 + x * 4; row[p] = 10; row[p + 1] = 70; row[p + 2] = 140; row[p + 3] = Math.abs(y - (60 + Math.sin(x / 25) * 15)) < 4 ? 255 : 0; }
+    rows.push(row);
+  }
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', ihdr), pngChunk('IDAT', deflateSync(Buffer.concat(rows))), pngChunk('IEND')]);
 }
 
 export class PatientScenario {
@@ -134,6 +151,13 @@ export class PatientScenario {
       license_number: doctor.license_number,
       ptr_number: doctor.ptr_number,
     };
+  }
+
+  async createDoctorSignature(doctor) {
+    const signature = syntheticSignaturePng();
+    const stored = await createGridFsDoctorSignatureStorage().upload({ buffer: signature, mimeType: 'image/png' });
+    await DoctorSignature.create({ doctor_id: doctor.doctorId, storage_file_id: stored.storageFileId, mime_type: 'image/png', file_size: signature.length, width: 400, height: 120, uploaded_at: new Date() });
+    return { storageFileId: String(stored.storageFileId), bytes: signature };
   }
 
   async createBookableSlot({ doctor, offset = 2, startTime = '10:00', endTime = '11:00' }) {
@@ -275,7 +299,12 @@ export class PatientScenario {
       ],
     };
 
-    if (certificateQuery.$or.length) await MedicalCertificate.deleteMany(certificateQuery);
+    if (certificateQuery.$or.length) {
+      const certificates = await MedicalCertificate.find(certificateQuery).select('pdf_storage_file_id').lean();
+      const certificateStorage = createGridFsCertificateArtifactStorage();
+      await Promise.allSettled(certificates.filter(item => item.pdf_storage_file_id).map(item => certificateStorage.delete(item.pdf_storage_file_id)));
+      await MedicalCertificate.deleteMany(certificateQuery);
+    }
     if (recordIds.length) await Prescription.deleteMany({ medical_record_id: { $in: recordIds } });
     if (recordQuery.$or.length) await MedicalRecord.deleteMany(recordQuery);
     if (appointmentIds.length) {

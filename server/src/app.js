@@ -196,10 +196,12 @@ export function createApp(
       notificationTriggers,
       smsReminders: smsModule.smsReminderService,
     });
+  const doctorSignatureModule = dependencies.doctorSignatureModule ?? createDoctorSignatureModule({ logger: securityLogger });
   const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({
     clinic: schedulingModule.clinic,
     notificationTriggers,
     smsReminders: smsModule.smsReminderService,
+    doctorSignatureService: doctorSignatureModule.doctorSignatureService,
     certificateIssuanceEnabled,
   });
   const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic, bookingAvailabilityService: schedulingModule.bookingAvailabilityService, notificationTriggers, smsReminders: smsModule.smsReminderService });
@@ -221,7 +223,6 @@ export function createApp(
     maxMessageLength: assistantMaxMessageLength,
   });
   const supportingDocumentModule = dependencies.supportingDocumentModule ?? createSupportingDocumentModule();
-  const doctorSignatureModule = dependencies.doctorSignatureModule ?? createDoctorSignatureModule({ logger: securityLogger });
   app.use('/api/health', healthRouter);
   app.use('/api/internal/sms-reminders', createInternalSmsReminderRouter({
     smsModule,

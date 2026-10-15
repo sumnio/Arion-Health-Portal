@@ -25,6 +25,10 @@
 .doctor-dashboard .doctor-schedule time { font-size: 15px; font-weight: 700; }
 .doctor-dashboard .doctor-schedule p { margin: 4px 0 0; font-size: 13px; }
 .doctor-dashboard .doctor-schedule a { font-size: 13px; color: #22674f; text-decoration: underline; }
+.doctor-dashboard .doctor-list-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; }
+.doctor-dashboard .doctor-list-pagination button { min-height: 40px; border: 1px solid #b9c8d5; border-radius: 6px; padding: 8px 14px; background: white; color: #165b45; cursor: pointer; }
+.doctor-dashboard .doctor-list-pagination button:disabled { color: #8997a8; cursor: not-allowed; }
+.doctor-dashboard .doctor-list-pagination span { color: #52657b; font-size: 13px; }
 .doctor-dashboard .status-completed { background: #e2edff; color: #165ec0; }
 .doctor-dashboard .status-confirmed { background: #ddf4e9; color: #166447; }
 .doctor-dashboard .status-pending { background: #fff3d9; color: #825400; }

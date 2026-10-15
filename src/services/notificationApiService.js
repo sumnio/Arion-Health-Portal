@@ -76,6 +76,7 @@ export function createNotificationApiService(repository = notificationApiReposit
     },
     async markRead(notificationId) { return normalizeNotification(await repository.markRead(notificationId)); },
     async markAllRead() { return repository.markAllRead(); },
+    async clearAll() { return repository.clearAll(); },
   });
 }
 
