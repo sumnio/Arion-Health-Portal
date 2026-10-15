@@ -21,7 +21,7 @@ const ids = {
   otherAppointment: '100000000000000000000005',
 };
 
-function createContext({ currentTime = NOW, notificationTriggers } = {}) {
+function createContext({ currentTime = NOW, notificationTriggers, smsReminders } = {}) {
   const recordedAppointments = new Set();
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
@@ -152,6 +152,7 @@ function createContext({ currentTime = NOW, notificationTriggers } = {}) {
     appointments: appointmentRepository,
     bookingAvailabilityService,
     notificationTriggers,
+    smsReminders,
     now: () => new Date(currentTime),
   });
   const app = createApp(
@@ -532,6 +533,76 @@ test('notification trigger failure does not roll back a successful Patient booki
     assert.equal(response.status, 201);
     const appointment = (await response.json()).appointment;
     assert.equal(context.appointments.get(appointment.id).status, 'pending');
+  });
+});
+
+test('Patient appointment lifecycle invokes SMS reminder workflows after successful mutations', async () => {
+  const calls = [];
+  const smsReminders = {
+    async appointmentBooked(value) { calls.push(['booked', structuredClone(value)]); },
+    async appointmentRescheduled(value) { calls.push(['rescheduled', structuredClone(value)]); },
+    async appointmentCancelled(value) { calls.push(['cancelled', structuredClone(value)]); },
+    async appointmentArrived(value) { calls.push(['confirmed', structuredClone(value)]); },
+  };
+  const context = createContext({ smsReminders });
+  await withServer(context.app, async (base) => {
+    assert.equal((await request(base, '/api/patient/appointments', {
+      method: 'POST', cookie: context.cookie(ids.patientProfile), body: validBooking,
+    })).status, 201);
+    assert.equal((await request(base, `/api/patient/appointments/${ids.pending}/reschedule`, {
+      method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule,
+    })).status, 200);
+    assert.equal((await request(base, `/api/patient/appointments/${ids.pending}/cancel`, {
+      method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: {},
+    })).status, 200);
+  });
+  assert.deepEqual(calls.map(([event]) => event), ['booked', 'rescheduled', 'cancelled']);
+
+  const confirmation = createContext({ smsReminders });
+  await withServer(confirmation.app, async (base) => {
+    assert.equal((await request(base, `/api/staff/appointments/${ids.pending}/confirm`, {
+      method: 'PATCH', cookie: confirmation.cookie(ids.staffProfile), body: {},
+    })).status, 200);
+  });
+  assert.equal(calls.at(-1)[0], 'confirmed');
+});
+
+test('SMS reminder workflow failure does not roll back a successful Patient booking', async () => {
+  const context = createContext({
+    smsReminders: {
+      async appointmentBooked() { throw new Error('SMS reminder storage unavailable'); },
+    },
+  });
+  await withServer(context.app, async (base) => {
+    const response = await request(base, '/api/patient/appointments', {
+      method: 'POST', cookie: context.cookie(ids.patientProfile), body: validBooking,
+    });
+    assert.equal(response.status, 201);
+    assert.equal(context.appointments.get((await response.json()).appointment.id).status, 'pending');
+  });
+});
+
+test('SMS reminder workflow failures do not roll back Patient reschedule or cancellation', async () => {
+  const reschedule = createContext({
+    smsReminders: { async appointmentRescheduled() { throw new Error('SMS unavailable'); } },
+  });
+  await withServer(reschedule.app, async (base) => {
+    const response = await request(base, `/api/patient/appointments/${ids.pending}/reschedule`, {
+      method: 'PATCH', cookie: reschedule.cookie(ids.patientProfile), body: validReschedule,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(reschedule.appointments.get(ids.pending).appointment_at.toISOString(), validReschedule.appointment_at);
+  });
+
+  const cancellation = createContext({
+    smsReminders: { async appointmentCancelled() { throw new Error('SMS unavailable'); } },
+  });
+  await withServer(cancellation.app, async (base) => {
+    const response = await request(base, `/api/patient/appointments/${ids.pending}/cancel`, {
+      method: 'PATCH', cookie: cancellation.cookie(ids.patientProfile), body: {},
+    });
+    assert.equal(response.status, 200);
+    assert.equal(cancellation.appointments.get(ids.pending).status, 'cancelled');
   });
 });
 

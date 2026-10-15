@@ -833,6 +833,7 @@ Collection: `appointment_sms_reminders`
 | `appointment_id` | ObjectId | Required immutable Appointment reference |
 | `patient_id` | ObjectId | Required immutable Patient reference |
 | `reminder_type` | enum | `booking_immediate`, `reminder_24h`, `reminder_1h`, `reschedule_immediate`, or `cancellation_immediate` |
+| `appointment_at` | Date | Required immutable snapshot of the scheduled instant used only for stale-plan revalidation |
 | `scheduled_for` | Date | Required immutable due time |
 | `status` | enum | `scheduled`, `processing`, `sent`, `failed`, or `invalidated` |
 | `schedule_version` | Number | Required immutable integer, minimum 1 |
@@ -845,6 +846,6 @@ Collection: `appointment_sms_reminders`
 | `failure_category` | enum, nullable | Safe category only; no raw provider response |
 | `created_at`, `updated_at` | Date | Mongoose timestamps |
 
-Indexes are unique `(appointment_id, reminder_type, schedule_version)`, due-queue `(status, scheduled_for)`, and lookup `(appointment_id, status)`. The logical identity keeps old schedule-version history separate instead of rewriting it. Milestone 1.39 does not add a schedule-version field to Appointment and does not yet create or invalidate reminders from Appointment transitions.
+Indexes are unique `(appointment_id, reminder_type, schedule_version)`, due-queue `(status, scheduled_for)`, and lookup `(appointment_id, status)`. The logical identity keeps old schedule-version history separate instead of rewriting it. Milestone 1.40 still does not add a schedule-version field to Appointment; the current reminder version is derived from reminder history. Patient booking/rescheduling creates the approved plan, while cancellation, confirmation/arrival, no-show, and completion invalidate unsent work.
 
-The collection never stores an SMS message body, phone-number snapshot, Patient name, Doctor name, visit reason, clinical content, or provider secret. The delivery service resolves the current matching Appointment/Patient contact and Doctor display name only after an atomic claim. Stale `processing` records become terminal `failed` with `stale_processing`; no automatic retry is implemented.
+The collection never stores an SMS message body, phone-number snapshot, Patient name, Doctor name, visit reason, clinical content, or provider secret. The delivery service resolves the current matching Appointment/Patient contact and Doctor display name only after an atomic claim, then revalidates status, check-in state, appointment time, and schedule version. Stale `processing` records become terminal `failed` with `stale_processing`; no automatic retry is implemented.

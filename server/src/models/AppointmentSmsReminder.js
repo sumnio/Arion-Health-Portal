@@ -48,6 +48,7 @@ const appointmentSmsReminderSchema = new mongoose.Schema(
       enum: SMS_REMINDER_TYPES,
       immutable: true,
     },
+    appointment_at: { type: Date, required: true, immutable: true },
     scheduled_for: { type: Date, required: true, immutable: true },
     status: {
       type: String,

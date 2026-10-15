@@ -11,6 +11,7 @@ export function createSmsService({ enabled = false, provider }) {
           provider_reference_id: null,
           outcome: 'disabled',
           provider_status: null,
+          latency_ms: 0,
           safe_error_category: null,
         };
       }
@@ -23,6 +24,7 @@ export function createSmsService({ enabled = false, provider }) {
           provider_reference_id: null,
           outcome: 'failed',
           provider_status: null,
+          latency_ms: 0,
           safe_error_category: 'invalid_recipient',
         };
       }

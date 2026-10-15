@@ -178,17 +178,29 @@ export function createApp(
   });
   const notificationModule = dependencies.notificationModule ?? createNotificationModule({ logger: securityLogger });
   const notificationTriggers = dependencies.notificationTriggers ?? notificationModule.notificationTriggerService;
+  const smsModule = dependencies.smsModule ?? createSmsModule({
+    smsEnabled,
+    smsProvider,
+    uniSmsApiKey,
+    uniSmsSenderId,
+    smsProviderTimeoutMs,
+    clinicTimeZone,
+    staleProcessingMs: smsStaleProcessingMs,
+    logger: securityLogger,
+  });
   const patientAppointmentModule =
     dependencies.patientAppointmentModule ?? createPatientAppointmentModule({
       bookingAvailabilityService: schedulingModule.bookingAvailabilityService,
       notificationTriggers,
+      smsReminders: smsModule.smsReminderService,
     });
   const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({
     clinic: schedulingModule.clinic,
     notificationTriggers,
+    smsReminders: smsModule.smsReminderService,
     certificateIssuanceEnabled,
   });
-  const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic, bookingAvailabilityService: schedulingModule.bookingAvailabilityService, notificationTriggers });
+  const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic, bookingAvailabilityService: schedulingModule.bookingAvailabilityService, notificationTriggers, smsReminders: smsModule.smsReminderService });
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   const analyticsModule = dependencies.analyticsModule ?? createAnalyticsModule({ clinic: schedulingModule.clinic });
   const assistantModule = dependencies.assistantModule ?? createAssistantModule({
@@ -207,16 +219,6 @@ export function createApp(
     maxMessageLength: assistantMaxMessageLength,
   });
   const supportingDocumentModule = dependencies.supportingDocumentModule ?? createSupportingDocumentModule();
-  const smsModule = dependencies.smsModule ?? createSmsModule({
-    smsEnabled,
-    smsProvider,
-    uniSmsApiKey,
-    uniSmsSenderId,
-    smsProviderTimeoutMs,
-    clinicTimeZone,
-    staleProcessingMs: smsStaleProcessingMs,
-    logger: securityLogger,
-  });
   app.use('/api/health', healthRouter);
   app.use('/api/internal/sms-reminders', createInternalSmsReminderRouter({
     smsModule,

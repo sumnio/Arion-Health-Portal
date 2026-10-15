@@ -3,6 +3,7 @@ import { appointmentLocalParts, clinicDate, addDays, isValidDateOnly, zonedDateT
 import { validateObjectId } from '../validation/appointmentValidation.js';
 import { validatePriority, validateWalkInAppointment, validateWalkInPatient } from '../validation/staffOperationsValidation.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
+import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
 
 export const NO_SHOW_GRACE_PERIOD_MS = 5 * 60 * 1000;
 
@@ -56,7 +57,7 @@ function appointmentHighlights(items, current) {
   return { latest_appointment: past.at(-1) ?? null, upcoming_appointment: upcoming };
 }
 
-export function createStaffOperationsService({ repository, clinic, bookingAvailabilityService, notificationTriggers, now = () => new Date() }) {
+export function createStaffOperationsService({ repository, clinic, bookingAvailabilityService, notificationTriggers, smsReminders, now = () => new Date() }) {
   return {
     async appointments(dateValue) {
       const date = dateValue || clinicDate(now(), clinic.timeZone);
@@ -134,6 +135,9 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
         appointmentId: updated._id ?? updated.id,
         doctorId: updated.doctor_id?._id ?? updated.doctor_id,
       });
+      await invokeSmsReminderWorkflow(smsReminders, 'appointmentArrived', {
+        appointmentId: updated._id ?? updated.id,
+      });
       return queueView(updated, date);
     },
     async updatePriority(staffProfileId, appointmentId, body) {
@@ -173,6 +177,9 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
       const cutoff = new Date(current.getTime() - NO_SHOW_GRACE_PERIOD_MS);
       const updated = await repository.markNoShowEligible(appointmentId, cutoff, existing.appointment_at);
       if (!updated) throw httpError(409, 'NO_SHOW_NOT_ALLOWED', 'This appointment can no longer be marked as no-show.');
+      await invokeSmsReminderWorkflow(smsReminders, 'appointmentNoShow', {
+        appointmentId: updated._id ?? updated.id,
+      });
       return { id: id(updated), status: updated.status };
     },
     async cancel(appointmentId) {
@@ -186,6 +193,11 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
         appointmentId: updated._id ?? updated.id,
         patientId: updated.patient_id?._id ?? updated.patient_id,
         doctorId: updated.doctor_id?._id ?? updated.doctor_id,
+      });
+      await invokeSmsReminderWorkflow(smsReminders, 'appointmentCancelled', {
+        appointmentId: updated._id ?? updated.id,
+        patientId: updated.patient_id?._id ?? updated.patient_id,
+        appointmentAt: updated.appointment_at,
       });
       return appointmentView(updated, appointmentLocalParts(updated.appointment_at, clinic.timeZone).date);
     },

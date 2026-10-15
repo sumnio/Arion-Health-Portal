@@ -5,6 +5,7 @@ import {
   validateObjectId,
 } from '../validation/appointmentValidation.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
+import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
 
 const RESCHEDULE_CUTOFF_MS = 60 * 60 * 1000;
 
@@ -55,6 +56,7 @@ export function createAppointmentService({
   patientService,
   bookingAvailabilityService,
   notificationTriggers,
+  smsReminders,
   now = () => new Date(),
 }) {
   async function ownPatient(userProfileId) {
@@ -114,6 +116,11 @@ export function createAppointmentService({
         await invokeNotificationTrigger(notificationTriggers, 'patientBooked', {
           appointmentId: appointment._id ?? appointment.id,
           doctorId: appointment.doctor_id?._id ?? appointment.doctor_id,
+        });
+        await invokeSmsReminderWorkflow(smsReminders, 'appointmentBooked', {
+          appointmentId: appointment._id ?? appointment.id,
+          patientId: appointment.patient_id?._id ?? appointment.patient_id,
+          appointmentAt: appointment.appointment_at,
         });
         return presentAppointment(appointment, false, userProfileId);
       } catch (error) {
@@ -188,6 +195,11 @@ export function createAppointmentService({
         patientId: updated.patient_id?._id ?? updated.patient_id,
         doctorId: updated.doctor_id?._id ?? updated.doctor_id,
       });
+      await invokeSmsReminderWorkflow(smsReminders, 'appointmentCancelled', {
+        appointmentId: updated._id ?? updated.id,
+        patientId: updated.patient_id?._id ?? updated.patient_id,
+        appointmentAt: updated.appointment_at,
+      });
       return presentAppointment(updated, false, userProfileId);
     },
 
@@ -247,6 +259,11 @@ export function createAppointmentService({
           patientId: updated.patient_id?._id ?? updated.patient_id,
           doctorId: updated.doctor_id?._id ?? updated.doctor_id,
         });
+        await invokeSmsReminderWorkflow(smsReminders, 'appointmentRescheduled', {
+          appointmentId: updated._id ?? updated.id,
+          patientId: updated.patient_id?._id ?? updated.patient_id,
+          appointmentAt: updated.appointment_at,
+        });
         return presentAppointment(updated, false, userProfileId);
       } catch (error) {
         if (duplicateKey(error)) {
@@ -272,6 +289,9 @@ export function createAppointmentService({
       await invokeNotificationTrigger(notificationTriggers, 'appointmentConfirmed', {
         appointmentId: updated._id ?? updated.id,
         patientId: updated.patient_id?._id ?? updated.patient_id,
+      });
+      await invokeSmsReminderWorkflow(smsReminders, 'appointmentArrived', {
+        appointmentId: updated._id ?? updated.id,
       });
       return presentAppointment(updated);
     },

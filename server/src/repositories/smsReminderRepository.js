@@ -13,6 +13,45 @@ export const smsReminderRepository = {
     ).lean();
   },
 
+  async claimById(id, now) {
+    return AppointmentSmsReminder.findOneAndUpdate(
+      { _id: id, status: 'scheduled', scheduled_for: { $lte: now } },
+      { $set: { status: 'processing', processing_started_at: now } },
+      { new: true, runValidators: true },
+    ).lean();
+  },
+
+  async latestScheduleVersion(appointmentId) {
+    const item = await AppointmentSmsReminder.findOne({ appointment_id: appointmentId })
+      .select('schedule_version')
+      .sort({ schedule_version: -1 })
+      .lean();
+    return item?.schedule_version ?? 0;
+  },
+
+  async invalidateUnsent(appointmentId, now) {
+    const result = await AppointmentSmsReminder.updateMany(
+      { appointment_id: appointmentId, status: { $in: ['scheduled', 'processing'] } },
+      {
+        $set: {
+          status: 'invalidated',
+          invalidated_at: now,
+          processing_started_at: null,
+        },
+      },
+      { runValidators: true },
+    );
+    return result.modifiedCount;
+  },
+
+  async markInvalidated(id, now) {
+    return AppointmentSmsReminder.findOneAndUpdate(
+      { _id: id, status: 'processing' },
+      { $set: { status: 'invalidated', invalidated_at: now, processing_started_at: null } },
+      { new: true, runValidators: true },
+    ).lean();
+  },
+
   async failStaleProcessing(cutoff, now) {
     const result = await AppointmentSmsReminder.updateMany(
       { status: 'processing', processing_started_at: { $lte: cutoff } },
@@ -34,7 +73,7 @@ export const smsReminderRepository = {
       _id: reminder.appointment_id,
       patient_id: reminder.patient_id,
     })
-      .select('appointment_at patient_id doctor_id')
+      .select('appointment_at status check_in_at patient_id doctor_id')
       .populate({ path: 'patient_id', select: 'contact_number' })
       .populate({
         path: 'doctor_id',
@@ -45,6 +84,8 @@ export const smsReminderRepository = {
     if (!appointment) return null;
     return {
       appointmentAt: appointment.appointment_at,
+      status: appointment.status,
+      checkedIn: Boolean(appointment.check_in_at),
       phoneNumber: appointment.patient_id?.contact_number ?? null,
       doctorName: appointment.doctor_id?.user_profile_id?.display_name ?? null,
     };

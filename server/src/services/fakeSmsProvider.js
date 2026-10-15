@@ -10,6 +10,7 @@ export function createFakeSmsProvider({ capture } = {}) {
         provider_reference_id: `fake-sms-${deliveries.length}`,
         outcome: 'sent',
         provider_status: 'sent',
+        latency_ms: 0,
         safe_error_category: null,
       };
     },

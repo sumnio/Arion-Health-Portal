@@ -8,6 +8,7 @@ import {
 } from '../validation/clinicalValidation.js';
 import { addDays, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
+import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
 
 function id(value) {
   const resolved = value?._id ?? value?.id ?? value;
@@ -78,7 +79,7 @@ function presentCertificate(item, clinic) {
   };
 }
 
-export function createClinicalService({ repository, clinic, notificationTriggers, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
+export function createClinicalService({ repository, clinic, notificationTriggers, smsReminders, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
   async function doctorFor(profileId) {
     const doctor = await repository.findDoctorByUserProfileId(profileId);
     if (!doctor) throw httpError(403, 'DOCTOR_PROFILE_REQUIRED', 'An active Doctor profile is required.');
@@ -233,6 +234,9 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       await invokeNotificationTrigger(notificationTriggers, 'appointmentCompleted', {
         appointmentId: completed._id ?? completed.id,
         patientId: completed.patient_id?._id ?? completed.patient_id,
+      });
+      await invokeSmsReminderWorkflow(smsReminders, 'appointmentCompleted', {
+        appointmentId: completed._id ?? completed.id,
       });
       return { id: id(completed), status: completed.status, medical_record_preserved: true };
     },

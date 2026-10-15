@@ -1,11 +1,18 @@
 const UNISMS_SEND_ENDPOINT = 'https://unismsapi.com/api/sms';
 
-function failure(category, status = null) {
+const ACCEPTED_PROVIDER_STATUSES = new Set(['pending', 'retrying', 'sent']);
+
+function elapsed(startedAt) {
+  return Math.max(0, Math.round(performance.now() - startedAt));
+}
+
+function failure(category, status = null, latencyMs = 0) {
   return {
     provider: 'unisms',
     provider_reference_id: null,
     outcome: 'failed',
     provider_status: status,
+    latency_ms: latencyMs,
     safe_error_category: category,
   };
 }
@@ -21,7 +28,8 @@ export function createUniSmsProvider({ apiKey = '', senderId = '', timeoutMs = 5
   return Object.freeze({
     name: 'unisms',
     async send({ recipient, content }) {
-      if (!apiKey || !senderId) return failure('configuration_error');
+      const startedAt = performance.now();
+      if (!apiKey || !senderId) return failure('configuration_error', null, elapsed(startedAt));
       try {
         const response = await fetchImpl(UNISMS_SEND_ENDPOINT, {
           method: 'POST',
@@ -32,18 +40,34 @@ export function createUniSmsProvider({ apiKey = '', senderId = '', timeoutMs = 5
           body: JSON.stringify({ recipient, content, sender_id: senderId }),
           signal: AbortSignal.timeout(timeoutMs),
         });
-        if (!response.ok) return failure(failureCategory(response.status), String(response.status));
+        if (response.status !== 201) {
+          const providerStatus = response.status == null ? null : String(response.status);
+          return failure(failureCategory(response.status), providerStatus, elapsed(startedAt));
+        }
         const body = await response.json().catch(() => ({}));
+        const message = body?.message;
+        const referenceId = typeof message?.reference_id === 'string' && message.reference_id.trim()
+          ? message.reference_id.trim()
+          : null;
+        const providerStatus = typeof message?.status === 'string'
+          ? message.status.trim().toLowerCase()
+          : null;
+        if (!referenceId || !ACCEPTED_PROVIDER_STATUSES.has(providerStatus)) {
+          return failure('provider_error', providerStatus, elapsed(startedAt));
+        }
         return {
           provider: 'unisms',
-          provider_reference_id: body.reference_id ?? body.id ?? null,
+          provider_reference_id: referenceId,
           outcome: 'sent',
-          provider_status: body.status ?? 'accepted',
+          provider_status: providerStatus,
+          latency_ms: elapsed(startedAt),
           safe_error_category: null,
         };
       } catch (error) {
-        if (error?.name === 'AbortError' || error?.name === 'TimeoutError') return failure('timeout');
-        return failure('unknown_error');
+        if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+          return failure('timeout', null, elapsed(startedAt));
+        }
+        return failure('unknown_error', null, elapsed(startedAt));
       }
     },
   });

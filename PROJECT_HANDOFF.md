@@ -247,7 +247,7 @@ Suggested post-MVP backlog, not approved implementation work:
 
 - Patient cancellation cutoff policy;
 - Doctor emergency-unavailability and rescheduling workflow;
-- email and SMS notifications;
+- real SMS/cron activation and broader email notification delivery;
 - Admin MFA recovery codes and controlled recovery tooling;
 - certificate QR verification;
 - protected Doctor signature storage and authorized rendering;
@@ -262,9 +262,15 @@ Suggested post-MVP backlog, not approved implementation work:
 
 ## Future-session handoff
 
-Milestone 1.39 adds the provider-neutral SMS foundation, UniSMS and fake adapters, strict Philippine E.164 conversion, private reminder persistence, duplicate prevention, atomic due-work claims, conservative stale-processing failure, and the secret-protected internal scheduler endpoint. SMS remains off by default. No Appointment workflow creates reminders yet, no real SMS was sent, no cron-job.org job was configured, and no deployment occurred. Milestone 1.40 may connect approved scheduling and invalidation rules only after review of the 1.39 foundation.
+Milestone 1.40 connects the provider-neutral SMS foundation to approved Appointment lifecycle rules. Patient-created Pending bookings receive the boundary-tested immediate/24-hour/1-hour plan when enabled. Rescheduling invalidates the prior version, increments the version, sends the immediate update, and creates a fresh timed plan. Cancellation invalidates unsent work and sends its immediate update; confirmation/arrival, no-show, and completion invalidate without sending. Staff-created Confirmed walk-ins remain ineligible.
 
-The `appointment_sms_reminders` collection contains no message body. The scheduler response and logs contain no Patient name, phone number, SMS text, or secret. Failed reminders are terminal in this milestone; stale processing is failed rather than automatically resent. Production activation requires separately approved secrets, Sender ID, scheduler setup, operational ownership, and restricted-Production review.
+The `appointment_sms_reminders` collection contains no message body or phone snapshot. Due processing atomically claims and revalidates current Appointment status, arrival, scheduled instant, newest reminder version, Patient, and current contact number. The scheduler response and logs contain no Patient name, phone number, SMS text, or secret. SMS remains disabled by default; no real SMS was sent, no cron-job.org job was configured, and no deployment occurred. Production activation still requires separately approved secrets, Sender ID, scheduler setup, operational ownership, and restricted-Production review.
+
+Milestone 1.41 validates the UniSMS adapter against the official single-message API. It uses `POST https://unismsapi.com/api/sms`, Basic authentication with the API secret and blank password, and the exact `recipient`, `content`, and `sender_id` request fields. Only an HTTP `201` response with nested `message.reference_id` and an accepted status becomes Arion `sent`; malformed success responses fail closed. Normalized results retain only safe provider metadata and latency. Arion `sent` means submitted to UniSMS, not guaranteed handset delivery.
+
+UniSMS message lookup and authenticated webhook events are documented, but the webhook is deferred for v1 to avoid a new public callback, secret, provider payload boundary, and delivery-state subsystem. Timeouts and dropped connections are never automatically retried because submission may have occurred. Fake, disabled, and real modes remain isolated; there is no real-to-fake fallback. SMS remains off by default, and no paid SMS was sent.
+
+For a later separately approved activation, create a cron-job.org job using `POST https://<YOUR-ARION-DOMAIN>/api/internal/sms-reminders/run` every five minutes, no body, a 60-second timeout, and `Authorization: Bearer <CRON_REMINDER_SECRET>`. The secret must be backend-only, uncommitted, unique, and at least 32 characters. A successful run returns only `processed`, `sent`, `failed`, `invalidated`, and `skipped` counts. Do not configure this job against Production until the user separately approves the environment values, provider activation, operational ownership, and restricted-Production review.
 
 For a new development session, begin with:
 

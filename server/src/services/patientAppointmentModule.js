@@ -8,6 +8,7 @@ export function createPatientAppointmentModule({
   appointments = appointmentRepository,
   bookingAvailabilityService,
   notificationTriggers,
+  smsReminders,
   now,
 } = {}) {
   const patientService = createPatientService({ repository: patients });
@@ -16,6 +17,7 @@ export function createPatientAppointmentModule({
     patientService,
     bookingAvailabilityService,
     notificationTriggers,
+    smsReminders,
     now,
   });
   return { patientService, appointmentService };

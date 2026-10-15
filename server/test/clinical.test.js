@@ -18,7 +18,7 @@ const ids = {
 
 function clone(value) { return value == null ? value : structuredClone(value); }
 
-function createContext({ certificateIssuanceEnabled = true, notificationTriggers } = {}) {
+function createContext({ certificateIssuanceEnabled = true, notificationTriggers, smsReminders } = {}) {
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
     [ids.otherPatientProfile, { user_profile_id: ids.otherPatientProfile, display_name: 'Other Patient', role: 'patient', status: 'active' }],
@@ -101,7 +101,7 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
   };
   const tokens = createTokenService(SECRET);
   const authModule = { tokens, service: { async getAuthenticatedUser(profileId) { const found = profiles.get(String(profileId)); if (!found) throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); return clone(found); } } };
-  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City' }, notificationTriggers, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => 'AHC-20260925-ABCDEF12', certificateIssuanceEnabled });
+  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City' }, notificationTriggers, smsReminders, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => 'AHC-20260925-ABCDEF12', certificateIssuanceEnabled });
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, clinicalModule });
   return { app, appointments, records, prescriptions, certificates, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
 }
@@ -195,6 +195,27 @@ test('Doctor completion invokes the Patient notification trigger only after the 
     })).status, 409);
   });
   assert.deepEqual(calls, [{ appointmentId: ids.confirmed, patientId: ids.patient }]);
+});
+
+test('Doctor completion invalidates SMS reminders without rolling back on reminder failure', async () => {
+  const calls = [];
+  const context = createContext({
+    smsReminders: {
+      async appointmentCompleted(value) {
+        calls.push(structuredClone(value));
+        throw new Error('SMS reminder storage unavailable');
+      },
+    },
+  });
+  await withServer(context.app, async (base) => {
+    await createRecord(context, base);
+    const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/complete`, {
+      method: 'PATCH', cookie: context.cookie(ids.doctorProfile),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(context.appointments.get(ids.confirmed).status, 'completed');
+  });
+  assert.deepEqual(calls, [{ appointmentId: ids.confirmed }]);
 });
 
 test('unchecked consultation cannot be completed even after record save', async () => { const context = createContext(); await withServer(context.app, async (base) => { assert.equal((await createRecord(context, base, ids.unchecked)).response.status, 201); const response = await request(base, `/api/doctor/appointments/${ids.unchecked}/complete`, { method: 'PATCH', cookie: context.cookie(ids.doctorProfile) }); assert.equal(response.status, 409); assert.equal((await response.json()).error.code, 'PATIENT_NOT_CHECKED_IN'); }); });
