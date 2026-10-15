@@ -62,12 +62,14 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   expect(await MedicalRecord.countDocuments({ appointment_id: appointment.appointmentId })).toBe(1);
 
   await page.getByRole('link', { name: 'Issue Medical Certificate' }).click();
-  await page.getByLabel('Purpose *').fill('Return to work');
+  await page.getByLabel('Purpose *').selectOption('Fit to Return');
+  await page.getByLabel('Recommendation *').fill('May return to regular duties on the date stated.');
+  await expect(page.getByText(/may return to regular duties as stated in the recommendation below/)).toBeVisible();
   await page.getByRole('button', { name: 'Issue Certificate' }).click();
   await expect(page.getByRole('heading', { name: 'Medical Certificate Issued' })).toBeVisible();
   await expect(page.getByText('Successfully issued. This certificate cannot be edited, deleted, or reissued here.')).toBeVisible();
   const certificate = await MedicalCertificate.findOne({ medical_record_id: record._id }).lean();
-  expect(certificate).toMatchObject({ purpose: 'Return to work', status: 'issued' });
+  expect(certificate).toMatchObject({ purpose: 'Fit to Return', purpose_code: 'Fit to Return', recommendation: 'May return to regular duties on the date stated.', status: 'issued' });
   expect(certificate.medical_certificate_number).toBeTruthy();
 
   const [download] = await Promise.all([

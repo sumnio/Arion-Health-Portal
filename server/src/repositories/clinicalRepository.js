@@ -16,6 +16,10 @@ const doctorPopulation = {
 };
 const patientPopulation = { path: 'patient_id', select: 'full_name dob sex contact_number allergies is_pwd' };
 const recordPopulation = [doctorPopulation, patientPopulation, { path: 'appointment_id', select: 'appointment_at status visit_type reason check_in_at' }];
+const certificatePopulation = [
+  doctorPopulation,
+  { path: 'medical_record_id', select: 'appointment_id', populate: { path: 'appointment_id', select: 'appointment_at' } },
+];
 
 export const clinicalRepository = {
   async findDoctorByUserProfileId(userProfileId) {
@@ -98,18 +102,18 @@ export const clinicalRepository = {
 
   async createCertificate(data) { return (await MedicalCertificate.create(data)).toObject(); },
   async listIssuedCertificatesForPatient(patientId) {
-    return MedicalCertificate.find({ patient_id: patientId, status: 'issued' }).sort({ date_issued: -1 }).populate(doctorPopulation).lean();
+    return MedicalCertificate.find({ patient_id: patientId, status: 'issued' }).sort({ date_issued: -1 }).populate(certificatePopulation).lean();
   },
   async findIssuedCertificateForPatient(id, patientId) {
-    return MedicalCertificate.findOne({ _id: id, patient_id: patientId, status: 'issued' }).populate(doctorPopulation).lean();
+    return MedicalCertificate.findOne({ _id: id, patient_id: patientId, status: 'issued' }).populate(certificatePopulation).lean();
   },
   async findCertificateForDoctor(id, doctorId) {
-    return MedicalCertificate.findOne({ _id: id, doctor_id: doctorId }).populate(doctorPopulation).lean();
+    return MedicalCertificate.findOne({ _id: id, doctor_id: doctorId }).populate(certificatePopulation).lean();
   },
   async listIssuedCertificatesForDoctorPatient(doctorId, patientId) {
     return MedicalCertificate.find({ doctor_id: doctorId, patient_id: patientId, status: 'issued' })
       .sort({ date_issued: -1 })
-      .populate(doctorPopulation)
+      .populate(certificatePopulation)
       .lean();
   },
 

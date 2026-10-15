@@ -12,6 +12,9 @@ const certificate = {
   patientName: 'Demo Patient',
   purpose: 'Fit to return to work',
   diagnosis_summary: 'Resolved viral infection',
+  recommendation: 'May return to regular duties.',
+  statement: 'This is to certify that the above-named patient was evaluated at Arion Health Clinic.',
+  consultation_date: '2026-09-25',
   date_issued: '2026-09-25',
   valid_until: '2026-09-30',
   status: 'issued',
@@ -31,6 +34,9 @@ test('builds an issued certificate as a PDF with the approved display fields', (
   assert.match(pdf, /Arion Health Clinic/);
   assert.match(pdf, /MC-2026-0001/);
   assert.match(pdf, /Demo Patient/);
+  assert.match(pdf, /CERTIFICATION STATEMENT/);
+  assert.match(pdf, /RECOMMENDATION/);
+  assert.match(pdf, /May return to regular duties/);
   assert.match(pdf, /Dr\. Maria Santos/);
   assert.match(pdf, /License No\. LIC-12345 \| PTR No\. PTR-67890/);
   assert.match(pdf, /%%EOF\n$/);

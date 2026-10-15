@@ -567,8 +567,11 @@ The MedicalCertificate fields match `SCHEMA.md`:
 | doctor_id | uuid, FK | References `Doctor.id`; certificate signer |
 | medical_record_id | uuid, FK, nullable | References `MedicalRecord.id` |
 | date_issued | date | Required certificate issue date |
-| purpose | text | Example: Fit to Work, Sick Leave |
-| diagnosis_summary | text | Patient-facing summary |
+| purpose | text | Backward-compatible resolved display purpose; legacy values remain readable |
+| purpose_code | enum, nullable | Controlled purpose for new certificates; null for legacy certificates |
+| custom_purpose | text, nullable | Safe bounded value used only when purpose is `Other` |
+| diagnosis_summary | text | Doctor-controlled certificate summary, maximum 500 characters for new certificates |
+| recommendation | text, nullable | Doctor-controlled recommendation, maximum 500 characters; nullable for legacy certificates |
 | valid_until | date, nullable | Optional expiration date |
 | status | enum | `draft`, `issued` |
 | created_at | timestamptz | Defaults to `now()` |
@@ -581,6 +584,8 @@ Certificate display reads `Doctor.license_number`, `Doctor.ptr_number`, and the 
 Clinic location is simple application/global configuration used for certificate display/generation. It is not a MedicalCertificate field and does not create a clinic-management entity.
 
 Drafts exist only during the approved Doctor creation flow. After status becomes `issued`, the certificate is read-only: no Edit, Update, Delete, Reissue, or Modify action is allowed. Patients and Staff cannot edit certificates, and Admin cannot edit certificate clinical content.
+
+For new certificates, `purpose_code` is limited to Sick Leave, School Absence, Fit to Return, Medical Consultation, Follow-up Consultation, Work Clearance, Travel / General Purpose, or Other. Other requires `custom_purpose`; standard purposes reject it. The formal statement is generated deterministically from the stored structured purpose rather than stored as editable text. `date_issued` is server-authoritative, while the trusted consultation date is derived through `MedicalCertificate.medical_record_id -> MedicalRecord.appointment_id -> Appointment.appointment_at`. Legacy records keep their existing `purpose` and remain readable.
 
 The current backend creation endpoint directly persists `issued`, matching the approved UI submission. Certificate numbers are generated server-side and database-unique. Doctor and Patient read endpoints filter by the stored relationship IDs. Responses resolve Doctor credentials and signature availability without exposing the protected `signature_path`.
 

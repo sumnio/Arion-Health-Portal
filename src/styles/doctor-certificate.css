@@ -6,7 +6,7 @@
 .doctor-certificate-page h3 { font-size: 20px; }
 .doctor-certificate-page .form-field { margin: 18px 0; }
 .doctor-certificate-page label { display: block; font-weight: 600; margin-bottom: 8px; }
-.doctor-certificate-page input, .doctor-certificate-page textarea { width: 100%; min-width: 0; font: inherit; padding: 12px; border: 1px solid #abbcc8; border-radius: 6px; background: white; }
+.doctor-certificate-page input, .doctor-certificate-page select, .doctor-certificate-page textarea { width: 100%; min-width: 0; font: inherit; padding: 12px; border: 1px solid #abbcc8; border-radius: 6px; background: white; }
 .doctor-certificate-page textarea { resize: vertical; }
 .doctor-certificate-page .certificate-error { color: #a33434; }
 .doctor-certificate-page [aria-invalid=true] { border-color: #a33434; }
@@ -15,6 +15,10 @@
 .doctor-certificate-page button { cursor: pointer; }
 .doctor-certificate-page button:disabled { cursor: not-allowed; opacity: .6; }
 .doctor-certificate-page .record-reference { overflow-wrap: anywhere; font-size: 12px; }
+.doctor-certificate-page .certificate-helper { margin-top: 5px; font-size: 12px; }
+.doctor-certificate-page .certificate-readonly-field { display: grid; gap: 6px; margin: 18px 0; padding: 12px; border-radius: 6px; background: #f0f4f8; }
+.doctor-certificate-page .certificate-readonly-field span { font-weight: 600; }
+.doctor-certificate-page .certificate-readonly-field small { color: #52657b; }
 .doctor-certificate-page .doctor-certificate-paper { padding: 24px; border: 1px solid #dfe7ee; overflow-wrap: anywhere; }
 .doctor-certificate-page .doctor-certificate-paper header { border-bottom: 2px solid #28664f; padding-bottom: 16px; }
 .doctor-certificate-page .sample-label { font-size: 11px; letter-spacing: 1px; }
@@ -25,6 +29,6 @@
 .doctor-certificate-page footer { border-top: 1px solid #dfe7ee; margin-top: 32px; padding-top: 18px; }
 .doctor-certificate-page .doctor-signature { min-height: 42px; display: flex; align-items: end; margin-bottom: 8px; }
 .doctor-certificate-page .doctor-signature span { font-family: "Segoe Script", cursive; font-size: 20px; color: #203a54; }
-.doctor-certificate-page input:focus-visible, .doctor-certificate-page textarea:focus-visible, .doctor-certificate-page button:focus-visible { outline: 3px solid #83ad9b; outline-offset: 2px; }
+.doctor-certificate-page input:focus-visible, .doctor-certificate-page select:focus-visible, .doctor-certificate-page textarea:focus-visible, .doctor-certificate-page button:focus-visible { outline: 3px solid #83ad9b; outline-offset: 2px; }
 @media(max-width: 950px) { .doctor-certificate-page .doctor-certificate-layout { grid-template-columns: 1fr; } }
 @media(max-width: 500px) { .doctor-certificate-page .record-card, .doctor-certificate-page .doctor-certificate-paper { padding: 16px; } }

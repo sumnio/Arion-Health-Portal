@@ -101,7 +101,12 @@ export function createDoctorApiService(repository = doctorApiRepository) {
     },
     async getRecord(id) { return normalizeRecord(await repository.getRecord(id)); },
     async issueCertificate(recordId, values, patientName = '') {
-      const created = await repository.createCertificate(recordId, { purpose: values.purpose.trim(), diagnosis_summary: values.diagnosis_summary.trim(), date_issued: values.date_issued, valid_until: values.valid_until || null });
+      const created = await repository.createCertificate(recordId, {
+        purpose: values.purpose,
+        ...(values.purpose === 'Other' ? { custom_purpose: values.custom_purpose.trim() } : {}),
+        diagnosis_summary: values.diagnosis_summary.trim(), recommendation: values.recommendation.trim(),
+        valid_until: values.valid_until || null,
+      });
       return normalizeCertificate(await repository.getCertificate(created.id), patientName);
     },
     async getCertificate(id) { return normalizeCertificate(await repository.getCertificate(id)); },

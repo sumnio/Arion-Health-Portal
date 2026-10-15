@@ -42,7 +42,10 @@ export function buildCertificatePdf(certificate) {
   line(`Certificate No. ${certificate.medical_certificate_number}`, { size: 10, gap: 24 });
   labeled('PATIENT', certificate.patientName);
   labeled('PURPOSE', certificate.purpose);
+  if (certificate.statement) labeled('CERTIFICATION STATEMENT', certificate.statement);
   labeled('DIAGNOSIS SUMMARY', certificate.diagnosis_summary);
+  if (certificate.recommendation) labeled('RECOMMENDATION', certificate.recommendation);
+  if (certificate.consultation_date) labeled('CONSULTATION DATE', pdfDate(certificate.consultation_date));
   labeled('DATE ISSUED', pdfDate(certificate.date_issued));
   if (certificate.valid_until) labeled('VALID UNTIL', pdfDate(certificate.valid_until));
   y -= 18; line('ISSUING DOCTOR', { size: 9, bold: true, gap: 16 });

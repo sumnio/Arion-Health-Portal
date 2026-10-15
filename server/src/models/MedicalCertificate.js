@@ -21,7 +21,10 @@ const medicalCertificateSchema = new mongoose.Schema(
     },
     date_issued: { type: Date, required: true },
     purpose: { type: String, required: true, trim: true },
-    diagnosis_summary: { type: String, required: true, trim: true },
+    purpose_code: { type: String, enum: ['Sick Leave', 'School Absence', 'Fit to Return', 'Medical Consultation', 'Follow-up Consultation', 'Work Clearance', 'Travel / General Purpose', 'Other'], default: null },
+    custom_purpose: { type: String, trim: true, maxlength: 100, default: null },
+    diagnosis_summary: { type: String, required: true, trim: true, maxlength: 500 },
+    recommendation: { type: String, trim: true, maxlength: 500, default: null },
     valid_until: {
       type: Date,
       default: null,

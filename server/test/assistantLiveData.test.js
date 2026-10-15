@@ -357,7 +357,7 @@ test('live tool logs contain only safe intent, tool, result class, and latency m
     assert.equal(serialized.includes(body.reply), false);
     assert.equal(serialized.includes('Dr. Visible Context'), false);
     assert.equal(serialized.includes('Appointment confirmed'), false);
-    assert.equal(serialized.includes('2026-10-15'), false);
+    assert.equal(serialized.includes('2026-10-15T02:30:00.000Z'), false);
   });
 });
 

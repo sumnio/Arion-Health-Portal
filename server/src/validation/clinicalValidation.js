@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
 import { httpError } from '../utils/httpError.js';
 import { boundedText, INPUT_LIMITS, rejectUnknownFields, requireObject, validateQueryKeys } from './inputValidation.js';
+import { CERTIFICATE_LIMITS, CERTIFICATE_PURPOSES } from '../services/certificateContent.js';
 
 const recordFields = new Set(['diagnosis', 'notes', 'follow_up', 'prescriptions']);
-const certificateFields = new Set(['purpose', 'diagnosis_summary', 'date_issued', 'valid_until']);
+const certificateFields = new Set(['purpose', 'custom_purpose', 'diagnosis_summary', 'recommendation', 'valid_until']);
 
 export function validateClinicalObjectId(value, name) {
   if (!mongoose.isObjectIdOrHexString(value)) {
@@ -51,16 +52,40 @@ function dateOnly(value, field) {
   return date;
 }
 
-export function validateCertificateCreate(body = {}) {
+function certificatePlainText(value, field, max, options) {
+  const text = boundedText(value, field, max, options);
+  if (text && (/[<>]/.test(text) || /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(text))) {
+    throw httpError(400, 'VALIDATION_ERROR', `${field} must contain plain text only.`);
+  }
+  return text;
+}
+
+export function validateCertificateCreate(body = {}, { dateIssued } = {}) {
   rejectUnknown(body, certificateFields);
-  const dateIssued = dateOnly(body.date_issued, 'date_issued');
+  const purpose = boundedText(body.purpose, 'purpose', INPUT_LIMITS.shortText);
+  if (!CERTIFICATE_PURPOSES.includes(purpose)) {
+    throw httpError(400, 'VALIDATION_ERROR', 'purpose must be an approved certificate purpose.');
+  }
+  const customPurpose = certificatePlainText(body.custom_purpose, 'custom_purpose', CERTIFICATE_LIMITS.customPurpose, { optional: purpose !== 'Other' });
+  if (purpose === 'Other' && !customPurpose) {
+    throw httpError(400, 'VALIDATION_ERROR', 'custom_purpose is required when purpose is Other.');
+  }
+  if (purpose !== 'Other' && customPurpose) {
+    throw httpError(400, 'VALIDATION_ERROR', 'custom_purpose is accepted only when purpose is Other.');
+  }
+  if (!(dateIssued instanceof Date) || Number.isNaN(dateIssued.getTime())) {
+    throw new TypeError('A valid server-authoritative dateIssued is required.');
+  }
   const validUntil = body.valid_until ? dateOnly(body.valid_until, 'valid_until') : null;
   if (validUntil && validUntil < dateIssued) {
     throw httpError(400, 'VALIDATION_ERROR', 'valid_until cannot be earlier than date_issued.');
   }
   return {
-    purpose: boundedText(body.purpose, 'purpose', INPUT_LIMITS.shortText),
-    diagnosis_summary: boundedText(body.diagnosis_summary, 'diagnosis_summary', 2000),
+    purpose: purpose === 'Other' ? customPurpose : purpose,
+    purpose_code: purpose,
+    custom_purpose: purpose === 'Other' ? customPurpose : null,
+    diagnosis_summary: certificatePlainText(body.diagnosis_summary, 'diagnosis_summary', CERTIFICATE_LIMITS.diagnosisSummary),
+    recommendation: certificatePlainText(body.recommendation, 'recommendation', CERTIFICATE_LIMITS.recommendation),
     date_issued: dateIssued,
     valid_until: validUntil,
   };

@@ -27,7 +27,8 @@ test('Doctor service normalizes consultation context and submits prescriptions w
   const service = createDoctorApiService(repository); const context = await service.getPatientContext('p1', { appointmentId: 'a1' }); assert.equal(context.patient.full_name, 'Alex Patient'); assert.equal(context.canAddRecord, true); assert.equal(context.priorityHistory[0].urgency_reason,'Severe pain or discomfort');
   await service.createMedicalRecord('a1', { diagnosis: ' Migraine ', notes: '', follow_up: '', prescriptions: [{ medicine: ' Drug ', dosage: ' 5 mg ', instructions: '' }] });
   assert.deepEqual(recordPayload, { diagnosis: 'Migraine', notes: null, follow_up: null, prescriptions: [{ medicine: 'Drug', dosage: '5 mg', instructions: null }] });
-  const issued = await service.issueCertificate('r1', { purpose: ' Work ', diagnosis_summary: ' Well ', date_issued: '2026-09-25', valid_until: '' }, 'Alex Patient');
+  const issued = await service.issueCertificate('r1', { purpose: 'Work Clearance', custom_purpose: '', diagnosis_summary: ' Well ', recommendation: ' Rest ', valid_until: '' }, 'Alex Patient');
+  assert.deepEqual(certificatePayload, { purpose: 'Work Clearance', diagnosis_summary: 'Well', recommendation: 'Rest', valid_until: null });
   assert.equal(certificatePayload.medical_certificate_number, undefined); assert.equal(certificatePayload.status, undefined); assert.equal(refreshedCertificate, true); assert.equal(issued.medical_certificate_number, 'AHC-1'); assert.equal('signature_path' in issued, false);
 });
 

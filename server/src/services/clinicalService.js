@@ -6,7 +6,8 @@ import {
   validateClinicalObjectId,
   validateMedicalRecordCreate,
 } from '../validation/clinicalValidation.js';
-import { addDays, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
+import { addDays, clinicDate, dateOnlyToUtc, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
+import { buildCertificateStatement, certificatePurposeDisplay } from './certificateContent.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
 import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
 
@@ -70,10 +71,18 @@ async function presentRecord(repository, record, suppliedPrescriptions) {
 }
 
 function presentCertificate(item, clinic) {
+  const medicalRecord = item.medical_record_id;
+  const appointment = medicalRecord?.appointment_id;
+  const timeZone = clinic.timeZone ?? 'Asia/Manila';
+  const purpose = certificatePurposeDisplay({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose });
   return {
     id: id(item), medical_certificate_number: item.medical_certificate_number,
     patient_id: id(item.patient_id), doctor: doctorView(item.doctor_id), medical_record_id: id(item.medical_record_id),
-    date_issued: date(item.date_issued), purpose: item.purpose, diagnosis_summary: item.diagnosis_summary,
+    date_issued: date(item.date_issued), purpose, purpose_code: item.purpose_code ?? null,
+    custom_purpose: item.custom_purpose ?? null, diagnosis_summary: item.diagnosis_summary,
+    recommendation: item.recommendation ?? null,
+    statement: buildCertificateStatement({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose }),
+    consultation_date: appointment?.appointment_at ? clinicDate(new Date(appointment.appointment_at), timeZone) : null,
     valid_until: date(item.valid_until), status: item.status, clinic,
     created_at: iso(item.created_at), updated_at: iso(item.updated_at),
   };
@@ -182,7 +191,8 @@ export function createClinicalService({ repository, clinic, notificationTriggers
         throw httpError(503, 'CERTIFICATE_ISSUANCE_DISABLED', 'Medical certificate issuance is temporarily unavailable.');
       }
       validateClinicalObjectId(recordId, 'recordId');
-      const input = validateCertificateCreate(body);
+      const issueDate = dateOnlyToUtc(clinicDate(now(), clinic.timeZone ?? 'Asia/Manila'));
+      const input = validateCertificateCreate(body, { dateIssued: issueDate });
       const doctor = await doctorFor(profileId);
       const record = await repository.findRecordForDoctor(recordId, id(doctor));
       if (!record) throw httpError(404, 'MEDICAL_RECORD_NOT_FOUND', 'Medical record was not found.');
@@ -194,6 +204,7 @@ export function createClinicalService({ repository, clinic, notificationTriggers
             doctor_id: doctor._id ?? doctor.id, medical_record_id: record._id ?? record.id, status: 'issued',
           });
           created.doctor_id = doctor;
+          created.medical_record_id = record;
           return presentCertificate(created, clinic);
         } catch (error) {
           if (!duplicateKey(error)) throw error;

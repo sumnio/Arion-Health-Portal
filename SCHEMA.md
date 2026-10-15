@@ -482,8 +482,11 @@ MedicalRecord
 | doctor_id | uuid, FK | References `Doctor.id`; certificate signer |
 | medical_record_id | uuid, FK, nullable | References `MedicalRecord.id` |
 | date_issued | date | Required certificate issue date |
-| purpose | text | Example: Fit to Work, Sick Leave |
-| diagnosis_summary | text | Patient-facing summary |
+| purpose | text | Backward-compatible resolved display purpose; legacy free-text certificates remain readable |
+| purpose_code | enum, nullable | New certificates use `Sick Leave`, `School Absence`, `Fit to Return`, `Medical Consultation`, `Follow-up Consultation`, `Work Clearance`, `Travel / General Purpose`, or `Other`; null on legacy records |
+| custom_purpose | text, nullable | Required, plain text, and at most 100 characters only when `purpose_code` is `Other` |
+| diagnosis_summary | text | Doctor-controlled certificate summary, at most 500 characters for new certificates |
+| recommendation | text, nullable | Doctor-controlled certificate recommendation, at most 500 characters; nullable for legacy records |
 | valid_until | date, nullable | Optional expiration date |
 | status | enum | `draft`, `issued` |
 | created_at | timestamptz | Defaults to `now()` |
@@ -503,6 +506,8 @@ Certificate lifecycle rules:
 - Draft certificates may exist only during the approved Doctor creation flow at `/doctor/records/:id/certificate/new`.
 - Once status becomes `issued`, the certificate is read-only. The MVP provides no Edit, Update, Delete, Reissue, or Modify action for an issued certificate.
 - Patients and Staff cannot edit certificates. Admin cannot edit certificate clinical content. Doctors issue certificates only through the approved creation flow.
+
+New certificate creation uses a controlled purpose allowlist and requires a concise Recommendation. The backend assigns `date_issued` from the configured clinic date and derives the consultation date from the linked MedicalRecord's Appointment. A centralized purpose-based helper generates the formal certification statement deterministically from `purpose_code` and `custom_purpose`; the statement is not accepted from the client and is not separately persisted. Legacy certificates with only `purpose` remain readable through a neutral generated statement. Certificate output excludes prescriptions, full Doctor notes, follow-up notes, supporting documents, allergies, emergency contacts, and queue data.
 - Issued certificates may be downloaded as PDFs from authenticated Doctor and Patient views. The current frontend generates the file from the authorized certificate API response; it does not expose a public certificate route or use an external PDF service.
 - QR verification, public certificate verification, external sharing, advanced digital-signature infrastructure, payment integration, and server-side PDF generation remain future scope.
 
