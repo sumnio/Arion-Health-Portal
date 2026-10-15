@@ -4,6 +4,7 @@ export { EmailVerificationChallenge, EMAIL_VERIFICATION_PURPOSES } from './Email
 export { PasswordResetToken } from './PasswordResetToken.js';
 export { Patient } from './Patient.js';
 export { Doctor } from './Doctor.js';
+export { DoctorSignature } from './DoctorSignature.js';
 export { Staff } from './Staff.js';
 export {
   Appointment,

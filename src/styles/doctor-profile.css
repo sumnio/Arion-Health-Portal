@@ -1,0 +1,19 @@
+.doctor-profile-page { max-width: 920px; margin: 0 auto; }
+.doctor-profile-page > header { margin-bottom: 1.25rem; }
+.doctor-profile-page > header h1 { margin-bottom: .3rem; }
+.doctor-profile-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 1.4rem; margin-bottom: 1rem; }
+.doctor-profile-card h2 { margin: 0 0 .75rem; }
+.doctor-profile-card dl { display: grid; grid-template-columns: minmax(100px, 180px) 1fr; gap: .75rem; margin: 0; }
+.doctor-profile-card dt { color: var(--muted); }
+.doctor-profile-card dd { margin: 0; font-weight: 600; }
+.signature-guidance, .signature-meta, .signature-privacy { color: var(--muted); font-size: .92rem; }
+.signature-preview { display: flex; align-items: center; justify-content: center; min-height: 140px; padding: 1rem; margin: 1rem 0 .5rem; border: 1px solid var(--border); border-radius: 10px; background: #f8fafc; }
+.signature-preview img { display: block; max-width: 100%; max-height: 220px; object-fit: contain; }
+.signature-empty { padding: 1.25rem; border: 1px dashed var(--border); border-radius: 10px; background: #f8fafc; }
+.signature-card form { display: grid; gap: .7rem; margin-top: 1rem; }
+.signature-card input[type="file"] { width: 100%; padding: .65rem; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.signature-card .primary-action { width: fit-content; }
+.signature-selection { margin: 0; overflow-wrap: anywhere; }
+.signature-card .form-error { color: #b42318; margin: 0; }
+.signature-card .form-success { color: #067647; margin: 0; }
+@media (max-width: 520px) { .doctor-profile-card dl { grid-template-columns: 1fr; gap: .25rem; } .doctor-profile-card dd { margin-bottom: .65rem; } .signature-card .primary-action { width: 100%; } }

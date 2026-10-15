@@ -100,6 +100,10 @@ export const routeGroups = {
     {
       "path": "/doctor/notifications",
       "title": "Notifications"
+    },
+    {
+      "path": "/doctor/profile",
+      "title": "My Profile"
     }
   ],
   "staff": [

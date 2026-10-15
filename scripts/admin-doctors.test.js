@@ -12,7 +12,6 @@ const validDoctor = {
   specialty: ' Family Medicine ',
   license_number: ' PRC-TEST-1 ',
   ptr_number: ' PTR-TEST-1 ',
-  signature_path: ' signatures/test-doctor.png ',
 };
 
 test('doctor profile fields are split from shared account fields', () => {
@@ -27,7 +26,6 @@ test('doctor profile fields are split from shared account fields', () => {
   assert.equal(added.specialty, 'Family Medicine');
   assert.equal(added.license_number, 'PRC-TEST-1');
   assert.equal(added.ptr_number, 'PTR-TEST-1');
-  assert.equal(added.signature_path, 'signatures/test-doctor.png');
   assert.equal(added.role, 'doctor');
   assert.equal(added.status, 'active');
   assert.match(added.id, /^[a-f\d-]{36}$/);
@@ -35,7 +33,7 @@ test('doctor profile fields are split from shared account fields', () => {
   assert.ok(added.updated_at);
 
   const doctorRow = adminDoctorStore.find(item => item.id === added.id);
-  assert.deepEqual(Object.keys(doctorRow).sort(), ['id', 'license_number', 'ptr_number', 'signature_path', 'specialty']);
+  assert.deepEqual(Object.keys(doctorRow).sort(), ['id', 'license_number', 'ptr_number', 'specialty']);
   const profile = adminUserProfileStore.find(item => item.id === added.id);
   assert.equal(profile.display_name, 'Dr. Test Doctor');
   assert.equal(profile.contact_number, '0917 000 0001');
@@ -75,7 +73,7 @@ test('doctor management UI has lifecycle controls and no delete action', async (
   assert.match(source, /Reactivate/);
   assert.match(source, /License number/);
   assert.match(source, /PTR number/);
-  assert.match(source, /Signature reference/);
+  assert.doesNotMatch(source, /Signature reference|signature_path/);
   assert.doesNotMatch(source, />Delete</);
 });
 

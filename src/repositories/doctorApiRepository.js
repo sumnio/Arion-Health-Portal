@@ -14,6 +14,9 @@ export function createDoctorApiRepository(client = apiClient) {
     async getRecurringAvailability() { return (await request('/api/doctor/availability')).availability; },
     async getPublishedAvailability() { return (await request('/api/doctor/published-availability')).published_availability; },
     async getBlockedTimes() { return (await request('/api/doctor/blocked-times')).blocked_times; },
+    async getSignatureStatus() { return (await request('/api/doctor/profile/signature/status')).signature; },
+    async getSignatureImage() { return client.download('/api/doctor/profile/signature'); },
+    async uploadSignature(formData) { return (await client.upload('/api/doctor/profile/signature', formData, { method: 'POST' })).signature; },
     async getPatientHistory(patientId) { return request(`/api/doctor/patients/${encodeURIComponent(patientId)}/records`); },
     async listSupportingDocuments(appointmentId) {
       return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/supporting-documents`)).supporting_documents;

@@ -854,3 +854,21 @@ Collection: `appointment_sms_reminders`
 Indexes are unique `(appointment_id, reminder_type, schedule_version)`, due-queue `(status, scheduled_for)`, and lookup `(appointment_id, status)`. The logical identity keeps old schedule-version history separate instead of rewriting it. Milestone 1.40 still does not add a schedule-version field to Appointment; the current reminder version is derived from reminder history. Patient booking/rescheduling creates the approved plan, while cancellation, confirmation/arrival, no-show, and completion invalidate unsent work.
 
 The collection never stores an SMS message body, phone-number snapshot, Patient name, Doctor name, visit reason, clinical content, or provider secret. The delivery service resolves the current matching Appointment/Patient contact and Doctor display name only after an atomic claim, then revalidates status, check-in state, appointment time, and schedule version. Stale `processing` records become terminal `failed` with `stale_processing`; no automatic retry is implemented.
+
+## DoctorSignature (Milestone 1.43)
+
+Collection: `doctor_signatures`
+
+| Field | Type | Rules |
+|---|---|---|
+| `_id` | ObjectId | Primary identifier |
+| `doctor_id` | ObjectId | Required, immutable, unique Doctor reference |
+| `storage_file_id` | ObjectId | Required, unique private GridFS file reference |
+| `mime_type` | String | Required; `image/png` only |
+| `file_size` | Number | Required; 1 byte through 1 MB |
+| `width` | Number | Required; 200 through 2000 pixels |
+| `height` | Number | Required; 50 through 1000 pixels |
+| `uploaded_at` | Date | Required server timestamp |
+| `created_at`, `updated_at` | Date | Mongoose timestamps |
+
+Unique `doctor_id` and `storage_file_id` values enforce one active signature per Doctor and one metadata owner per stored object. Binary bytes live only in the `doctor_signature_files` GridFS bucket. Metadata has no public URL, original filename, Doctor description, certificate snapshot, deletion flag, AI/OCR field, or external-provider identifier. The legacy nullable `Doctor.signature_path` remains only for backward compatibility and is not used by this service or Admin inputs.

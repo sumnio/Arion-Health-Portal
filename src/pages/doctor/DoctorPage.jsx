@@ -6,6 +6,7 @@ import DoctorSchedule from './DoctorSchedule.jsx';
 import DoctorPatients from './DoctorPatients.jsx';
 import DoctorPatientDetail from './DoctorPatientDetail.jsx';
 import NotificationsPage from '../notifications/NotificationsPage.jsx';
+import DoctorProfile from './DoctorProfile.jsx';
 export default function DoctorPage({ route }) {
   if (route.path === '/doctor/dashboard') return <DoctorDashboard />;
   if (route.path === '/doctor/schedule') return <DoctorSchedule />;
@@ -14,5 +15,6 @@ export default function DoctorPage({ route }) {
   if (route.path === '/doctor/patients/:id/add-record') return <DoctorAddRecord />;
   if (route.path === '/doctor/records/:id/certificate/new') return <DoctorIssueCertificate />;
   if (route.path === '/doctor/notifications') return <NotificationsPage />;
+  if (route.path === '/doctor/profile') return <DoctorProfile />;
   return <PlaceholderPage title={route.title} />;
 }

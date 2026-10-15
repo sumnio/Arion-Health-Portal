@@ -9,11 +9,10 @@ function fields(input) {
   const specialty = String(input.specialty ?? '').trim();
   const license_number = String(input.license_number ?? '').trim();
   const ptr_number = String(input.ptr_number ?? '').trim();
-  const signature_path = String(input.signature_path ?? '').trim() || null;
   if (!display_name || !contact_number || !specialty || !license_number || !ptr_number) {
     throw new Error('Doctor name, contact number, specialty, license number, and PTR number are required.');
   }
-  return { display_name, contact_number, specialty, license_number, ptr_number, signature_path };
+  return { display_name, contact_number, specialty, license_number, ptr_number };
 }
 
 function joinedDoctor(doctor) {
@@ -61,7 +60,6 @@ export const adminDoctorService = {
       specialty: values.specialty,
       license_number: values.license_number,
       ptr_number: values.ptr_number,
-      signature_path: values.signature_path,
     };
     doctorRepository.add(doctor);
     return joinedDoctor(doctor);
@@ -80,7 +78,6 @@ export const adminDoctorService = {
       specialty: values.specialty,
       license_number: values.license_number,
       ptr_number: values.ptr_number,
-      signature_path: values.signature_path,
     });
     return joinedDoctor(doctor);
   },

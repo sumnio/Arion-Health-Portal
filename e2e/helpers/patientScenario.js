@@ -5,6 +5,7 @@ import {
   AuthAccount,
   ConsultationSupportingDocument,
   Doctor,
+  DoctorSignature,
   DoctorAvailability,
   DoctorBlockedTime,
   DoctorPublishedAvailability,
@@ -17,6 +18,7 @@ import {
   UserProfile,
 } from '../../server/src/models/index.js';
 import { createGridFsSupportingDocumentStorage } from '../../server/src/services/supportingDocumentStorage.js';
+import { createGridFsDoctorSignatureStorage } from '../../server/src/services/doctorSignatureStorage.js';
 import { authRepository } from '../../server/src/repositories/authRepository.js';
 import { passwordService } from '../../server/src/services/passwordService.js';
 import {
@@ -285,6 +287,10 @@ export class PatientScenario {
     if (appointmentIds.length) await AppointmentPriorityAudit.deleteMany({ appointment_id: { $in: appointmentIds } });
     if (appointmentQuery.$or.length) await Appointment.deleteMany(appointmentQuery);
     if (doctorIds.length) {
+      const signatures = await DoctorSignature.find({ doctor_id: { $in: doctorIds } }).lean();
+      const signatureStorage = createGridFsDoctorSignatureStorage();
+      await Promise.allSettled(signatures.map(item => signatureStorage.delete(item.storage_file_id)));
+      await DoctorSignature.deleteMany({ doctor_id: { $in: doctorIds } });
       await DoctorBlockedTime.deleteMany({ doctor_id: { $in: doctorIds } });
       await DoctorPublishedAvailability.deleteMany({ doctor_id: { $in: doctorIds } });
       await DoctorAvailability.deleteMany({ doctor_id: { $in: doctorIds } });

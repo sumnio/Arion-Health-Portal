@@ -810,3 +810,11 @@ Patient     1 ─── 0..many AppointmentSmsReminder
 Each `AppointmentSmsReminder` belongs to one existing Appointment and records that Appointment's Patient. Its logical identity is `(appointment_id, reminder_type, schedule_version)`, which prevents duplicates while allowing immutable history for later schedule versions. The reminder contains no SMS body, phone snapshot, name, visit reason, clinical content, or secret. Delivery resolves the matching Appointment and current Patient contact only inside the backend after an atomic `scheduled -> processing` claim.
 
 The statuses are `scheduled`, `processing`, `sent`, `failed`, and `invalidated`. A stale processing claim becomes terminal failed and is not automatically resent. Milestone 1.40 connects Patient booking and rescheduling to versioned reminder plans. Cancellation, Staff confirmation/arrival, no-show, and Doctor completion invalidate unsent reminder nodes. A reminder also carries the immutable scheduled Appointment instant so due processing can reject a moved or stale plan before resolving and sending to the current Patient contact. The relationship does not change Appointment, Patient, MedicalRecord, SupportingDocument, Notification, or assistant ownership.
+
+## Milestone 1.43 Doctor signature relationship
+
+```text
+Doctor 1 ─── 0..1 DoctorSignature 1 ─── 1 private GridFS file
+```
+
+The authenticated UserProfile resolves to its Doctor before any signature operation. Unique `DoctorSignature.doctor_id` gives each Doctor at most one active signature metadata record, and `storage_file_id` points to one object in `doctor_signature_files`. Replacement changes the active storage reference only after the new file is safely stored. Existing MedicalCertificate records do not point to this mutable current-signature record and are not rewritten. Patient, Staff, Admin, and other Doctors have no traversal route to the bytes.

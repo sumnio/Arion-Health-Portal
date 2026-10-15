@@ -39,6 +39,7 @@ DOCTOR
 /doctor/patients/:id/add-record
 /doctor/records/:id/certificate/new
 /doctor/notifications
+/doctor/profile
 
 STAFF
 /staff/dashboard

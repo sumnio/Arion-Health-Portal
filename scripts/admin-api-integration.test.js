@@ -38,7 +38,8 @@ test('Admin service normalizes pages and sends only approved create/update field
   await service.updateDoctor('doctor-1', { email: 'ignored@example.com', password: 'ignored', display_name: ' Doctor ', contact_number: '0917 123 4567', specialty: ' GP ', license_number: ' L-1 ', ptr_number: ' P-1 ', signature_path: '' });
   await service.createStaff({ email: ' staff@example.com ', password: 'password123', display_name: ' Staff ', contact_number: '0918 123 4567', role: 'admin', username: 'ignored' });
   await service.updateStaff('staff-1', { email: 'ignored@example.com', display_name: ' Staff ', contact_number: '0918 123 4567' });
-  assert.deepEqual(Object.keys(captured.doctorCreate), ['email', 'password', 'display_name', 'contact_number', 'specialty', 'license_number', 'ptr_number', 'signature_path']);
+  assert.deepEqual(Object.keys(captured.doctorCreate), ['email', 'password', 'display_name', 'contact_number', 'specialty', 'license_number', 'ptr_number']);
+  assert.equal(captured.doctorCreate.signature_path, undefined);
   assert.equal(captured.doctorCreate.email, 'doctor@example.com'); assert.equal(captured.doctorCreate.role, undefined);
   assert.equal(captured.doctorCreate.contact_number, '09171234567'); assert.equal(captured.doctorUpdate.payload.contact_number, '09171234567');
   assert.equal(captured.doctorUpdate.payload.email, undefined); assert.equal(captured.doctorUpdate.payload.password, undefined);
