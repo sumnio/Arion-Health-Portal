@@ -21,6 +21,31 @@ export const staffOperationsRepository = {
       .populate(queuePopulation)
       .lean();
   },
+  async listAppointmentHistory({ start, end, statuses, doctorId, patientSearch, visitType, page, limit }) {
+    const query = { appointment_at: { $gte: start, $lt: end }, status: { $in: statuses } };
+    if (doctorId) query.doctor_id = doctorId;
+    if (visitType) query.visit_type = visitType;
+    if (patientSearch) {
+      const patientIds = await Patient.find({ full_name: { $regex: escapeRegex(patientSearch), $options: 'i' } }).distinct('_id');
+      query.patient_id = { $in: patientIds };
+    }
+    const population = [
+      { path: 'patient_id', select: 'full_name dob is_pwd user_profile_id' },
+      doctorPopulation,
+      { path: 'created_by', select: 'role' },
+    ];
+    const [items, total] = await Promise.all([
+      Appointment.find(query)
+        .select('patient_id doctor_id created_by appointment_at status visit_type reason check_in_at priority')
+        .sort({ appointment_at: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate(population)
+        .lean(),
+      Appointment.countDocuments(query),
+    ]);
+    return { items, total };
+  },
   async listActiveDoctors() {
     const doctors = await Doctor.find()
       .select('specialty user_profile_id')

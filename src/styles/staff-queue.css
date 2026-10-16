@@ -49,6 +49,30 @@
 .staff-queue .status-confirmed { background:#ddf4e9; color:#166447; }
 .staff-queue .status-pending { background:#fff3d9; color:#825400; }
 .staff-queue .status-no_show { background:#e7ebf0; color:#44536a; }
+.staff-queue .staff-history { margin-top:20px; }
+.staff-queue .history-filters { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+.staff-queue .history-filters label { display:grid; gap:6px; min-width:0; color:#344b63; font-size:12px; font-weight:700; }
+.staff-queue .history-filters select, .staff-queue .history-filters input { width:100%; min-width:0; min-height:42px; border:1px solid #b9c8d5; border-radius:7px; padding:8px 10px; background:white; color:#122c49; font:inherit; }
+.staff-queue .history-custom-range { grid-column:1 / -1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.staff-queue .history-search { grid-column:1 / -1; }
+.staff-queue .history-search > label { margin-bottom:6px; }
+.staff-queue .history-search > div { display:flex; align-items:center; gap:8px; }
+.staff-queue .history-search input { flex:1 1 auto; }
+.staff-queue .history-search button { flex:0 0 auto; }
+.staff-queue .history-panel { min-height:260px; }
+.staff-queue .history-result-summary { padding-bottom:14px; border-bottom:1px solid #e3eaf0; }
+.staff-queue .history-list { display:grid; gap:12px; margin:18px 0 0; padding:0; list-style:none; }
+.staff-queue .history-list > li { display:grid; grid-template-columns:minmax(140px,.35fr) minmax(0,1fr); gap:18px; padding:18px; border:1px solid #dfe7ee; border-left:4px solid #83ad9b; border-radius:8px; }
+.staff-queue .history-date { display:grid; align-content:start; gap:5px; }
+.staff-queue .history-date time { color:#52657b; font-size:13px; }
+.staff-queue .history-date strong { color:#173a5c; }
+.staff-queue .history-main { min-width:0; }
+.staff-queue .history-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.staff-queue .history-title-row h3, .staff-queue .history-main p { overflow-wrap:anywhere; }
+.staff-queue .history-meta { display:flex; flex-wrap:wrap; gap:6px 14px; color:#52657b; font-size:12px; margin:8px 0; }
+.staff-queue .history-link { color:#165ec0; font-size:13px; font-weight:700; text-decoration:underline; }
+.staff-queue .history-error { padding:10px 12px; border-radius:6px; background:#ffe4e7; color:#a33434; }
+.staff-queue .history-empty { text-align:center; padding:34px 12px; }
 @media(max-width:1100px) { .staff-queue .queue-layout { grid-template-columns:1fr; } .staff-queue .queue-details { grid-row:1; } }
-@media(max-width:900px) { .staff-queue .queue-counts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:550px) { .staff-queue .queue-heading { flex-direction:column; gap:0; } .staff-queue .queue-counts { grid-template-columns:1fr; gap:8px; } .staff-queue .queue-counts .queue-panel { display:flex; align-items:center; justify-content:space-between; padding:14px; } .staff-queue .queue-counts strong { margin:0; } .staff-queue .queue-tabs { display:grid; grid-template-columns:1fr; border-bottom:0; } .staff-queue .queue-tabs button { border:1px solid #c6d4e1; border-radius:6px; text-align:left; } .staff-queue .queue-tabs button[aria-pressed=true] { border-color:#165ec0; } .staff-queue .queue-patient { flex-direction:column; } .staff-queue .queue-panel { padding:16px; } }
+@media(max-width:900px) { .staff-queue .queue-counts { grid-template-columns:repeat(2,minmax(0,1fr)); } .staff-queue .history-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:550px) { .staff-queue .queue-heading { flex-direction:column; gap:0; } .staff-queue .queue-counts, .staff-queue .history-filters, .staff-queue .history-custom-range { grid-template-columns:1fr; gap:8px; } .staff-queue .queue-counts .queue-panel { display:flex; align-items:center; justify-content:space-between; padding:14px; } .staff-queue .queue-counts strong { margin:0; } .staff-queue .queue-tabs { display:grid; grid-template-columns:1fr; border-bottom:0; } .staff-queue .queue-tabs button { border:1px solid #c6d4e1; border-radius:6px; text-align:left; } .staff-queue .queue-tabs button[aria-pressed=true] { border-color:#165ec0; } .staff-queue .queue-patient { flex-direction:column; } .staff-queue .queue-panel { padding:16px; } .staff-queue .history-list > li { grid-template-columns:1fr; gap:8px; } .staff-queue .history-title-row { flex-wrap:wrap; } .staff-queue .history-search > div { align-items:stretch; flex-direction:column; } }

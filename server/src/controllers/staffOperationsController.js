@@ -1,9 +1,10 @@
 import { validateEmptyBody } from '../validation/inputValidation.js';
-import { validatePatientSearchQuery, validateStaffAppointmentsQuery } from '../validation/staffOperationsValidation.js';
+import { validatePatientSearchQuery, validateStaffAppointmentHistoryQuery, validateStaffAppointmentsQuery } from '../validation/staffOperationsValidation.js';
 
 export function createStaffOperationsController({ staffOperationsService }) {
   return {
     async appointments(request, response) { response.json({ appointments: await staffOperationsService.appointments(validateStaffAppointmentsQuery(request.query)) }); },
+    async appointmentHistory(request, response) { response.json({ history: await staffOperationsService.appointmentHistory(validateStaffAppointmentHistoryQuery(request.query)) }); },
     async doctors(_request, response) { response.json({ doctors: await staffOperationsService.doctors() }); },
     async patients(request, response) { response.json({ patients: await staffOperationsService.searchPatients(validatePatientSearchQuery(request.query)) }); },
     async patient(request, response) { response.json(await staffOperationsService.patient(request.params.patientId)); },

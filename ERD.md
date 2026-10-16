@@ -721,6 +721,7 @@ UserProfile 1 -> 0..many Notification (private recipient inbox)
 
 Patient 1 -> many Appointment
 Doctor 1 -> many Appointment
+Staff Appointment History is a read-only projection over existing Appointment relationships. Its supporting index is `(status, appointment_at DESC, _id DESC, doctor_id)`; it adds no entity, field, or relationship.
 Appointment 1 -> many AppointmentPriorityAudit
 
 Doctor 1 -> many DoctorAvailability

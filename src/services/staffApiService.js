@@ -56,6 +56,17 @@ export function normalizeStaffAppointment(item) {
   const local = clinicDateTimeParts(item.appointment_at); const patient = normalizeStaffPatient(item.patient ?? {});
   return { ...item, id: item.id ?? item.appointment_id, patient, patient_id: patient.id, patientName: patient.full_name ?? 'Patient unavailable', doctor_id: item.doctor?.id, doctorName: item.doctor?.display_name ?? 'Doctor unavailable', date: local.date, time: local.time, timeLabel: formatSlot(local.time), visitLabel: visitLabels[item.visit_type] ?? item.visit_type, tier: item.queue_tier, priorityLabel: item.queue_priority === 'urgent' ? 'Urgent' : item.queue_priority === 'senior_pwd' ? 'Senior / PWD' : 'Normal' };
 }
+function normalizeStaffHistory(result) {
+  const limit = Number.isInteger(result.limit) && result.limit > 0 ? result.limit : 10;
+  const total = Number.isInteger(result.total) && result.total >= 0 ? result.total : 0;
+  return {
+    items: (result.items ?? []).map(item => ({ ...normalizeStaffAppointment(item), originLabel: item.origin === 'patient' ? 'Patient booking' : 'Staff-created / walk-in' })),
+    page: Number.isInteger(result.page) && result.page > 0 ? result.page : 1,
+    limit, total,
+    pageCount: Number.isInteger(result.page_count) && result.page_count > 0 ? result.page_count : Math.max(1, Math.ceil(total / limit)),
+    range: result.range ?? null,
+  };
+}
 export function staffApiErrorMessage(error, fallback = 'Unable to load Staff data.') {
   return apiErrorMessage(error, { fallback, forbidden: 'You do not have access to this Staff operation.', notFound: fallback });
 }
@@ -90,6 +101,7 @@ export function patientListPage(patients, page = 1) {
 export function createStaffApiService(repository = staffApiRepository) {
   const service = {
     async getAppointments(date = clinicToday()) { return (await repository.getAppointments(date)).map(normalizeStaffAppointment); },
+    async getAppointmentHistory(filters) { return normalizeStaffHistory(await repository.getAppointmentHistory(filters)); },
     async getQueue() { return (await repository.getQueue()).map(normalizeStaffAppointment); },
     async getDashboard() {
       const date = clinicToday(); const [appointments, queue] = await Promise.all([this.getAppointments(date), this.getQueue()]);

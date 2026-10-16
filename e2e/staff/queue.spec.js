@@ -143,7 +143,7 @@ test('Staff marks an eligible appointment no-show and terminal states reject rep
   await expect(page.getByText(`${patients[0].full_name} marked no-show.`)).toBeVisible();
   expect((await Appointment.findById(appointments[0].appointmentId).lean()).status).toBe('no_show');
   await page.reload();
-  await page.getByRole('button', { name: /^Completed \/ Cancelled \/ No-show/ }).click();
+  await page.getByRole('button', { name: 'Appointment History' }).click();
   await expect(page.getByText(patients[0].full_name)).toBeVisible();
 
   for (const appointment of appointments.slice(1)) {
@@ -151,7 +151,6 @@ test('Staff marks an eligible appointment no-show and terminal states reject rep
     expect(rejected.status).toBe(409);
     expect(rejected.body.error.code).toBe('NO_SHOW_NOT_ALLOWED');
   }
-  await page.getByRole('button', { name: new RegExp(patients[1].full_name) }).click();
   await expect(page.getByRole('button', { name: 'Mark No-show' })).toHaveCount(0);
   assertBrowserClean();
 });

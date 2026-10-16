@@ -4,6 +4,7 @@ import { validateObjectId } from '../validation/appointmentValidation.js';
 import { validatePriority, validateWalkInAppointment, validateWalkInPatient } from '../validation/staffOperationsValidation.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
 import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
+import { appointmentHistoryDateRange } from '../utils/appointmentHistory.js';
 
 export const NO_SHOW_GRACE_PERIOD_MS = 5 * 60 * 1000;
 
@@ -39,6 +40,18 @@ function appointmentView(item, date) {
   const patient = patientView(item.patient_id, date);
   return { id: id(item), patient, doctor: doctorView(item.doctor_id), appointment_at: iso(item.appointment_at), check_in_at: iso(item.check_in_at), status: item.status, visit_type: item.visit_type, reason: item.reason, priority: item.priority };
 }
+function historyAppointmentView(item, timeZone) {
+  const localDate = appointmentLocalParts(item.appointment_at, timeZone).date;
+  const patient = item.patient_id;
+  const priorityTier = tier(item, patient, localDate);
+  return {
+    id: id(item), appointment_at: iso(item.appointment_at), check_in_at: iso(item.check_in_at),
+    patient: { id: id(patient), full_name: patient?.full_name ?? null }, doctor: doctorView(item.doctor_id),
+    status: item.status, visit_type: item.visit_type, reason: item.reason, priority: item.priority,
+    queue_priority: ['urgent', 'senior_pwd', 'normal'][priorityTier],
+    origin: patient?.user_profile_id && id(item.created_by) === id(patient.user_profile_id) ? 'patient' : 'staff',
+  };
+}
 function patientAppointmentView(item, patient, timeZone) {
   const date = appointmentLocalParts(item.appointment_at, timeZone).date;
   const priorityTier = tier(item, patient, date);
@@ -65,6 +78,23 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
       const start = zonedDateTimeToUtc(date, '00:00', clinic.timeZone);
       const end = zonedDateTimeToUtc(addDays(date, 1), '00:00', clinic.timeZone);
       return (await repository.listAppointmentsBetween(start, end)).map((item) => appointmentView(item, date));
+    },
+    async appointmentHistory(filters) {
+      const current = now();
+      const range = appointmentHistoryDateRange(filters, current, clinic.timeZone);
+      const result = range.start < range.end ? await repository.listAppointmentHistory({
+        start: range.start, end: range.end,
+        statuses: filters.status === 'all' ? ['completed', 'cancelled', 'no_show'] : [filters.status],
+        doctorId: filters.doctor_id, patientSearch: filters.patient_search,
+        visitType: filters.visit_type === 'all' ? null : filters.visit_type,
+        page: filters.page, limit: filters.limit,
+      }) : { items: [], total: 0 };
+      return {
+        items: result.items.map(item => historyAppointmentView(item, clinic.timeZone)),
+        page: filters.page, limit: filters.limit, total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+        range: { preset: filters.range, from: range.from, to: range.to, time_zone: clinic.timeZone },
+      };
     },
     async doctors() { return (await repository.listActiveDoctors()).map(doctorView); },
     async patient(patientId) {

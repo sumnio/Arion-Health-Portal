@@ -2,11 +2,14 @@ import { APPOINTMENT_PRIORITIES, APPOINTMENT_VISIT_TYPES, PRIORITY_AUDIT_TEXT_MA
 import { httpError } from '../utils/httpError.js';
 import { appointmentLocalParts, clinicDate, SLOT_TIME_PATTERN } from '../utils/schedulingTime.js';
 import { validateObjectId } from './appointmentValidation.js';
-import { boundedText, INPUT_LIMITS, queryText, rejectUnknownFields, validateQueryKeys } from './inputValidation.js';
+import { boundedText, INPUT_LIMITS, queryInteger, queryText, rejectUnknownFields, validateQueryKeys } from './inputValidation.js';
 import { validatePhilippineMobile } from './phoneValidation.js';
 
 const patientFields = new Set(['full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'is_pwd']);
 const appointmentFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason', 'priority']);
+export const STAFF_HISTORY_RANGES = Object.freeze(['today', 'last_7_days', 'last_30_days', 'this_month', 'custom']);
+export const STAFF_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 'no_show']);
+export const STAFF_HISTORY_PAGE_SIZE = 10;
 
 function bodyObject(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw httpError(400, 'INVALID_INPUT', 'Request body must be an object.');
@@ -79,6 +82,31 @@ export function validateStaffAppointmentsQuery(query = {}) {
   validateQueryKeys(query, new Set(['date']));
   if (query.date != null && (Array.isArray(query.date) || typeof query.date !== 'string')) throw httpError(400, 'INVALID_QUERY', 'date must be a single YYYY-MM-DD value.');
   return query.date;
+}
+
+function scalar(value, field) {
+  if (Array.isArray(value) || (value != null && typeof value === 'object')) throw httpError(400, 'INVALID_QUERY', `${field} must be a single value.`);
+  return value;
+}
+
+export function validateStaffAppointmentHistoryQuery(query = {}) {
+  validateQueryKeys(query, new Set(['range', 'from', 'to', 'status', 'doctor_id', 'patient_search', 'visit_type', 'page']));
+  const range = scalar(query.range, 'range') || 'last_30_days';
+  const status = scalar(query.status, 'status') || 'all';
+  const doctorId = scalar(query.doctor_id, 'doctor_id') || null;
+  const visitType = scalar(query.visit_type, 'visit_type') || 'all';
+  if (!STAFF_HISTORY_RANGES.includes(range)) throw httpError(400, 'INVALID_QUERY', 'range is not an approved history range.');
+  if (status !== 'all' && !STAFF_HISTORY_STATUSES.includes(status)) throw httpError(400, 'INVALID_QUERY', 'status is not an approved history status.');
+  if (doctorId) validateObjectId(doctorId, 'doctor_id');
+  if (visitType !== 'all' && !APPOINTMENT_VISIT_TYPES.includes(visitType)) throw httpError(400, 'INVALID_QUERY', 'visit_type is not an approved value.');
+  const from = scalar(query.from, 'from') || null;
+  const to = scalar(query.to, 'to') || null;
+  if (range === 'custom') {
+    if (!from || !to) throw httpError(400, 'INVALID_QUERY', 'from and to are required for a custom range.');
+    validDateOnly(from, 'from'); validDateOnly(to, 'to');
+    if (from > to) throw httpError(400, 'INVALID_QUERY', 'from must be on or before to.');
+  } else if (from || to) throw httpError(400, 'INVALID_QUERY', 'from and to are accepted only for a custom range.');
+  return { range, from, to, status, doctor_id: doctorId, patient_search: queryText(scalar(query.patient_search, 'patient_search'), 'patient_search', { max: INPUT_LIMITS.name }), visit_type: visitType, page: queryInteger(query.page, 'page', { defaultValue: 1, max: 100000 }), limit: STAFF_HISTORY_PAGE_SIZE };
 }
 
 export function validatePatientSearchQuery(query = {}) {

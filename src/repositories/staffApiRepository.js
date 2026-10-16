@@ -4,6 +4,13 @@ export function createStaffApiRepository(client = apiClient) {
   const request = (path, options) => client.request(path, options);
   return {
     async getAppointments(date) { return (await request(`/api/staff/appointments?date=${encodeURIComponent(date)}`)).appointments; },
+    async getAppointmentHistory(filters = {}) {
+      const query = new URLSearchParams({ range: filters.range ?? 'last_30_days', status: filters.status ?? 'all', visit_type: filters.visitType ?? 'all', page: String(filters.page ?? 1) });
+      if (filters.doctorId) query.set('doctor_id', filters.doctorId);
+      if (filters.patientSearch) query.set('patient_search', filters.patientSearch);
+      if (filters.range === 'custom') { if (filters.from) query.set('from', filters.from); if (filters.to) query.set('to', filters.to); }
+      return (await request(`/api/staff/appointments/history?${query}`)).history;
+    },
     async getDoctors() { return (await request('/api/staff/doctors')).doctors; },
     async getAvailableSlots(id, date) { return request(`/api/staff/doctors/${encodeURIComponent(id)}/available-slots?date=${encodeURIComponent(date)}`); },
     async getDoctorSchedule(id) { return (await request(`/api/staff/doctors/${encodeURIComponent(id)}/schedule`)).schedule; },

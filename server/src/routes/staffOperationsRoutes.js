@@ -14,6 +14,7 @@ export function createStaffOperationsRouter({ authModule, staffOperationsModule 
     requirePermission(PERMISSIONS.STAFF_OPERATIONS),
   );
   router.get('/appointments', controller.appointments);
+  router.get('/appointments/history', controller.appointmentHistory);
   router.get('/doctors', controller.doctors);
   router.get('/patients', controller.patients);
   router.get('/patients/:patientId', controller.patient);
