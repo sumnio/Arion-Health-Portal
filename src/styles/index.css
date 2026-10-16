@@ -10,6 +10,7 @@ a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .portal-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 28px; background: white; border-bottom: 1px solid #dfe7ee; }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
 .brand-mark { font-size: 36px; color: #284764; line-height: 1; }
+.brand-logo { width: 42px; height: 42px; object-fit: contain; flex: 0 0 auto; }
 .brand small, .identity small { display: block; font-size: 12px; font-weight: 400; margin-top: 5px; color: #52657b; }
 .identity { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .avatar { display: grid; place-items: center; background: var(--active); color: var(--accent); width: 40px; height: 40px; border-radius: 50%; font-weight: 700; }
@@ -42,6 +43,7 @@ h2 { font-size: 20px; font-weight: 600; margin: 24px 0 12px; }
 @media (max-width: 720px) {
   .portal-shell { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; }
   .portal-header { align-items: flex-start; flex-wrap: wrap; padding: 18px; gap: 16px; }
+  .brand-logo { width: 36px; height: 36px; }
   .sidebar { border-right: 0; border-bottom: 1px solid #dfe7ee; padding: 12px; gap: 8px; }
   .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; }
   .nav-link { padding: 10px; }
