@@ -349,6 +349,8 @@ Replaces the previous `Schedule` entity.
 
 Mongoose declares a partial unique index on `(doctor_id, appointment_at)` for `pending`, `confirmed`, and `completed` appointments. `cancelled` and `no_show` appointments do not reserve the slot. This enforces one blocking appointment per Doctor per exact 30-minute slot while allowing different Doctors to use the same time.
 
+Doctor appointment-history reads use the supporting compound index `(doctor_id, status, appointment_at descending, _id descending)`. It changes no Appointment field or relationship. The query remains session-owned, terminal-status-only, past-only, newest-first, and fixed at 10 results per page.
+
 `patient_id` identifies the Patient receiving care. `doctor_id` identifies the Doctor assigned to the consultation. `created_by` independently identifies the UserProfile account that created the Appointment. Store only the UserProfile reference, never copied names, roles, emails, or credentials. `created_by` is not cleared when that account becomes inactive, and no account lifecycle action may cascade-delete the Appointment.
 
 ### Consultation completion rules

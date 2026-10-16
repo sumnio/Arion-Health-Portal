@@ -69,6 +69,10 @@ appointmentSchema.index(
   { patient_id: 1, appointment_at: -1 },
   { name: 'patient_appointment_history' },
 );
+appointmentSchema.index(
+  { doctor_id: 1, status: 1, appointment_at: -1, _id: -1 },
+  { name: 'doctor_appointment_history' },
+);
 
 export const Appointment =
   mongoose.models.Appointment ??

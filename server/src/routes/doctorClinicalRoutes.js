@@ -11,6 +11,7 @@ export function createDoctorClinicalRouter({ authModule, clinicalModule, support
   const supportingDocumentController = createDoctorSupportingDocumentController(supportingDocumentModule);
   router.use(createRequireAuth({ tokens: authModule.tokens, service: authModule.service }), requireActiveUser, requireRole('doctor'));
   router.get('/appointments', controller.appointments);
+  router.get('/appointments/history', controller.appointmentHistory);
   router.get('/appointments/:appointmentId/priority-history', controller.priorityHistory);
   router.get('/appointments/:appointmentId/supporting-documents', supportingDocumentController.list);
   router.get('/appointments/:appointmentId/supporting-documents/:documentId', supportingDocumentController.download);

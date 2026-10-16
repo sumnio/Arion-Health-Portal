@@ -48,7 +48,9 @@ test('Patient views an issued certificate and downloads its generated PDF', asyn
   await expect(page.getByText(doctor.display_name).first()).toBeVisible();
   await expect(page.getByText(doctor.license_number).first()).toBeVisible();
   await expect(page.getByText(doctor.ptr_number).first()).toBeVisible();
-  await expect(page.getByLabel('Medical certificate preview')).toContainText(/Arion Health Clinic/);
+  const preview = page.locator('iframe[title="Issued medical certificate PDF"]');
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveAttribute('src', /^blob:/);
   await expect(page.getByRole('button', { name: /edit|delete/i })).toHaveCount(0);
 
   const [download] = await Promise.all([

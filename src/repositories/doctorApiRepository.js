@@ -10,6 +10,20 @@ export function createDoctorApiRepository(client = apiClient) {
       const suffix = query.size ? `?${query}` : '';
       return (await request(`/api/doctor/appointments${suffix}`)).appointments;
     },
+    async getAppointmentHistory(filters = {}) {
+      const query = new URLSearchParams({
+        range: filters.range ?? 'last_30_days',
+        status: filters.status ?? 'all',
+        visit_type: filters.visitType ?? 'all',
+        page: String(filters.page ?? 1),
+      });
+      if (filters.patientSearch) query.set('patient_search', filters.patientSearch);
+      if (filters.range === 'custom') {
+        if (filters.from) query.set('from', filters.from);
+        if (filters.to) query.set('to', filters.to);
+      }
+      return (await request(`/api/doctor/appointments/history?${query}`)).history;
+    },
     async getPriorityHistory(appointmentId) { return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/priority-history`)).priority_history; },
     async getRecurringAvailability() { return (await request('/api/doctor/availability')).availability; },
     async getPublishedAvailability() { return (await request('/api/doctor/published-availability')).published_availability; },

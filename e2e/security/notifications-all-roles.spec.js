@@ -75,7 +75,7 @@ test('Patient notification page paginates five items and marks all unread items 
   await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Notification filters' }).getByRole('button', { name: /^Unread/ }).click();
   await expect(page.getByRole('heading', { name: 'You have no unread notifications.' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Notifications' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
   assertBrowserClean();
 });
 

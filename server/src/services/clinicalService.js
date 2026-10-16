@@ -3,6 +3,7 @@ import { generateCertificateNumber } from '../utils/certificateNumber.js';
 import { httpError } from '../utils/httpError.js';
 import {
   validateCertificateCreate,
+  validateDoctorAppointmentHistoryQuery,
   validateDoctorAppointmentQuery,
   validateClinicalObjectId,
   validateMedicalRecordCreate,
@@ -65,6 +66,20 @@ function appointmentView(appointment) {
     id: id(appointment), appointment_at: iso(appointment.appointment_at), status: appointment.status,
     visit_type: appointment.visit_type, reason: appointment.reason, check_in_at: iso(appointment.check_in_at),
   };
+}
+
+export function doctorHistoryDateRange(filters, current, timeZone) {
+  const today = clinicDate(current, timeZone);
+  let from = filters.from;
+  let to = filters.to;
+  if (filters.range === 'today') from = to = today;
+  if (filters.range === 'last_7_days') { from = addDays(today, -6); to = today; }
+  if (filters.range === 'last_30_days') { from = addDays(today, -29); to = today; }
+  if (filters.range === 'this_month') { from = `${today.slice(0, 7)}-01`; to = today; }
+  const start = zonedDateTimeToUtc(from, '00:00', timeZone);
+  const inclusiveDayEnd = zonedDateTimeToUtc(addDays(to, 1), '00:00', timeZone);
+  const end = inclusiveDayEnd < current ? inclusiveDayEnd : current;
+  return { from, to, start, end };
 }
 
 function prescriptionView(item) {
@@ -150,6 +165,38 @@ export function createClinicalService({ repository, clinic, notificationTriggers
         ...appointmentView(appointment), patient: patientView(appointment.patient_id),
         priority: appointment.priority, medical_record_id: recordByAppointment.get(id(appointment)) ?? null,
       }));
+    },
+    async listDoctorAppointmentHistory(profileId, query = {}) {
+      const filters = validateDoctorAppointmentHistoryQuery(query);
+      const doctor = await doctorFor(profileId);
+      const current = now();
+      const range = doctorHistoryDateRange(filters, current, clinic.timeZone);
+      const statuses = filters.status === 'all' ? ['completed', 'cancelled', 'no_show'] : [filters.status];
+      const result = range.start < range.end
+        ? await repository.listDoctorAppointmentHistory(id(doctor), {
+          start: range.start,
+          end: range.end,
+          statuses,
+          patientSearch: filters.patient_search,
+          visitType: filters.visit_type === 'all' ? null : filters.visit_type,
+          page: filters.page,
+          limit: filters.limit,
+        })
+        : { items: [], total: 0 };
+      const records = await repository.listRecordAppointmentIds(result.items.map((item) => item._id ?? item.id));
+      const recordByAppointment = new Map(records.map((record) => [id(record.appointment_id), id(record)]));
+      return {
+        items: result.items.map((appointment) => ({
+          ...appointmentView(appointment),
+          patient: { id: id(appointment.patient_id), full_name: appointment.patient_id?.full_name ?? null },
+          medical_record_id: recordByAppointment.get(id(appointment)) ?? null,
+        })),
+        page: filters.page,
+        limit: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+        range: { preset: filters.range, from: range.from, to: range.to, time_zone: clinic.timeZone },
+      };
     },
     async priorityHistoryForDoctor(profileId, appointmentId) {
       validateClinicalObjectId(appointmentId, 'appointmentId');

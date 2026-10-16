@@ -31,13 +31,14 @@ test('required fields, past dates, unsupported service, and unavailable times ar
 
 test('confirmation reserves one place per doctor and slot without persistence', () => {
   const { doctors, services } = bookingService.getOptions();
-  const { date, doctor, time } = availableFutureSlot();
+  const now = new Date('2026-09-18T00:00:00Z');
+  const { date, doctor, time } = availableFutureSlot(2, now);
   const values = { service: services[0].id, doctor, date, time, reason: 'Recurring headache' };
-  const result = bookingService.confirm(values).confirmation;
+  const result = bookingService.confirm(values, now).confirmation;
   assert.equal(result.status, 'confirmed');
   assert.equal(result.service, 'General Consultation');
-  assert.ok(bookingService.confirm(values).errors.time);
-  assert.equal(bookingService.getSlots(doctor, date).find(slot => slot.time === time).available, false);
+  assert.ok(bookingService.confirm(values, now).errors.time);
+  assert.equal(bookingService.getSlots(doctor, date, now).find(slot => slot.time === time).available, false);
 });
 
 test('14-day window, published dates and blocked dates are enforced', () => {

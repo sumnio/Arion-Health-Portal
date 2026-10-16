@@ -39,6 +39,29 @@
 .doctor-schedule-page .doctor-list-pagination button:disabled { color: #8997a8; cursor: not-allowed; }
 .doctor-schedule-page .doctor-list-pagination span { color: #52657b; font-size: 13px; }
 .doctor-schedule-page .availability-manager { margin-top: 20px; }
+.doctor-schedule-page .doctor-history { margin-top: 24px; }
+.doctor-schedule-page .history-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.doctor-schedule-page .history-filters label { display: grid; gap: 6px; min-width: 0; color: #344b63; font-size: 12px; font-weight: 700; }
+.doctor-schedule-page .history-filters select, .doctor-schedule-page .history-filters input { width: 100%; min-width: 0; min-height: 42px; border: 1px solid #b9c8d5; border-radius: 7px; padding: 8px 10px; background: white; color: #122c49; font: inherit; }
+.doctor-schedule-page .history-custom-range { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.doctor-schedule-page .history-search { grid-column: 1 / -1; }
+.doctor-schedule-page .history-search > label { margin-bottom: 6px; }
+.doctor-schedule-page .history-search > div { display: flex; align-items: center; gap: 8px; }
+.doctor-schedule-page .history-search input { flex: 1 1 auto; }
+.doctor-schedule-page .history-search button { flex: 0 0 auto; min-height: 42px; border: 1px solid #22674f; border-radius: 7px; padding: 8px 15px; background: white; color: #165b45; font-weight: 700; }
+.doctor-schedule-page .history-panel { min-height: 260px; }
+.doctor-schedule-page .history-result-summary { padding-bottom: 14px; border-bottom: 1px solid #e3eaf0; }
+.doctor-schedule-page .history-list { display: grid; gap: 12px; margin: 18px 0 0; padding: 0; list-style: none; }
+.doctor-schedule-page .history-list > li { display: grid; grid-template-columns: minmax(130px, .35fr) minmax(0, 1fr); gap: 18px; padding: 18px; border: 1px solid #dfe7ee; border-left: 4px solid #83ad9b; border-radius: 8px; }
+.doctor-schedule-page .history-date { display: grid; align-content: start; gap: 5px; }
+.doctor-schedule-page .history-date time { color: #52657b; font-size: 13px; }
+.doctor-schedule-page .history-date strong { color: #173a5c; }
+.doctor-schedule-page .history-main { min-width: 0; }
+.doctor-schedule-page .history-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.doctor-schedule-page .history-title-row h3, .doctor-schedule-page .history-main p { overflow-wrap: anywhere; }
+.doctor-schedule-page .history-arrival { font-size: 12px; }
+.doctor-schedule-page .history-actions { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; }
+.doctor-schedule-page .history-actions a { color: #22674f; font-size: 13px; font-weight: 700; text-decoration: underline; }
 .doctor-schedule-page .availability-explainer { max-width: 900px; }
 .doctor-schedule-page .availability-message { padding: 10px 12px; border-radius: 6px; background: #ddf4e9; color: #166447; }
 .doctor-schedule-page .availability-error { padding: 10px 12px; border-radius: 6px; background: #ffe4e7; color: #a33434; }
@@ -67,5 +90,5 @@
 .doctor-schedule-page .slot-preview span { padding: 5px 7px; border-radius: 5px; background: #e5f3ec; color: #176148; font-size: 11px; }
 .doctor-schedule-page .slot-preview .unavailable { background: #edf0f3; color: #6b7787; text-decoration: line-through; }
 @media (max-width: 1100px) { .doctor-schedule-page .schedule-day-layout { grid-template-columns: 1fr; } }
-@media (max-width: 900px) { .doctor-schedule-page .availability-columns, .doctor-schedule-page .weekly-availability { grid-template-columns: 1fr; } }
-@media (max-width: 550px) { .doctor-schedule-page .schedule-panel { padding: 18px; } .doctor-schedule-page .schedule-timeline li { grid-template-columns: 1fr; gap: 6px; } .doctor-schedule-page .schedule-appointment { flex-wrap: wrap; } .doctor-schedule-page .schedule-date-picker { gap: 4px; } .doctor-schedule-page .schedule-tabs button { flex: 1; } .doctor-schedule-page .availability-day > header { align-items: flex-start; } .doctor-schedule-page .range-form label, .doctor-schedule-page .availability-form label:not(.whole-day) { flex: 1 1 120px; } }
+@media (max-width: 900px) { .doctor-schedule-page .availability-columns, .doctor-schedule-page .weekly-availability, .doctor-schedule-page .history-filters { grid-template-columns: 1fr; } }
+@media (max-width: 550px) { .doctor-schedule-page .schedule-panel { padding: 18px; } .doctor-schedule-page .schedule-timeline li, .doctor-schedule-page .history-list > li { grid-template-columns: 1fr; gap: 8px; } .doctor-schedule-page .schedule-appointment, .doctor-schedule-page .history-title-row { flex-wrap: wrap; } .doctor-schedule-page .schedule-date-picker { gap: 4px; } .doctor-schedule-page .schedule-tabs { overflow-x: auto; } .doctor-schedule-page .schedule-tabs button { flex: 1 0 auto; } .doctor-schedule-page .availability-day > header { align-items: flex-start; } .doctor-schedule-page .range-form label, .doctor-schedule-page .availability-form label:not(.whole-day) { flex: 1 1 120px; } .doctor-schedule-page .history-custom-range { grid-template-columns: 1fr; } .doctor-schedule-page .history-search > div { align-items: stretch; flex-direction: column; } }

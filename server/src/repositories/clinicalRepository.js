@@ -46,6 +46,30 @@ export const clinicalRepository = {
     if (start && end) query.appointment_at = { $gte: start, $lt: end };
     return Appointment.find(query).sort({ appointment_at: 1 }).populate(patientPopulation).lean();
   },
+  async listDoctorAppointmentHistory(doctorId, { start, end, statuses, patientSearch, visitType, page, limit }) {
+    const query = {
+      doctor_id: doctorId,
+      appointment_at: { $gte: start, $lt: end },
+      status: { $in: statuses },
+    };
+    if (visitType) query.visit_type = visitType;
+    if (patientSearch) {
+      const escaped = patientSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const patientIds = await Patient.find({ full_name: { $regex: escaped, $options: 'i' } }).distinct('_id');
+      query.patient_id = { $in: patientIds };
+    }
+    const [items, total] = await Promise.all([
+      Appointment.find(query)
+        .select('patient_id appointment_at status visit_type reason check_in_at')
+        .sort({ appointment_at: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate({ path: 'patient_id', select: 'full_name' })
+        .lean(),
+      Appointment.countDocuments(query),
+    ]);
+    return { items, total };
+  },
   async listRecordAppointmentIds(appointmentIds) {
     return MedicalRecord.find({ appointment_id: { $in: appointmentIds } }).select('_id appointment_id').lean();
   },

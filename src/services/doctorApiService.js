@@ -15,6 +15,21 @@ export function normalizeDoctorAppointment(item) {
   };
 }
 
+function normalizeDoctorHistory(result) {
+  const limit = Number.isInteger(result.limit) && result.limit > 0 ? result.limit : 10;
+  const total = Number.isInteger(result.total) && result.total >= 0 ? result.total : 0;
+  return {
+    items: (result.items ?? []).map(normalizeDoctorAppointment),
+    page: Number.isInteger(result.page) && result.page > 0 ? result.page : 1,
+    limit,
+    total,
+    pageCount: Number.isInteger(result.page_count) && result.page_count > 0
+      ? result.page_count
+      : Math.max(1, Math.ceil(total / limit)),
+    range: result.range ?? null,
+  };
+}
+
 function normalizeRecord(item) {
   return {
     ...item,
@@ -49,6 +64,7 @@ export function createDoctorApiService(repository = doctorApiRepository) {
       return { start, end: date.toISOString().slice(0, 10) };
     },
     async getAppointments(filters) { return (await repository.getAppointments(filters)).map(normalizeDoctorAppointment); },
+    async getAppointmentHistory(filters) { return normalizeDoctorHistory(await repository.getAppointmentHistory(filters)); },
     async getRelatedPatients(now = new Date()) {
       const appointments = await service.getAppointments({});
       const related = new Map();

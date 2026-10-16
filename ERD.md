@@ -828,3 +828,7 @@ Doctor 1 ─── 0..1 DoctorSignature 1 ─── 1 private GridFS file
 ```
 
 The authenticated UserProfile resolves to its Doctor before any signature operation. Unique `DoctorSignature.doctor_id` gives each Doctor at most one active signature metadata record, and `storage_file_id` points to one object in `doctor_signature_files`. Replacement changes the active storage reference only after the new file is safely stored. Existing MedicalCertificate records do not point to this mutable current-signature record and are not rewritten. Patient, Staff, Admin, and other Doctors have no traversal route to the bytes.
+
+## Milestone 1.45 Doctor history relationship impact
+
+Milestone 1.45 adds no ERD entity or relationship. The Doctor History tab is a paginated read-only projection over the existing authenticated `UserProfile -> Doctor -> Appointment -> Patient` relationship. It may check the existing `Appointment -> MedicalRecord` relationship only to decide whether to show a link for that exact owned Appointment. It does not traverse or expose clinical record content, Prescriptions, MedicalCertificates, supporting documents, notifications, queue-priority audits, or contact/private profile data.
