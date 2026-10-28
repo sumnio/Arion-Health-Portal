@@ -491,7 +491,7 @@ MedicalRecord
 | custom_purpose | text, nullable | Required, plain text, and at most 100 characters only when `purpose_code` is `Other` |
 | diagnosis_summary | text | Doctor-controlled certificate summary, at most 500 characters for new certificates |
 | recommendation | text, nullable | Doctor-controlled certificate recommendation, at most 500 characters; nullable for legacy records |
-| valid_until | date, nullable | Optional expiration date |
+| valid_until | date, nullable | Required for new issuance and on/after the server-generated issue date; nullable only for legacy certificates |
 | status | enum | `draft`, `issued` |
 | pdf_storage_file_id | ObjectId, nullable, immutable | Private GridFS object in `medical_certificate_files`; null only for legacy certificates |
 | pdf_sha256 | text, nullable, immutable | SHA-256 of the frozen PDF artifact; null on legacy certificates |
@@ -517,6 +517,8 @@ Certificate lifecycle rules:
 - Patients and Staff cannot edit certificates. Admin cannot edit certificate clinical content. Doctors issue certificates only through the approved creation flow.
 
 New certificate creation uses a controlled purpose allowlist and requires a concise Recommendation. The backend assigns `date_issued` from the configured clinic date and derives the consultation date from the linked MedicalRecord's Appointment. A centralized purpose-based helper generates the formal certification statement deterministically from `purpose_code` and `custom_purpose`; the statement is not accepted from the client and is not separately persisted. Legacy certificates with only `purpose` remain readable through a neutral generated statement. Certificate output excludes prescriptions, full Doctor notes, follow-up notes, supporting documents, allergies, emergency contacts, and queue data.
+
+New issuance also requires a Doctor-selected `valid_until` on or after `date_issued`; no fixed validity period is assigned automatically. Validity is not persisted as a mutable field. API responses derive `active` when the current Asia/Manila date is on or before `valid_until`, `expired` when it is later, and `legacy` when `valid_until` is null. Legacy values are not backfilled and legacy PDFs are not regenerated.
 - Issued certificates may be downloaded only through ownership-scoped authenticated Doctor and Patient PDF routes. New certificates stream the exact stored artifact. Legacy certificates without artifact metadata use a signature-free compatibility renderer and never adopt the Doctor's current signature.
 - QR verification, public certificate verification, external sharing, advanced cryptographic signing, and payment integration remain future scope.
 

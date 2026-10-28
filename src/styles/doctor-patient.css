@@ -32,6 +32,9 @@
 .doctor-patient-page .status-pending { background: #fff3d9; color: #825400; }
 .doctor-patient-page .status-cancelled { background: #ffe4e7; color: #a33434; }
 .doctor-patient-page .status-no_show { background: #e7ebf0; color: #44536a; }
+.doctor-patient-page .status-active { background: #ddf4e9; color: #166447; }
+.doctor-patient-page .status-expired { background: #ffe4e7; color: #a33434; }
+.doctor-patient-page .status-legacy { background: #e7ebf0; color: #44536a; }
 .doctor-patient-page .history-disclosure { border-top: 1px solid #dfe7ee; padding: 18px 0; }
 .doctor-patient-page .history-disclosure summary { cursor: pointer; color: #22674f; overflow-wrap: anywhere; }
 .doctor-patient-page .history-disclosure summary strong, .doctor-patient-page .history-disclosure summary span { display: block; margin-top: 8px; }

@@ -17,6 +17,9 @@
 .patient-certificates .dashboard-date strong { font-size: 28px; line-height: 1.2; }
 .patient-certificates .action-link { display: inline-block; font-size: 13px; white-space: nowrap; }
 .patient-certificates .status-issued { background: #ddf4e9; color: #166447; }
+.patient-certificates .status-active { background: #ddf4e9; color: #166447; }
+.patient-certificates .status-expired { background: #ffe4e7; color: #a33434; }
+.patient-certificates .status-legacy { background: #e7ebf0; color: #44536a; }
 .patient-certificates .certificate-title { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .patient-certificates .certificate-title h2 { margin: 0; }
 .patient-certificates .certificate-back { display: inline-block; color: #165ec0; text-decoration: underline; font-size: 13px; margin-bottom: 20px; }

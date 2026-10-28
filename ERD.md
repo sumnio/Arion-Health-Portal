@@ -572,7 +572,7 @@ The MedicalCertificate fields match `SCHEMA.md`:
 | custom_purpose | text, nullable | Safe bounded value used only when purpose is `Other` |
 | diagnosis_summary | text | Doctor-controlled certificate summary, maximum 500 characters for new certificates |
 | recommendation | text, nullable | Doctor-controlled recommendation, maximum 500 characters; nullable for legacy certificates |
-| valid_until | date, nullable | Optional expiration date |
+| valid_until | date, nullable | Required for new issuance and on/after the server-generated issue date; nullable only for legacy certificates |
 | status | enum | `draft`, `issued` |
 | pdf_storage_file_id | ObjectId, nullable, immutable | Private immutable PDF artifact; null for legacy certificates |
 | pdf_sha256 | text, nullable, immutable | Artifact integrity hash |
@@ -593,6 +593,8 @@ Drafts exist only during the approved Doctor creation flow. After status becomes
 For new certificates, `purpose_code` is limited to Sick Leave, School Absence, Fit to Return, Medical Consultation, Follow-up Consultation, Work Clearance, Travel / General Purpose, or Other. Other requires `custom_purpose`; standard purposes reject it. The formal statement is generated deterministically from the stored structured purpose rather than stored as editable text. `date_issued` is server-authoritative, while the trusted consultation date is derived through `MedicalCertificate.medical_record_id -> MedicalRecord.appointment_id -> Appointment.appointment_at`. Legacy records keep their existing `purpose` and remain readable.
 
 The current backend creation endpoint directly persists `issued`, matching the approved UI submission. Certificate numbers are generated server-side and database-unique. Doctor and Patient read endpoints filter by the stored relationship IDs. Responses resolve Doctor credentials and signature availability without exposing the protected `signature_path`.
+
+Validity remains derived rather than stored: `valid_until = null` is Legacy, an Asia/Manila clinic date on or before `valid_until` is Active, and a later clinic date is Expired. New issuance requires the Doctor to choose `valid_until`; no automatic duration is assigned. Existing null values stay unchanged and no legacy PDF is regenerated.
 
 Issued certificates can be downloaded only through authenticated owner-scoped Doctor and Patient routes. QR verification, public certificate verification, external sharing, advanced cryptographic signing, and payment integration remain future scope.
 

@@ -10,7 +10,8 @@ function ready(values) {
     values.purpose
     && (values.purpose !== 'Other' || values.custom_purpose.trim())
     && values.diagnosis_summary.trim()
-    && values.recommendation.trim(),
+    && values.recommendation.trim()
+    && values.valid_until,
   );
 }
 

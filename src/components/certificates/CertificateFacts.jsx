@@ -9,6 +9,6 @@ export default function CertificateFacts({ certificate }) {
     <div><dt>PTR number</dt><dd>{certificate.ptr_number}</dd></div>
     <div><dt>Doctor signature</dt><dd>{certificate.signature_available ? 'Signature on file' : 'Not available'}</dd></div>
     <div><dt>Date issued</dt><dd>{formatCertificateDate(certificate.date_issued)}</dd></div>
-    <div><dt>Valid until</dt><dd>{formatCertificateDate(certificate.valid_until)}</dd></div>
+    <div><dt>Valid until</dt><dd>{certificate.valid_until ? formatCertificateDate(certificate.valid_until) : 'Legacy — No validity date recorded'}</dd></div>
   </dl>;
 }

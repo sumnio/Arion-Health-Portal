@@ -298,6 +298,10 @@ Milestone 1.46 replaces the Staff Appointment Queue's current-day terminal tab w
 
 Only safe operational summaries are returned, with navigation to existing Staff Patient Detail. No clinical content, documents, certificates, signatures, account/contact data, Assistant information, notification content, or SMS details are exposed. Patient, Doctor, Admin, inactive, and unauthenticated access are denied. One supporting Appointment index was added; no collection, dependency, environment variable, mutation, export, provider, deployment, notification, SMS, or Doctor History behavior changed.
 
+Milestone v1.2.1 adds the Medical Certificate expiration foundation without changing storage or access architecture. New Doctor issuance and draft preview requests require an explicit `valid_until` date on or after the server-generated Asia/Manila issue date. No fixed duration is invented. Final and preview PDFs use the same renderer and visibly include Date Issued and Valid Until.
+
+Certificate APIs now derive `validity_status`: Active while the clinic date is on or before Valid Until, Expired afterward, and Legacy when an older v1.1 certificate has no validity date. Legacy records and PDFs remain unchanged, issued artifacts remain immutable/private with their existing SHA-256 integrity behavior, and there are still no certificate update/delete routes. Patient archive behavior, expired-download restrictions, Doctor validity filters, backfill, migration, and deployment remain outside this milestone.
+
 For a new development session, begin with:
 
 > Continue Arion Health Portal from the completed MVP baseline in `PROJECT_HANDOFF.md`. Read `AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`, `README.md`, and `OPERATIONS_RUNBOOK.md`. Production is DEPLOYED + RESTRICTED and synthetic-only. Preview is isolated. Do not enable Production certificates, use real clinical data, change secrets/cloud resources, or implement backlog items without explicit scope and approval. Preserve 107 frontend, 242 backend, and 48 E2E baseline behavior and add tests for approved changes.

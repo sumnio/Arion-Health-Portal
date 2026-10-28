@@ -16,6 +16,9 @@
 .doctor-certificate-page button:disabled { cursor: not-allowed; opacity: .6; }
 .doctor-certificate-page .record-reference { overflow-wrap: anywhere; font-size: 12px; }
 .doctor-certificate-page .certificate-helper { margin-top: 5px; font-size: 12px; }
+.doctor-certificate-page .status-active { background: #ddf4e9; color: #166447; }
+.doctor-certificate-page .status-expired { background: #ffe4e7; color: #a33434; }
+.doctor-certificate-page .status-legacy { background: #e7ebf0; color: #44536a; }
 .doctor-certificate-page .certificate-readonly-field { display: grid; gap: 6px; margin: 18px 0; padding: 12px; border-radius: 6px; background: #f0f4f8; }
 .doctor-certificate-page .certificate-readonly-field span { font-weight: 600; }
 .doctor-certificate-page .certificate-readonly-field small { color: #52657b; }

@@ -121,7 +121,7 @@ export function createDoctorApiService(repository = doctorApiRepository) {
         purpose: values.purpose,
         ...(values.purpose === 'Other' ? { custom_purpose: values.custom_purpose.trim() } : {}),
         diagnosis_summary: values.diagnosis_summary.trim(), recommendation: values.recommendation.trim(),
-        valid_until: values.valid_until || null,
+        valid_until: values.valid_until,
       });
       return normalizeCertificate(await repository.getCertificate(created.id), patientName);
     },
@@ -131,7 +131,7 @@ export function createDoctorApiService(repository = doctorApiRepository) {
         ...(values.purpose === 'Other' ? { custom_purpose: values.custom_purpose.trim() } : {}),
         diagnosis_summary: values.diagnosis_summary.trim(),
         recommendation: values.recommendation.trim(),
-        valid_until: values.valid_until || null,
+        valid_until: values.valid_until,
       }, options);
     },
     async getCertificate(id) { return normalizeCertificate(await repository.getCertificate(id)); },

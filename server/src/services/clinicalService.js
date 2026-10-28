@@ -11,6 +11,7 @@ import {
 import { addDays, clinicDate, dateOnlyToUtc, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
 import { appointmentHistoryDateRange } from '../utils/appointmentHistory.js';
 import { buildCertificateStatement, certificatePurposeDisplay } from './certificateContent.js';
+import { certificateValidityStatus } from './certificateValidity.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
 import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
 import { CERTIFICATE_PDF_RENDER_VERSION, buildCertificatePdf } from './certificatePdfService.js';
@@ -85,7 +86,7 @@ async function presentRecord(repository, record, suppliedPrescriptions) {
   };
 }
 
-function presentCertificate(item, clinic) {
+function presentCertificate(item, clinic, currentTime) {
   const medicalRecord = item.medical_record_id;
   const appointment = medicalRecord?.appointment_id;
   const timeZone = clinic.timeZone ?? 'Asia/Manila';
@@ -98,7 +99,9 @@ function presentCertificate(item, clinic) {
     recommendation: item.recommendation ?? null,
     statement: buildCertificateStatement({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose }),
     consultation_date: appointment?.appointment_at ? clinicDate(new Date(appointment.appointment_at), timeZone) : null,
-    valid_until: date(item.valid_until), status: item.status, clinic,
+    valid_until: date(item.valid_until), status: item.status,
+    validity_status: certificateValidityStatus(item.valid_until, { now: currentTime, timeZone }),
+    clinic,
     pdf_available: Boolean(item.pdf_storage_file_id), legacy_pdf: !item.pdf_storage_file_id,
     created_at: iso(item.created_at), updated_at: iso(item.updated_at),
   };
@@ -232,7 +235,7 @@ export function createClinicalService({ repository, clinic, notificationTriggers
         ? await repository.listIssuedCertificatesForDoctorPatient(id(doctor), patientId)
         : [];
       return items
-        .map((item) => presentCertificate(item, clinic));
+        .map((item) => presentCertificate(item, clinic, now()));
     },
     async getDoctorRecord(profileId, recordId) {
       validateClinicalObjectId(recordId, 'recordId');
@@ -323,7 +326,7 @@ export function createClinicalService({ repository, clinic, notificationTriggers
           created.doctor_id = doctor;
           created.patient_id = record.patient_id;
           created.medical_record_id = record;
-          return presentCertificate(created, clinic);
+          return presentCertificate(created, clinic, now());
         } catch (error) {
           if (storedArtifact?.storageFileId) await certificateArtifactStorage.delete(storedArtifact.storageFileId).catch(() => {});
           if (!duplicateKey(error)) throw error;
@@ -336,18 +339,18 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const doctor = await doctorFor(profileId);
       const certificate = await repository.findCertificateForDoctor(certificateId, id(doctor));
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
-      return presentCertificate(certificate, clinic);
+      return presentCertificate(certificate, clinic, now());
     },
     async listPatientCertificates(profileId) {
       const patient = await patientFor(profileId);
-      return (await repository.listIssuedCertificatesForPatient(id(patient))).map((item) => presentCertificate(item, clinic));
+      return (await repository.listIssuedCertificatesForPatient(id(patient))).map((item) => presentCertificate(item, clinic, now()));
     },
     async getPatientCertificate(profileId, certificateId) {
       validateClinicalObjectId(certificateId, 'certificateId');
       const patient = await patientFor(profileId);
       const certificate = await repository.findIssuedCertificateForPatient(certificateId, id(patient));
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
-      return presentCertificate(certificate, clinic);
+      return presentCertificate(certificate, clinic, now());
     },
     async getDoctorCertificatePdf(profileId, certificateId) {
       validateClinicalObjectId(certificateId, 'certificateId');

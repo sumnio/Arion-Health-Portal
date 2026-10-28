@@ -81,8 +81,11 @@ export function validateCertificateCreate(body = {}, { dateIssued } = {}) {
   if (!(dateIssued instanceof Date) || Number.isNaN(dateIssued.getTime())) {
     throw new TypeError('A valid server-authoritative dateIssued is required.');
   }
-  const validUntil = body.valid_until ? dateOnly(body.valid_until, 'valid_until') : null;
-  if (validUntil && validUntil < dateIssued) {
+  if (body.valid_until == null || body.valid_until === '') {
+    throw httpError(400, 'VALIDATION_ERROR', 'valid_until is required.');
+  }
+  const validUntil = dateOnly(body.valid_until, 'valid_until');
+  if (validUntil < dateIssued) {
     throw httpError(400, 'VALIDATION_ERROR', 'valid_until cannot be earlier than date_issued.');
   }
   return {

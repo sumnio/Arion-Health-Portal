@@ -65,6 +65,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.getByRole('link', { name: 'Issue Medical Certificate' }).click();
   await page.getByLabel('Purpose *').selectOption('Fit to Return');
   await page.getByLabel('Recommendation *').fill('May return to regular duties on the date stated.');
+  await page.getByLabel('Valid Until *').fill(patientScenario.futureDate(7));
   await expect(page.locator('iframe[title="Draft medical certificate PDF preview"]')).toBeVisible();
   page.once('dialog', async (dialog) => {
     expect(dialog.message()).toBe('You have unsaved certificate changes. Leave without issuing?');
@@ -76,6 +77,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.getByRole('link', { name: 'Issue Medical Certificate' }).click();
   await page.getByLabel('Purpose *').selectOption('Fit to Return');
   await page.getByLabel('Recommendation *').fill('May return to regular duties on the date stated.');
+  await page.getByLabel('Valid Until *').fill(patientScenario.futureDate(7));
   await page.getByRole('button', { name: 'Issue Certificate' }).click();
   await expect(page.getByRole('heading', { name: 'Medical Certificate Issued' })).toBeVisible();
   await expect(page.getByText('Successfully issued. This certificate cannot be edited, deleted, or reissued here.')).toBeVisible();
@@ -84,6 +86,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await expect(issuedPreview).toHaveAttribute('src', /^blob:/);
   const certificate = await MedicalCertificate.findOne({ medical_record_id: record._id }).lean();
   expect(certificate).toMatchObject({ purpose: 'Fit to Return', purpose_code: 'Fit to Return', recommendation: 'May return to regular duties on the date stated.', status: 'issued' });
+  expect(certificate.valid_until.toISOString().slice(0, 10)).toBe(patientScenario.futureDate(7));
   expect(certificate.medical_certificate_number).toBeTruthy();
   const storedPdf = await page.request.get(`${apiURL}/api/doctor/certificates/${certificate._id}/pdf`);
   expect(storedPdf.ok()).toBe(true);
