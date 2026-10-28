@@ -10,6 +10,8 @@ const certificateFields = new Set(['purpose', 'custom_purpose', 'diagnosis_summa
 export const DOCTOR_HISTORY_RANGES = Object.freeze(['today', 'last_7_days', 'last_30_days', 'this_month', 'custom']);
 export const DOCTOR_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 'no_show']);
 export const DOCTOR_HISTORY_PAGE_SIZE = 10;
+export const PATIENT_CERTIFICATE_PAGE_SIZE = 5;
+export const PATIENT_CERTIFICATE_VIEWS = Object.freeze(['active', 'archived']);
 
 export function validateClinicalObjectId(value, name) {
   if (!mongoose.isObjectIdOrHexString(value)) {
@@ -143,5 +145,18 @@ export function validateDoctorAppointmentHistoryQuery(query = {}) {
     visit_type: visitType,
     page: queryInteger(query.page, 'page', { defaultValue: 1, max: 100000 }),
     limit: DOCTOR_HISTORY_PAGE_SIZE,
+  };
+}
+
+export function validatePatientCertificateQuery(query = {}) {
+  validateQueryKeys(query, new Set(['view', 'page']));
+  const view = scalar(query.view, 'view') || 'active';
+  if (!PATIENT_CERTIFICATE_VIEWS.includes(view)) {
+    throw httpError(400, 'INVALID_QUERY', 'view must be active or archived.');
+  }
+  return {
+    view,
+    page: queryInteger(query.page, 'page', { defaultValue: 1, max: 100000 }),
+    limit: PATIENT_CERTIFICATE_PAGE_SIZE,
   };
 }

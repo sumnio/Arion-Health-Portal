@@ -244,17 +244,16 @@ export class PatientScenario {
     return { recordId: String(record._id), ...record.toObject() };
   }
 
-  async createCertificate({ patient, doctor, record, purpose = 'Fitness for work' }) {
-    const dateIssued = dateOnlyToUtc(this.today());
+  async createCertificate({ patient, doctor, record, purpose = 'Fitness for work', validUntil = undefined, dateIssued = this.today() }) {
     const certificate = await MedicalCertificate.create({
       medical_certificate_number: `E2E-MC-${this.marker}-${Date.now()}`,
       patient_id: patient.patientId,
       doctor_id: doctor.doctorId,
       medical_record_id: record?.recordId ?? null,
-      date_issued: dateIssued,
+      date_issued: dateOnlyToUtc(dateIssued),
       purpose,
       diagnosis_summary: record?.diagnosis ?? 'E2E diagnosis summary',
-      valid_until: dateOnlyToUtc(addDays(this.today(), 7)),
+      valid_until: validUntil === null ? null : dateOnlyToUtc(validUntil ?? addDays(this.today(), 7)),
       status: 'issued',
     });
     return { certificateId: String(certificate._id), ...certificate.toObject() };

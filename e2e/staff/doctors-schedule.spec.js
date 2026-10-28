@@ -1,5 +1,5 @@
 import { Appointment, DoctorAvailability, DoctorPublishedAvailability } from '../../server/src/models/index.js';
-import { dateOnlyToUtc } from '../../server/src/utils/schedulingTime.js';
+import { dateOnlyToUtc, zonedDateTimeToUtc } from '../../server/src/utils/schedulingTime.js';
 import { test, expect } from '../fixtures/test.js';
 import { loginAsStaff } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
@@ -23,7 +23,8 @@ test('Staff Doctors lists active Doctors with today schedule facts and dedicated
   const card = page.locator('.staff-doctor-card').filter({ has: page.getByRole('heading', { name: doctor.display_name }) });
   await expect(card.getByText(doctor.specialty)).toBeVisible();
   await expect(card.getByText('1', { exact: true })).toBeVisible();
-  await expect(card.getByText('Yes', { exact: true })).toBeVisible();
+  const scheduleStillActive = zonedDateTimeToUtc(today, '23:30', 'Asia/Manila') > new Date();
+  await expect(card.getByText(scheduleStillActive ? 'Yes' : 'No', { exact: true })).toBeVisible();
   await expect(page.getByText(inactive.display_name)).toHaveCount(0);
   await card.getByRole('link', { name: 'Manage Schedule' }).click();
   await expect(page).toHaveURL(`/staff/doctors/${doctor.doctorId}/schedule`);

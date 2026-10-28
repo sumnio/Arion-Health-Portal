@@ -64,6 +64,12 @@ export function getE2eRuntimeConfig(environment = loadE2eEnvironment()) {
     AUTH_SECRET: environment.E2E_AUTH_SECRET || 'arion-e2e-auth-secret-local-tests-only',
     MFA_ENCRYPTION_KEY: environment.E2E_MFA_ENCRYPTION_KEY || testMfaKey,
     E2E_EMAIL_CAPTURE_KEY: environment.E2E_EMAIL_CAPTURE_KEY || 'arion-e2e-email-capture-only',
+    EMAIL_PROVIDER: environment.E2E_EMAIL_PROVIDER || 'fake',
+    SMS_ENABLED: environment.E2E_SMS_ENABLED || 'false',
+    SMS_PROVIDER: environment.E2E_SMS_PROVIDER || 'fake',
+    AI_EXTERNAL_ENABLED: environment.E2E_AI_EXTERNAL_ENABLED || 'false',
+    CERTIFICATE_ISSUANCE_ENABLED: environment.E2E_CERTIFICATE_ISSUANCE_ENABLED || 'true',
+    CRON_REMINDER_SECRET: environment.E2E_CRON_REMINDER_SECRET || 'arion-e2e-sms-cron-secret-local-tests-only',
     // Browser journeys share one local IP. Keep recovery scenarios independent
     // while dedicated backend tests exercise the production-sized limits.
     FORGOT_PASSWORD_RATE_LIMIT_MAX: environment.E2E_FORGOT_PASSWORD_RATE_LIMIT_MAX || '100',

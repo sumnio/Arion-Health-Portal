@@ -7,6 +7,7 @@ import {
   validateDoctorAppointmentQuery,
   validateClinicalObjectId,
   validateMedicalRecordCreate,
+  validatePatientCertificateQuery,
 } from '../validation/clinicalValidation.js';
 import { addDays, clinicDate, dateOnlyToUtc, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
 import { appointmentHistoryDateRange } from '../utils/appointmentHistory.js';
@@ -104,6 +105,18 @@ function presentCertificate(item, clinic, currentTime) {
     clinic,
     pdf_available: Boolean(item.pdf_storage_file_id), legacy_pdf: !item.pdf_storage_file_id,
     created_at: iso(item.created_at), updated_at: iso(item.updated_at),
+  };
+}
+
+function presentPatientCertificateMetadata(item, clinic, currentTime) {
+  return {
+    id: id(item),
+    medical_certificate_number: item.medical_certificate_number,
+    purpose: certificatePurposeDisplay({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose }),
+    doctor: { display_name: item.doctor_id?.user_profile_id?.display_name ?? null },
+    date_issued: date(item.date_issued),
+    valid_until: date(item.valid_until),
+    validity_status: certificateValidityStatus(item.valid_until, { now: currentTime, timeZone: clinic.timeZone ?? 'Asia/Manila' }),
   };
 }
 
@@ -341,16 +354,34 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
       return presentCertificate(certificate, clinic, now());
     },
-    async listPatientCertificates(profileId) {
+    async listPatientCertificates(profileId, query = {}) {
+      const filters = validatePatientCertificateQuery(query);
       const patient = await patientFor(profileId);
-      return (await repository.listIssuedCertificatesForPatient(id(patient))).map((item) => presentCertificate(item, clinic, now()));
+      const currentTime = now();
+      const boundary = dateOnlyToUtc(clinicDate(currentTime, clinic.timeZone ?? 'Asia/Manila'));
+      const result = await repository.listIssuedCertificatesForPatient(id(patient), { ...filters, boundary });
+      return {
+        items: result.items.map((item) => {
+          const metadata = presentPatientCertificateMetadata(item, clinic, currentTime);
+          return filters.view === 'active' ? { ...metadata, medical_record_id: id(item.medical_record_id) } : metadata;
+        }),
+        view: filters.view,
+        page: filters.page,
+        page_size: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+      };
     },
     async getPatientCertificate(profileId, certificateId) {
       validateClinicalObjectId(certificateId, 'certificateId');
       const patient = await patientFor(profileId);
       const certificate = await repository.findIssuedCertificateForPatient(certificateId, id(patient));
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
-      return presentCertificate(certificate, clinic, now());
+      const currentTime = now();
+      if (certificateValidityStatus(certificate.valid_until, { now: currentTime, timeZone: clinic.timeZone ?? 'Asia/Manila' }) === 'expired') {
+        return presentPatientCertificateMetadata(certificate, clinic, currentTime);
+      }
+      return presentCertificate(certificate, clinic, currentTime);
     },
     async getDoctorCertificatePdf(profileId, certificateId) {
       validateClinicalObjectId(certificateId, 'certificateId');
@@ -364,6 +395,10 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const patient = await patientFor(profileId);
       const certificate = await repository.findIssuedCertificateForPatient(certificateId, id(patient));
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
+      const currentTime = now();
+      if (certificateValidityStatus(certificate.valid_until, { now: currentTime, timeZone: clinic.timeZone ?? 'Asia/Manila' }) === 'expired') {
+        throw httpError(403, 'CERTIFICATE_EXPIRED', 'Expired certificates are archived and their PDF is no longer available to Patients.');
+      }
       return certificatePdf(certificate);
     },
 

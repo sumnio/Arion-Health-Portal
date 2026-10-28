@@ -128,8 +128,21 @@ export const clinicalRepository = {
   },
 
   async createCertificate(data) { return (await MedicalCertificate.create(data)).toObject(); },
-  async listIssuedCertificatesForPatient(patientId) {
-    return MedicalCertificate.find({ patient_id: patientId, status: 'issued' }).sort({ date_issued: -1 }).populate(certificatePopulation).lean();
+  async listIssuedCertificatesForPatient(patientId, { view, boundary, page, limit }) {
+    const validity = view === 'archived'
+      ? { valid_until: { $ne: null, $lt: boundary } }
+      : { $or: [{ valid_until: null }, { valid_until: { $gte: boundary } }] };
+    const query = { patient_id: patientId, status: 'issued', ...validity };
+    const [items, total] = await Promise.all([
+      MedicalCertificate.find(query)
+        .sort({ date_issued: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate(certificatePopulation)
+        .lean(),
+      MedicalCertificate.countDocuments(query),
+    ]);
+    return { items, total };
   },
   async findIssuedCertificateForPatient(id, patientId) {
     return MedicalCertificate.findOne({ _id: id, patient_id: patientId, status: 'issued' }).populate(certificatePopulation).lean();

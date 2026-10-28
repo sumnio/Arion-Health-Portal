@@ -65,6 +65,44 @@ test('Patient views an issued certificate and downloads its generated PDF', asyn
   assertBrowserClean();
 });
 
+test('Patient Active and Archived certificate access follows server validity rules', async ({ page, patientScenario, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const { doctor, record } = await clinicalScenario(patientScenario, seededPatient);
+  const active = await patientScenario.createCertificate({ patient: seededPatient, doctor, record, purpose: 'Active E2E certificate' });
+  const expired = await patientScenario.createCertificate({ patient: seededPatient, doctor, record, purpose: 'Archived E2E certificate', dateIssued: patientScenario.futureDate(-8), validUntil: patientScenario.futureDate(-1) });
+  const legacy = await patientScenario.createCertificate({ patient: seededPatient, doctor, record, purpose: 'Legacy E2E certificate', dateIssued: patientScenario.futureDate(-9), validUntil: null });
+  await loginAsPatient(page, seededPatient);
+  await page.goto('/patient/certificates');
+
+  await expect(page.getByRole('tab', { name: 'Active' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText(active.purpose)).toBeVisible();
+  await expect(page.getByText(legacy.purpose)).toBeVisible();
+  await expect(page.getByText(expired.purpose)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'View Certificate →' })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Download PDF' })).toHaveCount(2);
+
+  await page.getByRole('tab', { name: 'Archived' }).click();
+  await expect(page.getByRole('tab', { name: 'Archived' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText(expired.purpose)).toBeVisible();
+  await expect(page.getByText(active.purpose)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'View Certificate →' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Download PDF' })).toHaveCount(0);
+  await expect(page.getByText(/Full details and PDF access are unavailable/)).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect(page.getByRole('tab', { name: 'Archived' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  const pdfResponse = await page.request.get(`${e2eApiUrl}/api/patient/certificates/${expired.certificateId}/pdf`);
+  expect(pdfResponse.status()).toBe(403);
+  expect((await pdfResponse.json()).error.code).toBe('CERTIFICATE_EXPIRED');
+  await page.goto(`/patient/certificates/${expired.certificateId}`);
+  await expect(page.getByRole('heading', { name: 'Archived Certificate' })).toBeVisible();
+  await expect(page.getByText('Archived E2E certificate')).toBeVisible();
+  await expect(page.locator('iframe[title="Issued medical certificate PDF"]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Download PDF' })).toHaveCount(0);
+  assertBrowserClean();
+});
+
 test('Patient records and certificates show five items per page', async ({ page, patientScenario, seededPatient }) => {
   const assertBrowserClean = observeBrowser(page);
   const doctor = await patientScenario.createDoctor();
@@ -119,7 +157,7 @@ test('Patient sees real empty appointment, record, and certificate states', asyn
   await page.goto('/patient/records');
   await expect(page.getByRole('heading', { name: 'No medical records yet' })).toBeVisible();
   await page.goto('/patient/certificates');
-  await expect(page.getByRole('heading', { name: 'No issued certificates yet' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No active certificates' })).toBeVisible();
   await expect(page.getByText(/mock|demo/i)).toHaveCount(0);
   assertBrowserClean();
 });

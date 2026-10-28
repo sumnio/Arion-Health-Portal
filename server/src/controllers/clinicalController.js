@@ -66,7 +66,12 @@ export function createPatientClinicalController({ clinicalService }) {
       response.json({ medical_record: await clinicalService.getPatientRecord(request.authUser.user_profile_id, request.params.recordId) });
     },
     async certificates(request, response) {
-      response.json({ medical_certificates: await clinicalService.listPatientCertificates(request.authUser.user_profile_id) });
+      const result = await clinicalService.listPatientCertificates(request.authUser.user_profile_id, request.query);
+      response.json({
+        medical_certificates: result.items,
+        view: result.view,
+        pagination: { page: result.page, page_size: result.page_size, total: result.total, page_count: result.page_count },
+      });
     },
     async certificate(request, response) {
       response.json({ medical_certificate: await clinicalService.getPatientCertificate(request.authUser.user_profile_id, request.params.certificateId) });

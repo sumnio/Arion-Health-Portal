@@ -25,14 +25,14 @@ const record = { id: 'r1', patient, doctor, appointment, encounter_at: '2026-09-
 const certificate = { id: 'c1', medical_certificate_number: 'AHC-1', patient_id: 'p1', doctor: { ...doctor, license_number: 'LIC-1', ptr_number: 'PTR-1', signature_available: true }, medical_record_id: 'r1', date_issued: '2026-09-20', purpose: 'Medical leave', diagnosis_summary: 'Migraine', valid_until: null, status: 'issued', clinic: { name: 'Arion Health Clinic', location: 'Clinic address' } };
 
 test('Patient repository uses the approved authenticated API routes and methods', async () => {
-  const calls = []; const client = { async request(path, options = {}) { calls.push([path, options]); if (path === '/api/patient/profile') return { patient }; if (path === '/api/patient/doctors') return { doctors: [doctor] }; if (path.includes('available-slots')) return { slots: [] }; if (path === '/api/patient/appointments' && options.method === 'POST') return { appointment }; if (path === '/api/patient/appointments') return { appointments: [appointment] }; if (path.endsWith('/cancel')) return { appointment: { ...appointment, status: 'cancelled' } }; if (path.endsWith('/reschedule')) return { appointment: { ...appointment, appointment_at: options.body.appointment_at } }; if (path === '/api/patient/records') return { medical_records: [record] }; if (path === '/api/patient/certificates') return { medical_certificates: [certificate] }; throw new Error(path); } };
+  const calls = []; const client = { async request(path, options = {}) { calls.push([path, options]); if (path === '/api/patient/profile') return { patient }; if (path === '/api/patient/doctors') return { doctors: [doctor] }; if (path.includes('available-slots')) return { slots: [] }; if (path === '/api/patient/appointments' && options.method === 'POST') return { appointment }; if (path === '/api/patient/appointments') return { appointments: [appointment] }; if (path.endsWith('/cancel')) return { appointment: { ...appointment, status: 'cancelled' } }; if (path.endsWith('/reschedule')) return { appointment: { ...appointment, appointment_at: options.body.appointment_at } }; if (path === '/api/patient/records') return { medical_records: [record] }; if (path.startsWith('/api/patient/certificates?')) return { medical_certificates: [certificate], view: 'archived', pagination: { page: 2, page_size: 5, total: 6, page_count: 2 } }; throw new Error(path); } };
   const repository = createPatientApiRepository(client);
-  await repository.getProfile(); await repository.getDoctors(); await repository.getAvailableSlots('d1', '2026-09-26'); await repository.createAppointment({}); await repository.getAppointments(); await repository.cancelAppointment('a1'); await repository.rescheduleAppointment('a1', { appointment_at: '2026-09-27T02:00:00.000Z' }); await repository.getRecords(); await repository.getCertificates();
-  assert.deepEqual(calls.map(([path, options]) => [path, options.method ?? 'GET']), [['/api/patient/profile', 'GET'], ['/api/patient/doctors', 'GET'], ['/api/patient/doctors/d1/available-slots?date=2026-09-26', 'GET'], ['/api/patient/appointments', 'POST'], ['/api/patient/appointments', 'GET'], ['/api/patient/appointments/a1/cancel', 'PATCH'], ['/api/patient/appointments/a1/reschedule', 'PATCH'], ['/api/patient/records', 'GET'], ['/api/patient/certificates', 'GET']]);
+  await repository.getProfile(); await repository.getDoctors(); await repository.getAvailableSlots('d1', '2026-09-26'); await repository.createAppointment({}); await repository.getAppointments(); await repository.cancelAppointment('a1'); await repository.rescheduleAppointment('a1', { appointment_at: '2026-09-27T02:00:00.000Z' }); await repository.getRecords(); await repository.getCertificates({ view: 'archived', page: 2 });
+  assert.deepEqual(calls.map(([path, options]) => [path, options.method ?? 'GET']), [['/api/patient/profile', 'GET'], ['/api/patient/doctors', 'GET'], ['/api/patient/doctors/d1/available-slots?date=2026-09-26', 'GET'], ['/api/patient/appointments', 'POST'], ['/api/patient/appointments', 'GET'], ['/api/patient/appointments/a1/cancel', 'PATCH'], ['/api/patient/appointments/a1/reschedule', 'PATCH'], ['/api/patient/records', 'GET'], ['/api/patient/certificates?view=archived&page=2', 'GET']]);
 });
 
 test('Patient API service normalizes live profile, appointments, records, and safe certificate details', async () => {
-  const repository = { async getProfile() { return patient; }, async updateProfile() { return patient; }, async getDoctors() { return [doctor]; }, async getAvailableSlots() { return { slots: [{ start_time: '10:00', end_time: '10:30', appointment_at: appointment.appointment_at, available: false, occupied: true }] }; }, async createAppointment() { return appointment; }, async getAppointments() { return [appointment]; }, async getAppointment() { return appointment; }, async cancelAppointment() { return { ...appointment, status: 'cancelled' }; }, async rescheduleAppointment() { return { ...appointment, appointment_at: '2026-09-27T02:00:00.000Z' }; }, async getRecords() { return [record]; }, async getRecord() { return record; }, async getCertificates() { return [certificate]; }, async getCertificate() { return certificate; } };
+  const repository = { async getProfile() { return patient; }, async updateProfile() { return patient; }, async getDoctors() { return [doctor]; }, async getAvailableSlots() { return { slots: [{ start_time: '10:00', end_time: '10:30', appointment_at: appointment.appointment_at, available: false, occupied: true }] }; }, async createAppointment() { return appointment; }, async getAppointments() { return [appointment]; }, async getAppointment() { return appointment; }, async cancelAppointment() { return { ...appointment, status: 'cancelled' }; }, async rescheduleAppointment() { return { ...appointment, appointment_at: '2026-09-27T02:00:00.000Z' }; }, async getRecords() { return [record]; }, async getRecord() { return record; }, async getCertificates() { return { medical_certificates: [certificate], view: 'active', pagination: { page: 1, page_size: 5, total: 1, page_count: 1 } }; }, async getCertificate() { return certificate; } };
   const service = createPatientApiService(repository);
   assert.equal((await service.getProfile()).fullName, 'Alex Patient');
   assert.equal((await service.getAppointments())[0].service, 'General Consultation');
@@ -40,6 +40,8 @@ test('Patient API service normalizes live profile, appointments, records, and sa
   assert.equal((await service.getRecord('r1')).prescriptions[0].medicine, 'Paracetamol');
   const item = await service.getCertificate('c1');
   assert.equal(item.medical_certificate_number, 'AHC-1'); assert.equal(item.signature_available, true); assert.equal('signature_path' in item, false);
+  const list = await service.getCertificates({ view: 'active', page: 1 });
+  assert.equal(list.items.length, 1); assert.equal(list.pagination.total, 1); assert.equal(list.view, 'active');
 });
 
 test('Patient booking stays within 14 days and uses the three canonical visit types', () => {
@@ -145,7 +147,21 @@ test('Patient records and certificates paginate at five items', async () => {
   const certificatesSource = await readFile(new URL('../src/pages/patient/PatientCertificates.jsx', import.meta.url), 'utf8');
   assert.match(recordsSource, /aria-label="Medical record pages"/);
   assert.match(recordsSource, /setPage\(1\)/);
-  assert.match(certificatesSource, /aria-label="Medical certificate pages"/);
+  assert.match(certificatesSource, /medical certificate pages/);
+});
+
+test('Patient certificates expose accessible Active and Archived tabs with server paging and no archived actions', async () => {
+  const listSource = await readFile(new URL('../src/pages/patient/PatientCertificates.jsx', import.meta.url), 'utf8');
+  const detailSource = await readFile(new URL('../src/pages/patient/PatientCertificateDetail.jsx', import.meta.url), 'utf8');
+  assert.match(listSource, /role="tablist"/);
+  assert.match(listSource, />Active</);
+  assert.match(listSource, />Archived</);
+  assert.match(listSource, /ArrowLeft/);
+  assert.match(listSource, /patientApiService\.getCertificates\(\{ view, page \}\)/);
+  assert.match(listSource, /view === 'active' && <div className="certificate-list-actions"/);
+  assert.match(listSource, /Full details and PDF access are unavailable/);
+  assert.match(detailSource, /certificate\?\.validity_status === 'expired'/);
+  assert.match(detailSource, /PDF viewing or download are no longer available/);
 });
 
 test('Patient profile starts read-only, requires Edit Profile, and shows save feedback near its actions', async () => {

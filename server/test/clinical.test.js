@@ -106,7 +106,16 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
       const value = { _id: nextId(), ...clone(data), patient_id: String(data.patient_id), doctor_id: String(data.doctor_id), medical_record_id: String(data.medical_record_id), created_at: new Date(), updated_at: new Date() };
       certificates.set(value._id, value); return clone(value);
     },
-    async listIssuedCertificatesForPatient(patientId) { return [...certificates.values()].filter((item) => item.patient_id === String(patientId) && item.status === 'issued').map(populateCertificate); },
+    async listIssuedCertificatesForPatient(patientId, { view, boundary, page, limit }) {
+      const matching = [...certificates.values()]
+        .filter((item) => item.patient_id === String(patientId) && item.status === 'issued')
+        .filter((item) => {
+          if (!item.valid_until) return view === 'active';
+          return view === 'archived' ? new Date(item.valid_until) < boundary : new Date(item.valid_until) >= boundary;
+        })
+        .sort((a, b) => new Date(b.date_issued) - new Date(a.date_issued) || String(b._id).localeCompare(String(a._id)));
+      return { items: matching.slice((page - 1) * limit, page * limit).map(populateCertificate), total: matching.length };
+    },
     async findIssuedCertificateForPatient(id, patientId) { const item = certificates.get(String(id)); return item?.patient_id === String(patientId) && item.status === 'issued' ? populateCertificate(item) : null; },
     async findCertificateForDoctor(id, doctorId) { const item = certificates.get(String(id)); return item?.doctor_id === String(doctorId) ? populateCertificate(item) : null; },
     async listIssuedCertificatesForDoctorPatient(doctorId, patientId) { return [...certificates.values()].filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId) && item.status === 'issued').map(populateCertificate); },
@@ -276,7 +285,7 @@ test('new certificate issuance requires valid_until and accepts the same clinic 
   });
 });
 
-test('certificate API derives legacy and expired validity without rewriting stored records', async () => {
+test('patient certificate API separates active and legacy certificates from archived metadata', async () => {
   const context = createContext();
   await withServer(context.app, async (base) => {
     const created = await createRecord(context, base);
@@ -287,12 +296,55 @@ test('certificate API derives legacy and expired validity without rewriting stor
     };
     context.certificates.set('aaaaaaaaaaaaaaaaaaaaaaa1', { _id: 'aaaaaaaaaaaaaaaaaaaaaaa1', ...baseCertificate, medical_certificate_number: 'LEGACY-1', valid_until: null });
     context.certificates.set('aaaaaaaaaaaaaaaaaaaaaaa2', { _id: 'aaaaaaaaaaaaaaaaaaaaaaa2', ...baseCertificate, medical_certificate_number: 'EXPIRED-1', valid_until: new Date('2026-09-24T00:00:00.000Z') });
-    const response = await request(base, '/api/patient/certificates', { cookie: context.cookie(ids.patientProfile) });
-    const items = (await response.json()).medical_certificates;
-    assert.equal(items.find((item) => item.id === 'aaaaaaaaaaaaaaaaaaaaaaa1').validity_status, 'legacy');
-    assert.equal(items.find((item) => item.id === 'aaaaaaaaaaaaaaaaaaaaaaa1').valid_until, null);
-    assert.equal(items.find((item) => item.id === 'aaaaaaaaaaaaaaaaaaaaaaa2').validity_status, 'expired');
+    const activeResponse = await request(base, '/api/patient/certificates?view=active&page=1', { cookie: context.cookie(ids.patientProfile) });
+    const activeBody = await activeResponse.json();
+    assert.equal(activeResponse.status, 200);
+    assert.equal(activeBody.medical_certificates.length, 1);
+    assert.equal(activeBody.medical_certificates[0].validity_status, 'legacy');
+    assert.equal(activeBody.medical_certificates[0].valid_until, null);
+    assert.deepEqual(activeBody.pagination, { page: 1, page_size: 5, total: 1, page_count: 1 });
+    const archivedResponse = await request(base, '/api/patient/certificates?view=archived&page=1', { cookie: context.cookie(ids.patientProfile) });
+    const archivedBody = await archivedResponse.json();
+    assert.equal(archivedResponse.status, 200);
+    assert.equal(archivedBody.medical_certificates[0].validity_status, 'expired');
+    assert.equal(archivedBody.medical_certificates[0].medical_certificate_number, 'EXPIRED-1');
+    assert.deepEqual(Object.keys(archivedBody.medical_certificates[0]).sort(), ['date_issued', 'doctor', 'id', 'medical_certificate_number', 'purpose', 'valid_until', 'validity_status']);
     assert.equal(context.certificates.get('aaaaaaaaaaaaaaaaaaaaaaa1').valid_until, null);
+  });
+});
+
+test('expired Patient certificate detail is metadata-only and PDF access fails before bytes are opened', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const created = await createRecord(context, base);
+    const certificateId = 'aaaaaaaaaaaaaaaaaaaaaaa3';
+    context.certificates.set(certificateId, {
+      _id: certificateId, patient_id: ids.patient, doctor_id: ids.doctor, medical_record_id: created.body.medical_record.id,
+      medical_certificate_number: 'EXPIRED-PRIVATE', date_issued: new Date('2026-09-01T00:00:00.000Z'),
+      valid_until: new Date('2026-09-24T00:00:00.000Z'), purpose: 'Sick Leave', diagnosis_summary: 'Must stay private',
+      recommendation: 'Must stay private', pdf_storage_file_id: 'aaaaaaaaaaaaaaaaaaaaaa99', status: 'issued',
+    });
+    context.certificateArtifacts.set('aaaaaaaaaaaaaaaaaaaaaa99', Buffer.from('%PDF-private'));
+    const detail = await request(base, `/api/patient/certificates/${certificateId}`, { cookie: context.cookie(ids.patientProfile) });
+    const detailBody = (await detail.json()).medical_certificate;
+    assert.equal(detail.status, 200);
+    assert.equal(detailBody.validity_status, 'expired');
+    for (const field of ['diagnosis_summary', 'recommendation', 'statement', 'clinic', 'pdf_available', 'medical_record_id']) assert.equal(field in detailBody, false);
+    const pdf = await request(base, `/api/patient/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.patientProfile) });
+    assert.equal(pdf.status, 403);
+    assert.equal((await pdf.json()).error.code, 'CERTIFICATE_EXPIRED');
+    assert.equal((await request(base, `/api/patient/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.otherPatientProfile) })).status, 404);
+    assert.equal((await request(base, `/api/doctor/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.doctorProfile) })).status, 200);
+  });
+});
+
+test('patient certificate query rejects unknown, repeated, and invalid filters', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    for (const query of ['view=all', 'view=active&view=archived', 'page=0', 'page=abc', 'sort=date_issued']) {
+      const response = await request(base, `/api/patient/certificates?${query}`, { cookie: context.cookie(ids.patientProfile) });
+      assert.equal(response.status, 400, query);
+    }
   });
 });
 
