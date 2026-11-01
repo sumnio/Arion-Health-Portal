@@ -13,9 +13,9 @@ export default function UnauthorizedPage() {
   }
 
   return <AuthCard title="Access not allowed" subtitle="Your account cannot open this part of the portal.">
-    {user ? <div className="context-links">
+    {user ? <div className="context-links unauthorized-actions">
       <Link className="public-button primary" to={getRoleDashboard(user.role)}>Go to my dashboard</Link>
       <button className="public-button secondary" type="button" onClick={signOut}>Log out</button>
-    </div> : <Link className="public-button primary full-width" to="/login">Go to login</Link>}
+    </div> : <div className="context-links unauthorized-actions"><Link className="public-button primary" to="/login">Go to login</Link></div>}
   </AuthCard>;
 }

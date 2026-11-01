@@ -5,6 +5,7 @@ import {
   validateCertificateCreate,
   validateDoctorAppointmentHistoryQuery,
   validateDoctorAppointmentQuery,
+  validateDoctorCertificateQuery,
   validateClinicalObjectId,
   validateMedicalRecordCreate,
   validatePatientCertificateQuery,
@@ -241,14 +242,23 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const doctor = await doctorFor(profileId);
       return Promise.all((await repository.listRecordsForDoctorPatient(id(doctor), patientId)).map((item) => presentRecord(repository, item)));
     },
-    async listDoctorPatientCertificates(profileId, patientId) {
+    async listDoctorPatientCertificates(profileId, patientId, query = {}) {
       validateClinicalObjectId(patientId, 'patientId');
+      const filters = validateDoctorCertificateQuery(query);
       const doctor = await doctorFor(profileId);
-      const items = repository.listIssuedCertificatesForDoctorPatient
-        ? await repository.listIssuedCertificatesForDoctorPatient(id(doctor), patientId)
-        : [];
-      return items
-        .map((item) => presentCertificate(item, clinic, now()));
+      const currentTime = now();
+      const boundary = dateOnlyToUtc(clinicDate(currentTime, clinic.timeZone ?? 'Asia/Manila'));
+      const result = repository.listIssuedCertificatesForDoctorPatient
+        ? await repository.listIssuedCertificatesForDoctorPatient(id(doctor), patientId, { ...filters, boundary })
+        : { items: [], total: 0 };
+      return {
+        items: result.items.map((item) => presentCertificate(item, clinic, currentTime)),
+        status: filters.status,
+        page: filters.page,
+        page_size: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+      };
     },
     async getDoctorRecord(profileId, recordId) {
       validateClinicalObjectId(recordId, 'recordId');

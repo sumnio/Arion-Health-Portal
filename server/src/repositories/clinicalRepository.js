@@ -150,11 +150,22 @@ export const clinicalRepository = {
   async findCertificateForDoctor(id, doctorId) {
     return MedicalCertificate.findOne({ _id: id, doctor_id: doctorId }).populate(certificatePopulation).lean();
   },
-  async listIssuedCertificatesForDoctorPatient(doctorId, patientId) {
-    return MedicalCertificate.find({ doctor_id: doctorId, patient_id: patientId, status: 'issued' })
-      .sort({ date_issued: -1 })
-      .populate(certificatePopulation)
-      .lean();
+  async listIssuedCertificatesForDoctorPatient(doctorId, patientId, { status, boundary, page, limit }) {
+    const validity = status === 'active' ? { valid_until: { $gte: boundary } }
+      : status === 'expired' ? { valid_until: { $ne: null, $lt: boundary } }
+        : status === 'legacy' ? { valid_until: null }
+          : {};
+    const query = { doctor_id: doctorId, patient_id: patientId, status: 'issued', ...validity };
+    const [items, total] = await Promise.all([
+      MedicalCertificate.find(query)
+        .sort({ date_issued: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate(certificatePopulation)
+        .lean(),
+      MedicalCertificate.countDocuments(query),
+    ]);
+    return { items, total };
   },
 
   async completeConfirmedCheckedIn(id, doctorId) {

@@ -12,6 +12,8 @@ export const DOCTOR_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 
 export const DOCTOR_HISTORY_PAGE_SIZE = 10;
 export const PATIENT_CERTIFICATE_PAGE_SIZE = 5;
 export const PATIENT_CERTIFICATE_VIEWS = Object.freeze(['active', 'archived']);
+export const DOCTOR_CERTIFICATE_PAGE_SIZE = 5;
+export const DOCTOR_CERTIFICATE_FILTERS = Object.freeze(['all', 'active', 'expired', 'legacy']);
 
 export function validateClinicalObjectId(value, name) {
   if (!mongoose.isObjectIdOrHexString(value)) {
@@ -145,6 +147,19 @@ export function validateDoctorAppointmentHistoryQuery(query = {}) {
     visit_type: visitType,
     page: queryInteger(query.page, 'page', { defaultValue: 1, max: 100000 }),
     limit: DOCTOR_HISTORY_PAGE_SIZE,
+  };
+}
+
+export function validateDoctorCertificateQuery(query = {}) {
+  validateQueryKeys(query, new Set(['certificate_status', 'certificate_page']));
+  const status = scalar(query.certificate_status, 'certificate_status') || 'all';
+  if (!DOCTOR_CERTIFICATE_FILTERS.includes(status)) {
+    throw httpError(400, 'INVALID_QUERY', 'certificate_status is not an approved value.');
+  }
+  return {
+    status,
+    page: queryInteger(scalar(query.certificate_page, 'certificate_page'), 'certificate_page', { defaultValue: 1, max: 100000 }),
+    limit: DOCTOR_CERTIFICATE_PAGE_SIZE,
   };
 }
 

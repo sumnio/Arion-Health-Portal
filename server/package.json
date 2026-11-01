@@ -28,8 +28,13 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.18.1",
-    "multer": "^2.4.0",
+    "multer": "^2.5.0",
     "otplib": "^13.5.0"
+  },
+  "overrides": {
+    "body-parser": "2.4.0",
+    "ip-address": "10.7.4",
+    "qs": "6.17.0"
   },
   "engines": {
     "node": "24.x"

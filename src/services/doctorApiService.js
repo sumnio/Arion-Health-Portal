@@ -53,6 +53,20 @@ function normalizeCertificate(item, patientName = '') {
   };
 }
 
+function normalizeDoctorCertificates(history, patientName = '') {
+  const pagination = history.certificate_pagination ?? {};
+  return {
+    items: (history.medical_certificates ?? []).map((item) => normalizeCertificate(item, patientName)),
+    filter: history.certificate_filter ?? 'all',
+    pagination: {
+      page: Number.isInteger(pagination.page) && pagination.page > 0 ? pagination.page : 1,
+      pageSize: Number.isInteger(pagination.page_size) && pagination.page_size > 0 ? pagination.page_size : 5,
+      total: Number.isInteger(pagination.total) && pagination.total >= 0 ? pagination.total : 0,
+      pageCount: Number.isInteger(pagination.page_count) && pagination.page_count > 0 ? pagination.page_count : 1,
+    },
+  };
+}
+
 export function doctorApiErrorMessage(error, fallback = 'Unable to load Doctor data.') {
   return apiErrorMessage(error, { fallback, forbidden: 'You do not have access to this Doctor information.', notFound: fallback });
 }
@@ -96,7 +110,8 @@ export function createDoctorApiService(repository = doctorApiRepository) {
         || appointments.find((item) => ['confirmed', 'pending'].includes(item.status)) || appointments.at(-1);
       if (!appointment || appointment.patient?.id !== patientId) return null;
       const records = (history.medical_records ?? []).map(normalizeRecord);
-      const certificates = (history.medical_certificates ?? []).map((item) => normalizeCertificate(item, appointment.patient.full_name));
+      const certificateResult = normalizeDoctorCertificates(history, appointment.patient.full_name);
+      const certificates = certificateResult.items;
       const existingRecord = records.find((item) => item.appointment_id === appointment.id) ?? null;
       const priorityHistory = await repository.getPriorityHistory(appointment.id);
       const canAddRecord = appointment.status === 'confirmed' && !existingRecord;
@@ -107,7 +122,10 @@ export function createDoctorApiService(repository = doctorApiRepository) {
             : appointment.status === 'no_show' ? 'The patient did not attend this appointment. Medical record creation is unavailable.'
               : appointment.status === 'pending' ? 'This appointment is awaiting confirmation.'
                 : canAddRecord ? 'Review the patient information before adding a medical record.' : 'This appointment is not eligible for a medical record.';
-      return { patient: appointment.patient, appointment, records, certificates, priorityHistory, existingRecord, canAddRecord, canComplete, consultationMessage };
+      return { patient: appointment.patient, appointment, records, certificates, certificateFilter: certificateResult.filter, certificatePagination: certificateResult.pagination, priorityHistory, existingRecord, canAddRecord, canComplete, consultationMessage };
+    },
+    async getPatientCertificates(patientId, options = {}, patientName = '') {
+      return normalizeDoctorCertificates(await repository.getPatientHistory(patientId, options), patientName);
     },
     async createMedicalRecord(appointmentId, values) {
       return normalizeRecord(await repository.createMedicalRecord(appointmentId, {

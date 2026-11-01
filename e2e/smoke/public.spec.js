@@ -11,6 +11,13 @@ test('public login page loads without fatal browser errors', async ({ page }) =>
   expect(pageErrors).toEqual([]);
 });
 
+test('unknown routes show only a concise not-found action', async ({ page }) => {
+  await page.goto('/doctor/dashbdwdoard');
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Back Home', exact: true })).toBeVisible();
+  await expect(page.getByText(/milestone|placeholder|ready for the next/i)).toHaveCount(0);
+});
+
 test('Patient registration phone input ignores invalid characters and extra digits without invalidating a valid number', async ({ page }) => {
   await page.goto('/register');
   const phone = page.getByLabel('Phone Number');

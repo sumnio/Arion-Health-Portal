@@ -3,7 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import { routeGroups } from './routes.js';
 import PublicLayout from '../layouts/PublicLayout.jsx';
 import PublicPage from '../pages/public/PublicPage.jsx';
-import PlaceholderPage from '../components/PlaceholderPage.jsx';
+import NotFoundPage from '../pages/public/NotFoundPage.jsx';
 import PatientLayout from '../layouts/PatientLayout.jsx';
 import PatientPage from '../pages/patient/PatientPage.jsx';
 import DoctorLayout from '../layouts/DoctorLayout.jsx';
@@ -30,7 +30,7 @@ export default function AppRouter() {
       <Route element={<GuestOnlyRoute />}>
         {routeGroups.public.filter(route => guestOnlyPaths.includes(route.path)).map(route => <Route key={route.path} path={route.path} element={<PublicPage route={route} />} />)}
       </Route>
-      <Route path="*" element={<PlaceholderPage title="Page not found" links={[{ to: '/', label: 'Back to home' }]} />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Route>
     {Object.entries(roleComponents).map(([role, [Layout, Page]]) => <Route key={role} element={<ProtectedRoute role={role} />}>
       <Route element={<Layout />}>

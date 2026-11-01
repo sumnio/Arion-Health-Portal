@@ -44,6 +44,15 @@
 .doctor-patient-page .clinical-text { white-space: pre-wrap; }
 .doctor-patient-page .history-prescriptions { list-style: none; padding: 0; }
 .doctor-patient-page .history-prescriptions li { padding: 12px 0; border-bottom: 1px solid #edf1f5; }
+.doctor-patient-page .certificate-history-filters, .doctor-patient-page .certificate-history-pagination, .doctor-patient-page .certificate-history-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.doctor-patient-page .certificate-history-filters { margin: 16px 0; }
+.doctor-patient-page .certificate-history-filters .action-link[aria-pressed="true"] { background: #28664f; color: white; border-color: #28664f; }
+.doctor-patient-page .certificate-history-filters .action-link:focus-visible, .doctor-patient-page .certificate-history-pagination .action-link:focus-visible { outline: 3px solid #83ad9b; outline-offset: 2px; }
+.doctor-patient-page .certificate-history-pagination { justify-content: center; margin-top: 18px; }
+.doctor-patient-page .certificate-history-item summary { min-width: 0; }
+.doctor-patient-page .certificate-history-content { min-width: 0; overflow-wrap: anywhere; }
+.doctor-patient-page .certificate-history-content .certificate-pdf-preview { max-width: 100%; }
+.doctor-patient-page .certificate-history-actions { margin-top: 12px; }
 .doctor-patient-page .certificate-paper { padding: 22px; border: 1px solid #aab7c7; margin-top: 20px; }
 .doctor-patient-page .certificate-paper header { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #aab7c7; padding-bottom: 16px; }
 .doctor-patient-page .certificate-cross { font-size: 30px; }
@@ -52,3 +61,4 @@
 .doctor-patient-page .certificate-patient-name { font-size: 22px; font-weight: 700; }
 .doctor-patient-page .certificate-paper footer { display: grid; gap: 6px; margin-top: 24px; font-size: 13px; }
 @media(max-width: 500px) { .doctor-patient-page .certificate-paper { padding: 14px; } }
+@media(max-width: 500px) { .doctor-patient-page .certificate-history-filters .action-link { flex: 1 1 calc(50% - 10px); text-align: center; } .doctor-patient-page .certificate-history-pagination { justify-content: space-between; } }

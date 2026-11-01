@@ -109,8 +109,8 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await expect(page.getByText('E2E Salbutamol')).toBeVisible();
   await expect(page.getByRole('button', { name: /edit|delete/i })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Certificates' }).click();
-  await page.getByText('View certificate').click();
-  await expect(page.getByText(`Certificate No. ${certificate.medical_certificate_number}`, { exact: true })).toBeVisible();
+  await page.getByText('View Certificate').click();
+  await expect(page.locator('iframe[title="Issued medical certificate PDF"]')).toBeVisible();
   await expect(page.getByRole('button', { name: /edit|delete|reissue/i })).toHaveCount(0);
 
   await page.getByRole('tab', { name: 'Consultation' }).click();
@@ -120,6 +120,62 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.reload();
   await expect(page.getByText('Completed', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark Consultation Completed' })).toHaveCount(0);
+  assertBrowserClean();
+});
+
+test('Doctor filters Active and Expired certificate history while retaining read-only preview access', async ({ page, patientScenario, seededDoctor }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const patient = await patientScenario.createPatient();
+  const certificates = [];
+  for (const [index, purpose, dateIssued, validUntil] of [
+    [0, 'Active Doctor history', patientScenario.futureDate(-3), patientScenario.futureDate(3)],
+    [1, 'Expired Doctor history', patientScenario.futureDate(-8), patientScenario.futureDate(-1)],
+    [2, 'Legacy Doctor history', patientScenario.futureDate(-12), null],
+  ]) {
+    const appointment = await patientScenario.createAppointment({
+      patient,
+      doctor: seededDoctor,
+      slot: patientScenario.slotFor(patientScenario.futureDate(index + 1), `${10 + index}:00`),
+      status: 'completed',
+      check_in_at: new Date(),
+    });
+    const record = await patientScenario.createRecord({ patient, doctor: seededDoctor, appointment, diagnosis: `${purpose} diagnosis`, prescriptions: false });
+    certificates.push(await patientScenario.createCertificate({ patient, doctor: seededDoctor, record, purpose, dateIssued, validUntil }));
+  }
+
+  await loginAsDoctor(page, seededDoctor);
+  await page.goto(`/doctor/patients/${patient.patientId}`);
+  await page.getByRole('tab', { name: 'Certificates' }).click();
+  await expect(page.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+  for (const purpose of ['Active Doctor history', 'Expired Doctor history', 'Legacy Doctor history']) await expect(page.getByText(purpose)).toBeVisible();
+
+  for (const [filter, visible, hidden] of [
+    ['Active', 'Active Doctor history', 'Expired Doctor history'],
+    ['Expired', 'Expired Doctor history', 'Legacy Doctor history'],
+  ]) {
+    await page.getByRole('button', { name: filter, exact: true }).click();
+    await expect(page.getByRole('button', { name: filter, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText(visible)).toBeVisible();
+    await expect(page.getByText(hidden)).toHaveCount(0);
+  }
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page.getByText('No validity date recorded')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Legacy', exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Expired', exact: true }).click();
+  await page.getByText('View Certificate').click();
+  await expect(page.locator('iframe[title="Issued medical certificate PDF"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download PDF' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /edit|extend|delete|reissue/i })).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 720 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  const otherDoctor = await patientScenario.createDoctor();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await logoutThroughUi(page);
+  await loginAsDoctor(page, otherDoctor);
+  const denied = await page.request.get(`${apiURL}/api/doctor/certificates/${certificates[1].certificateId}/pdf`);
+  expect(denied.status()).toBe(404);
   assertBrowserClean();
 });
 

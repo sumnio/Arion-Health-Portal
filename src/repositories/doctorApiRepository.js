@@ -31,7 +31,10 @@ export function createDoctorApiRepository(client = apiClient) {
     async getSignatureStatus() { return (await request('/api/doctor/profile/signature/status')).signature; },
     async getSignatureImage() { return client.download('/api/doctor/profile/signature'); },
     async uploadSignature(formData) { return (await client.upload('/api/doctor/profile/signature', formData, { method: 'POST' })).signature; },
-    async getPatientHistory(patientId) { return request(`/api/doctor/patients/${encodeURIComponent(patientId)}/records`); },
+    async getPatientHistory(patientId, { certificateStatus = 'all', certificatePage = 1 } = {}) {
+      const query = new URLSearchParams({ certificate_status: certificateStatus, certificate_page: String(certificatePage) });
+      return request(`/api/doctor/patients/${encodeURIComponent(patientId)}/records?${query}`);
+    },
     async listSupportingDocuments(appointmentId) {
       return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/supporting-documents`)).supporting_documents;
     },

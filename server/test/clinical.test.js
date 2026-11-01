@@ -118,7 +118,16 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
     },
     async findIssuedCertificateForPatient(id, patientId) { const item = certificates.get(String(id)); return item?.patient_id === String(patientId) && item.status === 'issued' ? populateCertificate(item) : null; },
     async findCertificateForDoctor(id, doctorId) { const item = certificates.get(String(id)); return item?.doctor_id === String(doctorId) ? populateCertificate(item) : null; },
-    async listIssuedCertificatesForDoctorPatient(doctorId, patientId) { return [...certificates.values()].filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId) && item.status === 'issued').map(populateCertificate); },
+    async listIssuedCertificatesForDoctorPatient(doctorId, patientId, { status, boundary, page, limit }) {
+      const matching = [...certificates.values()]
+        .filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId) && item.status === 'issued')
+        .filter((item) => status === 'all'
+          || (status === 'legacy' && !item.valid_until)
+          || (status === 'active' && item.valid_until && new Date(item.valid_until) >= boundary)
+          || (status === 'expired' && item.valid_until && new Date(item.valid_until) < boundary))
+        .sort((a, b) => new Date(b.date_issued) - new Date(a.date_issued) || String(b._id).localeCompare(String(a._id)));
+      return { items: matching.slice((page - 1) * limit, page * limit).map(populateCertificate), total: matching.length };
+    },
     async completeConfirmedCheckedIn(id, doctorId) { const item = appointments.get(String(id)); if (!item || item.doctor_id !== String(doctorId) || item.status !== 'confirmed' || !item.check_in_at) return null; item.status = 'completed'; return clone(item); },
   };
   const tokens = createTokenService(SECRET);
@@ -344,6 +353,50 @@ test('patient certificate query rejects unknown, repeated, and invalid filters',
     for (const query of ['view=all', 'view=active&view=archived', 'page=0', 'page=abc', 'sort=date_issued']) {
       const response = await request(base, `/api/patient/certificates?${query}`, { cookie: context.cookie(ids.patientProfile) });
       assert.equal(response.status, 400, query);
+    }
+  });
+});
+
+test('Doctor certificate history filters Active, Expired, and Legacy with stable pagination and role boundaries', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const created = await createRecord(context, base);
+    const common = {
+      patient_id: ids.patient, doctor_id: ids.doctor, medical_record_id: created.body.medical_record.id,
+      purpose: 'Certificate history', diagnosis_summary: 'Approved detail', recommendation: 'Read only', status: 'issued',
+    };
+    const values = [
+      ['aaaaaaaaaaaaaaaaaaaaa101', 'ACTIVE-HISTORY', '2026-09-25', '2026-09-25', 'aaaaaaaaaaaaaaaaaaaaa201'],
+      ['aaaaaaaaaaaaaaaaaaaaa102', 'EXPIRED-HISTORY', '2026-09-23', '2026-09-24', 'aaaaaaaaaaaaaaaaaaaaa202'],
+      ['aaaaaaaaaaaaaaaaaaaaa103', 'LEGACY-HISTORY', '2026-09-20', null, null],
+    ];
+    for (const [certificateId, number, dateIssued, validUntil, storageId] of values) {
+      context.certificates.set(certificateId, { _id: certificateId, ...common, medical_certificate_number: number, date_issued: new Date(`${dateIssued}T00:00:00.000Z`), valid_until: validUntil ? new Date(`${validUntil}T00:00:00.000Z`) : null, pdf_storage_file_id: storageId });
+      if (storageId) context.certificateArtifacts.set(storageId, Buffer.from(`%PDF-${number}`));
+    }
+    const path = `/api/doctor/patients/${ids.patient}/records`;
+    const all = await request(base, `${path}?certificate_status=all&certificate_page=1`, { cookie: context.cookie(ids.doctorProfile) });
+    const allBody = await all.json();
+    assert.equal(all.status, 200);
+    assert.deepEqual(allBody.medical_certificates.map((item) => item.validity_status), ['active', 'expired', 'legacy']);
+    assert.deepEqual(allBody.certificate_pagination, { page: 1, page_size: 5, total: 3, page_count: 1 });
+    for (const [filter, expected] of [['active', 'ACTIVE-HISTORY'], ['expired', 'EXPIRED-HISTORY'], ['legacy', 'LEGACY-HISTORY']]) {
+      const response = await request(base, `${path}?certificate_status=${filter}&certificate_page=1`, { cookie: context.cookie(ids.doctorProfile) });
+      const body = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(body.certificate_filter, filter);
+      assert.deepEqual(body.medical_certificates.map((item) => item.medical_certificate_number), [expected]);
+    }
+    for (const query of ['certificate_status=archived', 'certificate_status=all&certificate_status=active', 'certificate_page=0', 'status=active']) {
+      assert.equal((await request(base, `${path}?${query}`, { cookie: context.cookie(ids.doctorProfile) })).status, 400, query);
+    }
+    for (const [certificateId] of values) {
+      assert.equal((await request(base, `/api/doctor/certificates/${certificateId}`, { cookie: context.cookie(ids.doctorProfile) })).status, 200);
+      assert.equal((await request(base, `/api/doctor/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.doctorProfile) })).status, 200);
+      assert.equal((await request(base, `/api/doctor/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 404);
+    }
+    for (const profile of [ids.patientProfile, ids.staffProfile, ids.adminProfile]) {
+      assert.equal((await request(base, path, { cookie: context.cookie(profile) })).status, 403);
     }
   });
 });

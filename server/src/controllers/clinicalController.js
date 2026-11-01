@@ -29,11 +29,16 @@ export function createDoctorClinicalController({ clinicalService }) {
       response.status(201).json({ medical_record: await clinicalService.createRecord(request.authUser.user_profile_id, request.params.appointmentId, request.body) });
     },
     async patientRecords(request, response) {
-      const [medicalRecords, medicalCertificates] = await Promise.all([
+      const [medicalRecords, certificates] = await Promise.all([
         clinicalService.listDoctorPatientRecords(request.authUser.user_profile_id, request.params.patientId),
-        clinicalService.listDoctorPatientCertificates(request.authUser.user_profile_id, request.params.patientId),
+        clinicalService.listDoctorPatientCertificates(request.authUser.user_profile_id, request.params.patientId, request.query),
       ]);
-      response.json({ medical_records: medicalRecords, medical_certificates: medicalCertificates });
+      response.json({
+        medical_records: medicalRecords,
+        medical_certificates: certificates.items,
+        certificate_filter: certificates.status,
+        certificate_pagination: { page: certificates.page, page_size: certificates.page_size, total: certificates.total, page_count: certificates.page_count },
+      });
     },
     async record(request, response) {
       response.json({ medical_record: await clinicalService.getDoctorRecord(request.authUser.user_profile_id, request.params.recordId) });

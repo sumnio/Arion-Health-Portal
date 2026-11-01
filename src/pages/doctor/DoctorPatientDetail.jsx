@@ -26,11 +26,16 @@ export default function DoctorPatientDetail() {
   const [state, setState] = useState({ loading: true, detail: null, error: '' });
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [certificateFilter, setCertificateFilter] = useState('all');
+  const [certificateStatus, setCertificateStatus] = useState('ready');
+  const [certificateError, setCertificateError] = useState('');
   const load = useCallback(async () => {
     setState((old) => ({ ...old, loading: true, error: '' }));
     try {
       const detail = await doctorApiService.getPatientContext(id, selection ?? {});
       setState({ loading: false, detail, error: detail ? '' : 'Patient or assigned appointment not found.' });
+      setCertificateFilter(detail?.certificateFilter ?? 'all');
+      setCertificateStatus('ready');
     } catch (error) {
       setState({ loading: false, detail: null, error: doctorApiErrorMessage(error, 'Patient or assigned appointment not found.') });
     }
@@ -51,10 +56,23 @@ export default function DoctorPatientDetail() {
     } finally { setSubmitting(false); }
   }
 
+  async function loadCertificates(nextFilter = certificateFilter, nextPage = 1) {
+    setCertificateStatus('loading'); setCertificateError('');
+    try {
+      const result = await doctorApiService.getPatientCertificates(id, { certificateStatus: nextFilter, certificatePage: nextPage }, state.detail.patient.full_name);
+      setCertificateFilter(result.filter);
+      setState((current) => ({ ...current, detail: { ...current.detail, certificates: result.items, certificateFilter: result.filter, certificatePagination: result.pagination } }));
+      setCertificateStatus('ready');
+    } catch (error) {
+      setCertificateError(doctorApiErrorMessage(error, 'Certificates could not be loaded.'));
+      setCertificateStatus('error');
+    }
+  }
+
   if (state.loading) return <div className="doctor-patient-page">{back}<p role="status">Loading patient consultation…</p></div>;
   if (state.error || !state.detail) return <div className="doctor-patient-page">{back}<RecordSection title="Patient or appointment not found"><p role="alert">{state.error}</p></RecordSection></div>;
 
-  const { patient, appointment, priorityHistory, existingRecord, canAddRecord, canComplete, consultationMessage, records, certificates } = state.detail;
+  const { patient, appointment, priorityHistory, existingRecord, canAddRecord, canComplete, consultationMessage, records, certificates, certificatePagination } = state.detail;
   const issuedForCurrentRecord = existingRecord
     ? certificates.find((certificate) => certificate.medical_record_id === existingRecord.id)
     : null;
@@ -71,7 +89,7 @@ export default function DoctorPatientDetail() {
         </div></div>}
       {activeTab === 'consultation' && <><RecordSection title="Consultation"><p>{consultationMessage}</p>{existingRecord && <p><strong>Saved diagnosis:</strong> {existingRecord.diagnosis}</p>}{message && <p role={message.startsWith('Consultation marked') ? 'status' : 'alert'}>{message}</p>}<div className="record-actions">{canAddRecord && <Link className="action-link primary-action" to={`/doctor/patients/${id}/add-record`} state={{ appointmentId: appointment.id, date: appointment.date, tab: 'consultation' }}>Add Medical Record</Link>}{existingRecord && certificateIssuanceEnabled && !issuedForCurrentRecord && <Link className="action-link primary-action" to={`/doctor/records/${existingRecord.id}/certificate/new`}>Issue Medical Certificate</Link>}{issuedForCurrentRecord && <button type="button" className="action-link" onClick={() => setActiveTab('certificates')}>View Issued Certificate</button>}{canComplete && <button className="action-link primary-action" disabled={submitting} onClick={completeConsultation}>{submitting ? 'Completing…' : 'Mark Consultation Completed'}</button>}</div></RecordSection>{!existingRecord && ['pending', 'confirmed'].includes(appointment.status) && <RecordSection title="Patient Supporting Documents"><SupportingDocumentList appointmentId={appointment.id} documentService={doctorSupportingDocumentService} emptyMessage="No supporting documents were uploaded for this consultation." loadErrorMessage="Supporting documents could not be loaded." /></RecordSection>}</>}
       {activeTab === 'records' && <ConsultationHistory key={`${id}-records-${records.length}`} records={records} certificates={certificates} section="records" />}
-      {activeTab === 'certificates' && <ConsultationHistory key={`${id}-certificates-${certificates.length}`} records={records} certificates={certificates} section="certificates" />}
+      {activeTab === 'certificates' && <ConsultationHistory records={records} certificates={certificates} section="certificates" certificateFilter={certificateFilter} certificatePagination={certificatePagination} certificateStatus={certificateStatus} certificateError={certificateError} onCertificateFilter={(filter) => loadCertificates(filter, 1)} onCertificatePage={(page) => loadCertificates(certificateFilter, page)} onCertificateRetry={() => loadCertificates(certificateFilter, certificatePagination?.page ?? 1)} />}
     </section>
   </div>;
 }
