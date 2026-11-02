@@ -60,7 +60,7 @@ function patientView(patient) {
     id: id(patient), full_name: patient?.full_name ?? null,
     dob: patient?.dob ? new Date(patient.dob).toISOString().slice(0, 10) : null,
     sex: patient?.sex ?? null, contact_number: patient?.contact_number ?? null,
-    allergies: patient?.allergies ?? [], is_pwd: patient?.is_pwd === true,
+    allergies: patient?.allergies ?? [], is_pwd: patient?.pwd_verification?.status === 'verified',
   };
 }
 

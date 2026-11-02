@@ -5,17 +5,17 @@ import { staffDashboardService } from '../src/services/staffDashboardService.js'
 import { staffCalendarService } from '../src/services/staffCalendarService.js';
 import { staffQueueService } from '../src/services/staffQueueService.js';
 const now = new Date('2026-09-20T02:00:00Z');
-const input = { full_name:'Elena Navarro',dob:'1960-01-01',sex:'Female',contact_number:'09178887776',address:'45 Sampaguita Street',is_pwd:true,allergies:'Penicillin',emergency_contact_name:'Marco Navarro',emergency_contact_number:'09179998888',emergency_contact_relationship:'Son' };
-test('guest registration validates and searches without creating portal credentials',()=>{
+const input = { full_name:'Elena Navarro',dob:'1960-01-01',sex:'Female',contact_number:'09178887776',address:'45 Sampaguita Street',allergies:'Penicillin',emergency_contact_name:'Marco Navarro',emergency_contact_number:'09179998888',emergency_contact_relationship:'Son' };
+test('guest registration validates and searches without creating portal credentials or PWD authority',()=>{
  assert.ok(service.register({},now).errors);
  assert.ok(service.register({...input,dob:'2027-01-01'},now).errors.dob);
  const {patient}=service.register(input,now);
- assert.equal(patient.user_profile_id,null); assert.equal(patient.is_pwd,true); assert.deepEqual(patient.allergies,['Penicillin']);
+ assert.equal(patient.user_profile_id,null); assert.equal('is_pwd' in patient,false); assert.deepEqual(patient.allergies,['Penicillin']);
  assert.equal(patient.full_name,'Elena Navarro'); assert.equal(patient.address,'45 Sampaguita Street');
  assert.equal(patient.emergency_contact_name,'Marco Navarro'); assert.equal(patient.emergency_contact_number,'09179998888'); assert.equal(patient.emergency_contact_relationship,'Son');
  assert.equal('password' in patient,false); assert.equal('email' in patient,false); assert.equal('name' in patient,false); assert.equal('emergency_contact' in patient,false); assert.equal('is_senior' in patient,false);
  assert.equal(isSenior(patient.dob,'2026-09-20'),true);
- assert.deepEqual(Object.keys(patient).sort(),['id','user_profile_id','full_name','dob','sex','contact_number','address','emergency_contact_name','emergency_contact_number','emergency_contact_relationship','allergies','is_pwd'].sort());
+ assert.deepEqual(Object.keys(patient).sort(),['id','user_profile_id','full_name','dob','sex','contact_number','address','emergency_contact_name','emergency_contact_number','emergency_contact_relationship','allergies'].sort());
  assert.equal(service.search('elena')[0].id,patient.id);
  assert.equal(service.search('0917 888 7776')[0].id,patient.id);
  assert.equal(service.register(input,now).matches[0].id,patient.id);

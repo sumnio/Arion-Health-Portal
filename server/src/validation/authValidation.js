@@ -3,7 +3,7 @@ import { boundedText, INPUT_LIMITS, rejectUnknownFields, requireObject } from '.
 import { validatePhilippineMobile } from './phoneValidation.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const registrationFields = new Set(['email', 'password', 'display_name', 'full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'is_pwd']);
+const registrationFields = new Set(['email', 'password', 'display_name', 'full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies']);
 const loginFields = new Set(['email', 'password']);
 const mfaCodeFields = new Set(['code']);
 const forgotPasswordFields = new Set(['email']);
@@ -71,10 +71,6 @@ export function validateRegistration(body = {}) {
   if ((body.allergies?.length ?? 0) > INPUT_LIMITS.allergies) {
     throw httpError(400, 'INVALID_INPUT', `allergies must contain at most ${INPUT_LIMITS.allergies} items.`);
   }
-  if (body.is_pwd != null && typeof body.is_pwd !== 'boolean') {
-    throw httpError(400, 'INVALID_INPUT', 'is_pwd must be boolean when provided.');
-  }
-
   return {
     email: validEmail(body.email),
     password: validPassword(body.password),
@@ -94,7 +90,6 @@ export function validateRegistration(body = {}) {
       'emergency_contact_relationship',
     ),
     allergies: (body.allergies ?? []).map((allergy) => boundedText(allergy, 'allergy', INPUT_LIMITS.shortText, { code: 'INVALID_INPUT' })),
-    is_pwd: body.is_pwd ?? false,
   };
 }
 

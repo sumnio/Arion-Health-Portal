@@ -31,6 +31,28 @@ test('Patient repository uses the approved authenticated API routes and methods'
   assert.deepEqual(calls.map(([path, options]) => [path, options.method ?? 'GET']), [['/api/patient/profile', 'GET'], ['/api/patient/doctors', 'GET'], ['/api/patient/doctors/d1/available-slots?date=2026-09-26', 'GET'], ['/api/patient/appointments', 'POST'], ['/api/patient/appointments', 'GET'], ['/api/patient/appointments/a1/cancel', 'PATCH'], ['/api/patient/appointments/a1/reschedule', 'PATCH'], ['/api/patient/records', 'GET'], ['/api/patient/certificates?view=archived&page=2', 'GET']]);
 });
 
+test('PWD verification repository uses only the own status and private multipart submission routes', async () => {
+  const calls = [];
+  const client = {
+    async request(path) { calls.push(['request', path]); return { pwd_verification: { status: 'not_submitted', submitted_at: null, verified_at: null } }; },
+    async upload(path, formData, options) {
+      calls.push(['upload', path, options.method, formData]);
+      return { pwd_verification: { status: 'pending', submitted_at: '2026-11-02T01:00:00.000Z', verified_at: null } };
+    },
+  };
+  const repository = createPatientApiRepository(client);
+  assert.equal((await repository.getPwdVerification()).status, 'not_submitted');
+  const file = new File(['%PDF-1.7'], 'pwd.pdf', { type: 'application/pdf' });
+  assert.equal((await repository.submitPwdVerification({ pwdIdNumber: 'PWD-001', document: file })).status, 'pending');
+  assert.deepEqual(calls.slice(0, 2).map(item => item.slice(0, 3)), [
+    ['request', '/api/patient/pwd-verification'],
+    ['upload', '/api/patient/pwd-verification', 'POST'],
+  ]);
+  assert.equal(calls[1][3].get('pwd_id_number'), 'PWD-001');
+  assert.equal(calls[1][3].get('document').name, 'pwd.pdf');
+  assert.equal(calls.some(item => String(item[1]).includes('document/')), false);
+});
+
 test('Patient API service normalizes live profile, appointments, records, and safe certificate details', async () => {
   const repository = { async getProfile() { return patient; }, async updateProfile() { return patient; }, async getDoctors() { return [doctor]; }, async getAvailableSlots() { return { slots: [{ start_time: '10:00', end_time: '10:30', appointment_at: appointment.appointment_at, available: false, occupied: true }] }; }, async createAppointment() { return appointment; }, async getAppointments() { return [appointment]; }, async getAppointment() { return appointment; }, async cancelAppointment() { return { ...appointment, status: 'cancelled' }; }, async rescheduleAppointment() { return { ...appointment, appointment_at: '2026-09-27T02:00:00.000Z' }; }, async getRecords() { return [record]; }, async getRecord() { return record; }, async getCertificates() { return { medical_certificates: [certificate], view: 'active', pagination: { page: 1, page_size: 5, total: 1, page_count: 1 } }; }, async getCertificate() { return certificate; } };
   const service = createPatientApiService(repository);

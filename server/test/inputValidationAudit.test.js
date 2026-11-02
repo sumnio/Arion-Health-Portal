@@ -156,7 +156,6 @@ test('walk-in Patient validation accepts approved allergies and enforces collect
     sex: 'female',
     contact_number: '09175550123',
     allergies: ['Penicillin'],
-    is_pwd: false,
   });
   assert.deepEqual(patient.allergies, ['Penicillin']);
   assert.equal(patient.user_profile_id, null);
@@ -168,7 +167,6 @@ test('walk-in Patient validation accepts approved allergies and enforces collect
       sex: 'female',
       contact_number: '09175550123',
       allergies: Array.from({ length: INPUT_LIMITS.allergies + 1 }, () => 'None'),
-      is_pwd: false,
     }),
     error => error.status === 400,
   );

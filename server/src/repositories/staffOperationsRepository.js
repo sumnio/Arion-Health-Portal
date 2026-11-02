@@ -2,8 +2,9 @@ import mongoose from 'mongoose';
 import { Appointment, AppointmentPriorityAudit, Doctor, MedicalRecord, Patient } from '../models/index.js';
 
 const doctorPopulation = { path: 'doctor_id', select: 'specialty user_profile_id', populate: { path: 'user_profile_id', select: 'display_name' } };
+const pwdVerificationPopulation = { path: 'pwd_verification', select: 'patient_id status' };
 const queuePopulation = [
-  { path: 'patient_id', select: 'full_name dob is_pwd sex contact_number' },
+  { path: 'patient_id', select: 'full_name dob sex contact_number', populate: pwdVerificationPopulation },
   doctorPopulation,
 ];
 const auditActorPopulation = { path: 'staff_actor_user_profile_id', select: 'display_name' };
@@ -30,7 +31,7 @@ export const staffOperationsRepository = {
       query.patient_id = { $in: patientIds };
     }
     const population = [
-      { path: 'patient_id', select: 'full_name dob is_pwd user_profile_id' },
+      { path: 'patient_id', select: 'full_name dob user_profile_id', populate: pwdVerificationPopulation },
       doctorPopulation,
       { path: 'created_by', select: 'role' },
     ];
@@ -56,10 +57,10 @@ export const staffOperationsRepository = {
   },
   async searchPatients(search) {
     const query = search.trim();
-    if (!query) return Patient.find({}).sort({ full_name: 1 }).limit(50).lean();
+    if (!query) return Patient.find({}).sort({ full_name: 1 }).limit(50).populate(pwdVerificationPopulation).lean();
     const pattern = new RegExp(escapeRegex(query), 'i');
     const phonePattern = flexiblePhoneRegex(query);
-    return Patient.find({ $or: [{ full_name: pattern }, { contact_number: phonePattern ?? pattern }] }).sort({ full_name: 1 }).limit(50).lean();
+    return Patient.find({ $or: [{ full_name: pattern }, { contact_number: phonePattern ?? pattern }] }).sort({ full_name: 1 }).limit(50).populate(pwdVerificationPopulation).lean();
   },
   async listAppointmentsForPatients(patientIds) {
     return Appointment.find({ patient_id: { $in: patientIds } })
@@ -80,7 +81,7 @@ export const staffOperationsRepository = {
     ] }).lean();
   },
   async createPatient(data) { return (await Patient.create(data)).toObject(); },
-  async findPatientById(id) { return Patient.findById(id).lean(); },
+  async findPatientById(id) { return Patient.findById(id).populate(pwdVerificationPopulation).lean(); },
   async doctorExists(id) { return Boolean(await Doctor.exists({ _id: id })); },
   async createAppointment(data) { return (await Appointment.create(data)).toObject(); },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },

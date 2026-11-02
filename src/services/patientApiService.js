@@ -107,7 +107,6 @@ export function normalizePatientProfile(patient) {
     emergencyNumber: nullableText(patient.emergency_contact_number),
     relationship: nullableText(patient.emergency_contact_relationship),
     allergies: [...(patient.allergies ?? [])],
-    isPwd: patient.is_pwd === true,
   };
 }
 
@@ -121,7 +120,6 @@ function profilePatch(values) {
     emergency_contact_name: values.emergencyName.trim() || null,
     emergency_contact_number: canonicalizePhilippineMobile(values.emergencyNumber) || null,
     emergency_contact_relationship: values.relationship.trim() || null,
-    is_pwd: values.isPwd === true,
   };
 }
 
@@ -186,6 +184,8 @@ export function createPatientApiService(repository = patientApiRepository) {
   const service = {
     async getProfile() { return normalizePatientProfile(await repository.getProfile()); },
     async updateProfile(values) { return normalizePatientProfile(await repository.updateProfile(profilePatch(values))); },
+    getPwdVerification: () => repository.getPwdVerification(),
+    submitPwdVerification: (values) => repository.submitPwdVerification(values),
     async getDoctors() { return (await repository.getDoctors()).map((doctor) => ({ id: doctor.id, name: doctor.display_name, specialty: doctor.specialty ?? '' })); },
     async getAvailableSlots(doctorId, date) {
       const result = await repository.getAvailableSlots(doctorId, date);

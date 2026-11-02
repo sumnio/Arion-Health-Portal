@@ -8,8 +8,8 @@ const clinic = { timeZone: 'Asia/Manila' };
 const now = new Date('2026-10-08T02:00:00.000Z');
 const doctorOne = { _id: '100000000000000000000001', user_profile_id: { display_name: 'Doctor One', status: 'active' } };
 const doctorTwo = { _id: '100000000000000000000002', user_profile_id: { display_name: 'Doctor Two', status: 'active' } };
-const seniorPwd = { _id: '200000000000000000000001', dob: new Date('1950-01-01T00:00:00.000Z'), is_pwd: true };
-const adult = { _id: '200000000000000000000002', dob: new Date('1990-01-01T00:00:00.000Z'), is_pwd: false };
+const seniorPwd = { _id: '200000000000000000000001', dob: new Date('1950-01-01T00:00:00.000Z'), is_pwd: true, pwd_verification: { status: 'verified' } };
+const adult = { _id: '200000000000000000000002', dob: new Date('1990-01-01T00:00:00.000Z'), is_pwd: false, pwd_verification: null };
 
 function appointment(id, time, status, patient, reason, extras = {}) {
   return {

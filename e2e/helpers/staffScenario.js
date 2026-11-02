@@ -1,4 +1,5 @@
-import { AuthAccount, Patient, Staff, UserProfile } from '../../server/src/models/index.js';
+import { randomUUID } from 'node:crypto';
+import { AuthAccount, Patient, PwdVerification, Staff, UserProfile } from '../../server/src/models/index.js';
 import { passwordService } from '../../server/src/services/passwordService.js';
 import { PatientScenario } from './patientScenario.js';
 
@@ -21,6 +22,9 @@ export class StaffScenario extends PatientScenario {
 
   async createGuestPatient(overrides = {}) {
     const suffix = `${this.marker}-${this.patientIds.length + 1}`;
+    const pwdVerified = overrides.pwd_verified === true;
+    const patientOverrides = { ...overrides };
+    delete patientOverrides.pwd_verified;
     const patient = await Patient.create({
       user_profile_id: null,
       full_name: `E2E Walkin ${suffix.slice(0, 8)}`,
@@ -32,11 +36,13 @@ export class StaffScenario extends PatientScenario {
       emergency_contact_number: null,
       emergency_contact_relationship: null,
       allergies: [],
-      is_pwd: false,
-      ...overrides,
+      ...patientOverrides,
     });
     const patientId = String(patient._id);
     this.patientIds.push(patientId);
+    if (pwdVerified) {
+      await PwdVerification.create({ patient_id: patientId, pwd_id_number: `E2E-PWD-${suffix}`, storage_file_id: randomUUID().replaceAll('-', '').slice(0, 24), stored_filename: `e2e-${suffix}.pdf`, mime_type: 'application/pdf', file_size: 12, document_sha256: 'b'.repeat(64), status: 'verified', submitted_at: new Date(), verified_at: new Date() });
+    }
     return { patientId, full_name: patient.full_name, contact_number: patient.contact_number, dob: patient.dob };
   }
 

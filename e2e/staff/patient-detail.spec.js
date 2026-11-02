@@ -4,7 +4,7 @@ import { observeBrowser } from '../helpers/browserAssertions.js';
 
 test('Staff Patients shows linked and walk-in operational details without clinical content', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
-  const portalPatient = await staffScenario.createPatient({ full_name: 'E2E Portal Operations Patient', display_name: 'E2E Portal Operations Patient', address: 'E2E Portal Address', is_pwd: true });
+  const portalPatient = await staffScenario.createPatient({ full_name: 'E2E Portal Operations Patient', display_name: 'E2E Portal Operations Patient', address: 'E2E Portal Address', pwd_verified: true });
   const walkInPatient = await staffScenario.createGuestPatient({ full_name: 'E2E Walk-in Operations Patient', address: 'E2E Walk-in Address' });
   const doctor = await staffScenario.createDoctor();
   const latest = await staffScenario.createAppointment({ patient: portalPatient, doctor, slot: staffScenario.slotFor(staffScenario.futureDate(-1), '09:00'), status: 'completed', check_in_at: new Date(), reason: 'E2E completed operational visit' });

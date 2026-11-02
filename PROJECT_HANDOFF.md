@@ -319,3 +319,13 @@ For a new development session, begin with:
 **Safe for:** school/demo presentation, synthetic workflow demonstrations, local development, protected Preview testing, and restricted Production smoke validation.
 
 **Not authorized for:** real patient or clinical data, live clinic operations, clinical decision-making, certificate issuance in Production, claims of full disaster recovery or durable audit logging, or unrestricted public healthcare use.
+
+## v1.2.5 handoff — PWD verification foundation
+
+The current local milestone replaces every self-declared PWD control with a private Patient-owned submission flow. `GET /api/patient/pwd-verification` returns status-only data; `POST /api/patient/pwd-verification` accepts exactly `pwd_id_number` and one `document` multipart file. Only an authenticated active Patient may call these endpoints. There is intentionally no raw-document route, reviewer endpoint, notification, or non-Patient UI yet.
+
+`pwd_verifications` has one record per Patient and `pwd_verification_files` contains the private GridFS bytes. ID number, storage reference, stored filename, MIME type, size, SHA-256, and rejection reason are schema-private by default. Submission uses upload-first/metadata-second cleanup, blocks duplicates, and returns controlled failures without file or ID details. The Patient sees Not Submitted, Pending Verification, Verified, or Rejected; rejected resubmission is deferred.
+
+The old `Patient.is_pwd` field remains in the schema strictly for compatibility. It is ignored by queue, Doctor clinical projection, Staff projection, and analytics. Only `PwdVerification.status === verified` supplies PWD classification. Senior DOB and Urgent priority rules are unchanged. Staff cannot grant PWD status when registering a walk-in.
+
+For v1.2.6, add a narrowly scoped Staff verification queue and explicit review transition only after re-reading the v1.2.5 ownership and privacy tests. Do not add direct GridFS/public download, Doctor/Admin review, OCR/AI, or Patient-controlled verification. Add approved outcome notification only after a successful review transition and keep it free of ID/document content.

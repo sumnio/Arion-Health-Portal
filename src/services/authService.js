@@ -4,7 +4,7 @@ import { canonicalizePhilippineMobile } from './phoneNumber.js';
 const registrationFields = [
   'email', 'password', 'display_name', 'full_name', 'contact_number', 'dob', 'sex',
   'address', 'emergency_contact_name', 'emergency_contact_number',
-  'emergency_contact_relationship', 'allergies', 'is_pwd',
+  'emergency_contact_relationship', 'allergies',
 ];
 
 function patientRegistrationPayload(values) {
@@ -16,7 +16,6 @@ function patientRegistrationPayload(values) {
   if (payload.contact_number != null) payload.contact_number = canonicalizePhilippineMobile(payload.contact_number);
   if (payload.emergency_contact_number != null) payload.emergency_contact_number = canonicalizePhilippineMobile(payload.emergency_contact_number) || null;
   payload.allergies = payload.allergies || [];
-  payload.is_pwd = payload.is_pwd ?? false;
   return payload;
 }
 

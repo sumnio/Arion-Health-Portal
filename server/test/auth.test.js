@@ -64,7 +64,7 @@ function createMemoryRepository() {
         emergency_contact_number: data.emergency_contact_number,
         emergency_contact_relationship: data.emergency_contact_relationship,
         allergies: data.allergies,
-        is_pwd: data.is_pwd,
+        is_pwd: false,
       };
       accounts.set(data.email, account);
       profiles.set(id, profile);
@@ -123,7 +123,6 @@ const validRegistration = {
   emergency_contact_number: '09170000000',
   emergency_contact_relationship: 'Parent',
   allergies: ['Penicillin'],
-  is_pwd: false,
 };
 
 test('Patient registration creates linked safe account, profile, and Patient data', async () => {

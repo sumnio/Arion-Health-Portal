@@ -138,7 +138,7 @@ export function createAnalyticsService({ repository, clinic, now = () => new Dat
 
         if (appointment.status === 'completed' && patientId && appointment.patient_id) {
           const senior = ageOn(appointment.patient_id.dob, local.date) >= 60;
-          const pwd = appointment.patient_id.is_pwd === true;
+          const pwd = appointment.patient_id.pwd_verification?.status === 'verified';
           if (senior) completedSenior.add(patientId);
           if (pwd) completedPwd.add(patientId);
           if (senior || pwd) completedSeniorPwd.add(patientId);

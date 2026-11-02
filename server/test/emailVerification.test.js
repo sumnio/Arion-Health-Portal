@@ -14,7 +14,7 @@ const registration = {
   email: 'ivan.patient@example.com', password: 'CorrectHorse123!', display_name: 'Ivan Patient',
   contact_number: '09171234567', dob: '1995-02-01', sex: 'male', address: null,
   emergency_contact_name: null, emergency_contact_number: null,
-  emergency_contact_relationship: null, allergies: [], is_pwd: false,
+  emergency_contact_relationship: null, allergies: [],
 };
 
 function context({ sendFailure = false } = {}) {

@@ -10,7 +10,11 @@ export const analyticsRepository = {
   async listAppointmentsBetween(start, end) {
     return Appointment.find({ appointment_at: { $gte: start, $lt: end } })
       .select('patient_id doctor_id appointment_at status visit_type reason priority')
-      .populate({ path: 'patient_id', select: 'dob is_pwd' })
+      .populate({
+        path: 'patient_id',
+        select: 'dob',
+        populate: { path: 'pwd_verification', select: 'patient_id status' },
+      })
       .populate(doctorPopulation)
       .lean();
   },

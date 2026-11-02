@@ -31,6 +31,12 @@ patientSchema.index(
   },
 );
 patientSchema.index({ contact_number: 1 }, { name: 'patient_contact_lookup' });
+patientSchema.virtual('pwd_verification', {
+  ref: 'PwdVerification',
+  localField: '_id',
+  foreignField: 'patient_id',
+  justOne: true,
+});
 
 export const Patient =
   mongoose.models.Patient ?? mongoose.model('Patient', patientSchema, 'patients');

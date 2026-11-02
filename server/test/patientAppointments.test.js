@@ -218,12 +218,12 @@ test('Patient can read only the profile linked to the authenticated UserProfile'
 test('Patient can update approved own profile fields, including documented DOB and sex fields', async () => {
   const { app, cookie } = createContext();
   await withServer(app, async (url) => {
-    const response = await request(url, '/api/patient/profile', { method: 'PATCH', cookie: cookie(ids.patientProfile), body: { full_name: 'Alex Updated', dob: '1991-02-20', sex: 'male', address: 'Quezon City', is_pwd: true } });
+    const response = await request(url, '/api/patient/profile', { method: 'PATCH', cookie: cookie(ids.patientProfile), body: { full_name: 'Alex Updated', dob: '1991-02-20', sex: 'male', address: 'Quezon City' } });
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.patient.full_name, 'Alex Updated');
     assert.equal(body.patient.dob, '1991-02-20');
-    assert.equal(body.patient.is_pwd, true);
+    assert.equal('is_pwd' in body.patient, false);
   });
 });
 

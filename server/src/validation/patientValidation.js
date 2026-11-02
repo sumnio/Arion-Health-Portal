@@ -11,7 +11,6 @@ const editableFields = new Set([
   'emergency_contact_name',
   'emergency_contact_number',
   'emergency_contact_relationship',
-  'is_pwd',
 ]);
 
 function requiredText(value, field) {
@@ -61,11 +60,6 @@ export function validatePatientProfilePatch(body) {
         throw httpError(400, 'INVALID_INPUT', 'dob must be a valid date that is not in the future.');
       }
       updates.dob = dob;
-    } else if (field === 'is_pwd') {
-      if (typeof body.is_pwd !== 'boolean') {
-        throw httpError(400, 'INVALID_INPUT', 'is_pwd must be boolean.');
-      }
-      updates.is_pwd = body.is_pwd;
     } else if (field === 'emergency_contact_number') {
       updates[field] = validatePhilippineMobile(body[field], field, { optional: true, code: 'INVALID_INPUT' });
     } else {

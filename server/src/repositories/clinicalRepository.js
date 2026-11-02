@@ -14,7 +14,11 @@ const doctorPopulation = {
   select: 'specialty license_number ptr_number signature_path user_profile_id',
   populate: { path: 'user_profile_id', select: 'display_name' },
 };
-const patientPopulation = { path: 'patient_id', select: 'full_name dob sex contact_number allergies is_pwd' };
+const patientPopulation = {
+  path: 'patient_id',
+  select: 'full_name dob sex contact_number allergies',
+  populate: { path: 'pwd_verification', select: 'patient_id status' },
+};
 const recordPopulation = [doctorPopulation, patientPopulation, { path: 'appointment_id', select: 'appointment_at status visit_type reason check_in_at' }];
 const certificatePopulation = [
   doctorPopulation,
@@ -31,7 +35,11 @@ export const clinicalRepository = {
   async findPatientByUserProfileId(userProfileId) {
     return Patient.findOne({ user_profile_id: userProfileId }).lean();
   },
-  async findPatientById(patientId) { return Patient.findById(patientId).lean(); },
+  async findPatientById(patientId) {
+    return Patient.findById(patientId)
+      .populate({ path: 'pwd_verification', select: 'patient_id status' })
+      .lean();
+  },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },
   async listPriorityHistory(id) {
     return AppointmentPriorityAudit.find({ appointment_id: id })

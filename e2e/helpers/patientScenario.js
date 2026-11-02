@@ -14,6 +14,7 @@ import {
   MedicalRecord,
   Notification,
   Patient,
+  PwdVerification,
   Prescription,
   Staff,
   UserProfile,
@@ -21,6 +22,7 @@ import {
 import { createGridFsSupportingDocumentStorage } from '../../server/src/services/supportingDocumentStorage.js';
 import { createGridFsDoctorSignatureStorage } from '../../server/src/services/doctorSignatureStorage.js';
 import { createGridFsCertificateArtifactStorage } from '../../server/src/services/certificateArtifactStorage.js';
+import { createGridFsPwdVerificationStorage } from '../../server/src/services/pwdVerificationStorage.js';
 import { authRepository } from '../../server/src/repositories/authRepository.js';
 import { passwordService } from '../../server/src/services/passwordService.js';
 import {
@@ -92,9 +94,10 @@ export class PatientScenario {
       emergency_contact_number: null,
       emergency_contact_relationship: null,
       allergies: [],
-      is_pwd: false,
       ...overrides,
     };
+    const pwdVerified = data.pwd_verified === true;
+    delete data.pwd_verified;
     const registration = await authRepository.createPatientRegistration({
       ...data,
       password_hash: await passwordService.hash(password),
@@ -103,6 +106,20 @@ export class PatientScenario {
     const patientId = String(registration.patient._id);
     this.profileIds.push(profileId);
     this.patientIds.push(patientId);
+    if (pwdVerified) {
+      await PwdVerification.create({
+        patient_id: patientId,
+        pwd_id_number: `E2E-PWD-${suffix}`,
+        storage_file_id: randomUUID().replaceAll('-', '').slice(0, 24),
+        stored_filename: `e2e-${suffix}.pdf`,
+        mime_type: 'application/pdf',
+        file_size: 12,
+        document_sha256: 'a'.repeat(64),
+        status: 'verified',
+        submitted_at: new Date(),
+        verified_at: new Date(),
+      });
+    }
     return {
       email: data.email,
       password,
@@ -324,7 +341,15 @@ export class PatientScenario {
       await DoctorAvailability.deleteMany({ doctor_id: { $in: doctorIds } });
       await Doctor.deleteMany({ _id: { $in: doctorIds } });
     }
-    if (patientIds.length) await Patient.deleteMany({ _id: { $in: patientIds } });
+    if (patientIds.length) {
+      const pwdVerifications = await PwdVerification.find({ patient_id: { $in: patientIds } })
+        .select('+storage_file_id')
+        .lean();
+      const pwdStorage = createGridFsPwdVerificationStorage();
+      await Promise.allSettled(pwdVerifications.map(item => pwdStorage.delete(item.storage_file_id)));
+      await PwdVerification.deleteMany({ patient_id: { $in: patientIds } });
+      await Patient.deleteMany({ _id: { $in: patientIds } });
+    }
     if (profileIds.length) {
       await AuthAccount.deleteMany({ user_profile_id: { $in: profileIds } });
       await Staff.deleteMany({ user_profile_id: { $in: profileIds } });

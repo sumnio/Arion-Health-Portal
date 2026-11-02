@@ -4,6 +4,13 @@ export function createPatientApiRepository(client = apiClient) {
   return {
     async getProfile() { return (await client.request('/api/patient/profile')).patient; },
     async updateProfile(payload) { return (await client.request('/api/patient/profile', { method: 'PATCH', body: payload })).patient; },
+    async getPwdVerification() { return (await client.request('/api/patient/pwd-verification')).pwd_verification; },
+    async submitPwdVerification({ pwdIdNumber, document }) {
+      const formData = new FormData();
+      formData.append('pwd_id_number', pwdIdNumber);
+      formData.append('document', document, document.name);
+      return (await client.upload('/api/patient/pwd-verification', formData, { method: 'POST' })).pwd_verification;
+    },
     async getDoctors() { return (await client.request('/api/patient/doctors')).doctors; },
     async getAvailableSlots(doctorId, date) {
       return client.request(`/api/patient/doctors/${encodeURIComponent(doctorId)}/available-slots?date=${encodeURIComponent(date)}`);

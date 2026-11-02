@@ -28,10 +28,11 @@ function ageAt(dob, date) {
 }
 function patientView(item, date) {
   const age = ageAt(item.dob, date);
-  return { id: id(item), full_name: item.full_name, contact_number: item.contact_number, dob: new Date(item.dob).toISOString().slice(0, 10), age, sex: item.sex, address: item.address ?? null, is_pwd: item.is_pwd === true, is_senior: age >= 60, has_portal_account: Boolean(item.user_profile_id) };
+  const pwdVerificationStatus = item?.pwd_verification?.status ?? 'not_submitted';
+  return { id: id(item), full_name: item.full_name, contact_number: item.contact_number, dob: new Date(item.dob).toISOString().slice(0, 10), age, sex: item.sex, address: item.address ?? null, is_pwd: pwdVerificationStatus === 'verified', pwd_verification_status: pwdVerificationStatus, is_senior: age >= 60, has_portal_account: Boolean(item.user_profile_id) };
 }
 function doctorView(item) { return { id: id(item), display_name: item?.user_profile_id?.display_name ?? null, specialty: item?.specialty ?? null }; }
-function tier(appointment, patient, date) { if (appointment.priority === 'urgent') return 0; return patient.is_pwd || ageAt(patient.dob, date) >= 60 ? 1 : 2; }
+function tier(appointment, patient, date) { if (appointment.priority === 'urgent') return 0; return patient?.pwd_verification?.status === 'verified' || ageAt(patient.dob, date) >= 60 ? 1 : 2; }
 function queueView(item, date) {
   const priorityTier = tier(item, item.patient_id, date);
   return { appointment_id: id(item), patient: patientView(item.patient_id, date), doctor: doctorView(item.doctor_id), appointment_at: iso(item.appointment_at), check_in_at: iso(item.check_in_at), status: item.status, visit_type: item.visit_type, priority: item.priority, queue_tier: priorityTier, queue_priority: ['urgent', 'senior_pwd', 'normal'][priorityTier] };

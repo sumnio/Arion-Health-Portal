@@ -3,6 +3,12 @@ export { AuthAccount } from './AuthAccount.js';
 export { EmailVerificationChallenge, EMAIL_VERIFICATION_PURPOSES } from './EmailVerificationChallenge.js';
 export { PasswordResetToken } from './PasswordResetToken.js';
 export { Patient } from './Patient.js';
+export {
+  PwdVerification,
+  PWD_ID_NUMBER_MAX,
+  PWD_REJECTION_REASON_MAX,
+  PWD_VERIFICATION_STATUSES,
+} from './PwdVerification.js';
 export { Doctor } from './Doctor.js';
 export { DoctorSignature } from './DoctorSignature.js';
 export { Staff } from './Staff.js';

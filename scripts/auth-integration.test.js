@@ -109,7 +109,7 @@ test('Patient registration uses the backend and cannot send role or confirmation
   assert.equal(request.options.body.confirmPassword, undefined);
   assert.equal(request.options.body.full_name, 'Alex Santos');
   assert.deepEqual(request.options.body.allergies, []);
-  assert.equal(request.options.body.is_pwd, false);
+  assert.equal(request.options.body.is_pwd, undefined);
 });
 
 test('Patient email verification client uses only cookie-bound status, verify, and resend endpoints', async () => {

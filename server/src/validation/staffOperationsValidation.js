@@ -5,7 +5,7 @@ import { validateObjectId } from './appointmentValidation.js';
 import { boundedText, INPUT_LIMITS, queryInteger, queryText, rejectUnknownFields, validateQueryKeys } from './inputValidation.js';
 import { validatePhilippineMobile } from './phoneValidation.js';
 
-const patientFields = new Set(['full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'is_pwd']);
+const patientFields = new Set(['full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies']);
 const appointmentFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason', 'priority']);
 export const STAFF_HISTORY_RANGES = Object.freeze(['today', 'last_7_days', 'last_30_days', 'this_month', 'custom']);
 export const STAFF_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 'no_show']);
@@ -34,7 +34,6 @@ export function validateWalkInPatient(body = {}, now = new Date()) {
   const contact = validatePhilippineMobile(body.contact_number, 'contact_number');
   const sex = text(body.sex, 'sex', false, 40);
   const emergencyNumber = validatePhilippineMobile(body.emergency_contact_number, 'emergency_contact_number', { optional: true });
-  if (body.is_pwd != null && typeof body.is_pwd !== 'boolean') throw httpError(400, 'VALIDATION_ERROR', 'is_pwd must be boolean when provided.');
   if (body.allergies != null && !Array.isArray(body.allergies)) throw httpError(400, 'VALIDATION_ERROR', 'allergies must be an array when provided.');
   if ((body.allergies?.length ?? 0) > INPUT_LIMITS.allergies) throw httpError(400, 'VALIDATION_ERROR', `allergies must contain at most ${INPUT_LIMITS.allergies} items.`);
   return {
@@ -44,7 +43,6 @@ export function validateWalkInPatient(body = {}, now = new Date()) {
     emergency_contact_number: emergencyNumber,
     emergency_contact_relationship: text(body.emergency_contact_relationship, 'emergency_contact_relationship', true, INPUT_LIMITS.name),
     allergies: (body.allergies ?? []).map((item, index) => boundedText(item, `allergies[${index}]`, INPUT_LIMITS.shortText)),
-    is_pwd: body.is_pwd === true,
   };
 }
 

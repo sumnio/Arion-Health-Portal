@@ -35,7 +35,7 @@ export const patientProfileService = {
       fullName: values.fullName.trim(), dob: values.dob, sex: values.sex, contactNumber: canonicalizePhilippineMobile(values.contactNumber),
       email: saved.email, address: values.address.trim(), emergencyName: values.emergencyName.trim(),
       emergencyNumber: canonicalizePhilippineMobile(values.emergencyNumber), relationship: values.relationship.trim(),
-      allergies: values.allergies.split(/[,\n]/).map(value => value.trim()).filter(Boolean), isPwd: values.isPwd === true,
+      allergies: values.allergies.split(/[,\n]/).map(value => value.trim()).filter(Boolean),
     };
     return { profile: this.get() };
   },

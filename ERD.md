@@ -835,3 +835,15 @@ The authenticated UserProfile resolves to its Doctor before any signature operat
 ## Milestone 1.45 Doctor history relationship impact
 
 Milestone 1.45 adds no ERD entity or relationship. The Doctor History tab is a paginated read-only projection over the existing authenticated `UserProfile -> Doctor -> Appointment -> Patient` relationship. It may check the existing `Appointment -> MedicalRecord` relationship only to decide whether to show a link for that exact owned Appointment. It does not traverse or expose clinical record content, Prescriptions, MedicalCertificates, supporting documents, notifications, queue-priority audits, or contact/private profile data.
+
+## Milestone v1.2.5 PWD verification relationship
+
+```text
+Patient 1 ─── 0..1 PwdVerification 1 ─── 1 private GridFS file
+                         │
+                         └── optional future reviewer UserProfile
+```
+
+Absence of a PwdVerification means `not_submitted`. A record begins `pending` and is structurally ready for a later Staff-controlled `verified` or `rejected` transition, but v1.2.5 implements no reviewer route. Patient access follows only `authenticated UserProfile -> own Patient -> own PwdVerification status/submission`. No role has a raw-file traversal route in this milestone.
+
+The queue reads only the safe related status and grants the Senior/PWD tier when the Patient is DOB-derived Senior or the PwdVerification is `verified`. `Patient.is_pwd` is a legacy compatibility value and is excluded from this authority path. The relationship does not connect to Appointment mutation, MedicalRecord, Prescription, MedicalCertificate, supporting documents, notifications, assistant data, AI/OCR, or any public/external storage node.

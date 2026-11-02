@@ -17,6 +17,7 @@ import {
   Notification,
   PasswordResetToken,
   Patient,
+  PwdVerification,
   Prescription,
   Staff,
   UserProfile,
@@ -36,6 +37,7 @@ test('all domain models load with their intended collection names', () => {
       EmailVerificationChallenge,
       PasswordResetToken,
       Patient,
+      PwdVerification,
       Doctor,
       Staff,
       Appointment,
@@ -55,6 +57,7 @@ test('all domain models load with their intended collection names', () => {
       'email_verification_challenges',
       'password_reset_tokens',
       'patients',
+      'pwd_verifications',
       'doctors',
       'staff',
       'appointments',
@@ -195,6 +198,28 @@ test('supporting document metadata is bounded and declares appointment slot owne
   }).validate());
   assert.ok(indexByName(ConsultationSupportingDocument, 'unique_supporting_document_slot'));
   assert.ok(indexByName(ConsultationSupportingDocument, 'patient_appointment_supporting_documents'));
+});
+
+test('PWD verification keeps one private bounded record per Patient with review-ready states', async () => {
+  const valid = new PwdVerification({
+    patient_id: objectId(),
+    pwd_id_number: 'PWD-2026-001',
+    storage_file_id: objectId(),
+    stored_filename: 'generated.pdf',
+    mime_type: 'application/pdf',
+    file_size: 128,
+    document_sha256: 'a'.repeat(64),
+    status: 'pending',
+    submitted_at: new Date(),
+  });
+  await valid.validate();
+  valid.status = 'verified'; await valid.validate();
+  valid.status = 'rejected'; await valid.validate();
+  valid.status = 'self_declared';
+  await assert.rejects(valid.validate(), /status/);
+  assert.equal(PwdVerification.schema.path('pwd_id_number').options.select, false);
+  assert.equal(PwdVerification.schema.path('storage_file_id').options.select, false);
+  assert.ok(PwdVerification.schema.indexes().some(([fields, options]) => fields.patient_id === 1 && options.unique === true));
 });
 
 test('UserProfile accepts approved roles and statuses', async () => {

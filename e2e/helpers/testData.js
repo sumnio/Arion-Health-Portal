@@ -4,6 +4,7 @@ import {
   EmailVerificationChallenge,
   PasswordResetToken,
   Patient,
+  PwdVerification,
   UserProfile,
 } from '../../server/src/models/index.js';
 import { connectDatabase, disconnectDatabase } from '../../server/src/config/database.js';
@@ -13,6 +14,7 @@ import {
 } from '../../server/scripts/e2eEnvironment.js';
 import { authRepository } from '../../server/src/repositories/authRepository.js';
 import { passwordService } from '../../server/src/services/passwordService.js';
+import { createGridFsPwdVerificationStorage } from '../../server/src/services/pwdVerificationStorage.js';
 
 export function buildTestPatient() {
   const marker = randomUUID();
@@ -30,7 +32,6 @@ export function buildTestPatient() {
     emergency_contact_number: null,
     emergency_contact_relationship: null,
     allergies: [],
-    is_pwd: false,
   };
 }
 
@@ -68,7 +69,12 @@ export async function cleanupTestPatient(account) {
     await EmailVerificationChallenge.deleteMany({ account_id: authAccount._id });
     await PasswordResetToken.deleteMany({ account_id: authAccount._id });
     await AuthAccount.deleteOne({ _id: authAccount._id, email: account.email });
-    if (patient) await Patient.deleteOne({ _id: patient._id, user_profile_id: profileId });
+    if (patient) {
+      const verification = await PwdVerification.findOne({ patient_id: patient._id }).select('+storage_file_id').lean();
+      if (verification) await createGridFsPwdVerificationStorage().delete(verification.storage_file_id).catch(() => {});
+      await PwdVerification.deleteMany({ patient_id: patient._id });
+      await Patient.deleteOne({ _id: patient._id, user_profile_id: profileId });
+    }
     await UserProfile.deleteOne({ _id: profileId, role: 'patient' });
   } finally {
     await disconnectDatabase();

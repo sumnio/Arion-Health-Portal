@@ -884,3 +884,28 @@ Collection: `doctor_signatures`
 | `created_at`, `updated_at` | Date | Mongoose timestamps |
 
 Unique `doctor_id` and `storage_file_id` values enforce one active signature per Doctor and one metadata owner per stored object. Binary bytes live only in the `doctor_signature_files` GridFS bucket. Metadata has no public URL, original filename, Doctor description, certificate snapshot, deletion flag, AI/OCR field, or external-provider identifier. The legacy nullable `Doctor.signature_path` remains only for backward compatibility and is not used by this service or Admin inputs.
+
+## PwdVerification (Milestone v1.2.5)
+
+Collection: `pwd_verifications`
+
+| Field | Type | Rules |
+|---|---|---|
+| `_id` | ObjectId | Primary identifier |
+| `patient_id` | ObjectId | Required, unique Patient reference; one current record per Patient |
+| `pwd_id_number` | String | Required normalized text, 3–64 characters, excluded from default query selection |
+| `storage_file_id` | ObjectId | Required unique private GridFS file reference, excluded from default query selection |
+| `stored_filename` | String | Required generated name, maximum 100 characters, excluded from default query selection |
+| `mime_type` | String | `application/pdf`, `image/png`, or `image/jpeg`; excluded from default query selection |
+| `file_size` | Number | Required, 1 byte through 5 MB; excluded from default query selection |
+| `document_sha256` | String | Required 64-character SHA-256 integrity digest; excluded from default query selection |
+| `status` | enum | `pending`, `verified`, or `rejected`; absence of a record means `not_submitted` |
+| `submitted_at` | Date | Required server timestamp |
+| `verified_at` | Date, nullable | Future reviewer-controlled verification timestamp |
+| `verified_by` | ObjectId, nullable | Future reviewer UserProfile reference |
+| `rejection_reason` | String, nullable | Future bounded reviewer reason, maximum 500 characters, excluded from default query selection |
+| `created_at`, `updated_at` | Date | Mongoose timestamps |
+
+Indexes are unique `patient_id`, unique `storage_file_id`, and `(patient_id, status)` for safe status lookup. Binary content lives only in the dedicated private GridFS bucket `pwd_verification_files`. There is no public URL, original filename, raw-document API, OCR/AI field, external-provider identifier, or notification payload.
+
+`Patient.is_pwd` remains a legacy compatibility field but is not an authority. No migration converts legacy `true` values into PwdVerification records. Only a related PwdVerification with `status=verified` can affect PWD queue/analytics classification.

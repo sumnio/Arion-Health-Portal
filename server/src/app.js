@@ -26,6 +26,7 @@ import { createAssistantModule } from './services/assistantModule.js';
 import { createPublicAssistantModule } from './services/publicAssistantModule.js';
 import { createPublicAssistantRouter } from './routes/publicAssistantRoutes.js';
 import { createSupportingDocumentModule } from './services/supportingDocumentModule.js';
+import { createPwdVerificationModule } from './services/pwdVerificationModule.js';
 import { createDoctorSignatureModule } from './services/doctorSignatureModule.js';
 import { createDoctorSignatureRouter } from './routes/doctorSignatureRoutes.js';
 import { createSmsModule } from './services/smsModule.js';
@@ -223,6 +224,7 @@ export function createApp(
     maxMessageLength: assistantMaxMessageLength,
   });
   const supportingDocumentModule = dependencies.supportingDocumentModule ?? createSupportingDocumentModule();
+  const pwdVerificationModule = dependencies.pwdVerificationModule ?? createPwdVerificationModule();
   app.use('/api/health', healthRouter);
   app.use('/api/internal/sms-reminders', createInternalSmsReminderRouter({
     smsModule,
@@ -247,7 +249,7 @@ export function createApp(
   app.use('/api/doctor', createDoctorClinicalRouter({ authModule, clinicalModule, supportingDocumentModule }));
   app.use(
     '/api/patient',
-    createPatientRouter({ authModule, patientAppointmentModule, assistantModule, supportingDocumentModule, rateLimiters }),
+    createPatientRouter({ authModule, patientAppointmentModule, assistantModule, supportingDocumentModule, pwdVerificationModule, rateLimiters }),
   );
   app.use('/api/patient', createPatientClinicalRouter({ authModule, clinicalModule }));
   app.use(
