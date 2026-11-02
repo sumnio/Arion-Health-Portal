@@ -13,6 +13,13 @@ const PERSISTED_PWD_VERIFICATION_STATUSES = PWD_VERIFICATION_STATUSES.filter(sta
 export const PWD_ID_NUMBER_MAX = 64;
 export const PWD_REJECTION_REASON_MAX = 500;
 
+const reviewSchema = new mongoose.Schema({
+  action: { type: String, required: true, enum: ['verified', 'rejected'], immutable: true },
+  reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile', required: true, immutable: true },
+  reviewed_at: { type: Date, required: true, immutable: true },
+  rejection_reason: { type: String, default: null, trim: true, maxlength: PWD_REJECTION_REASON_MAX, immutable: true },
+}, { _id: false });
+
 const pwdVerificationSchema = new mongoose.Schema(
   {
     patient_id: {
@@ -47,7 +54,10 @@ const pwdVerificationSchema = new mongoose.Schema(
     submitted_at: { type: Date, required: true, default: Date.now },
     verified_at: { type: Date, default: null },
     verified_by: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile', default: null },
+    reviewed_at: { type: Date, default: null },
+    reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile', default: null },
     rejection_reason: { type: String, default: null, trim: true, maxlength: PWD_REJECTION_REASON_MAX, select: false },
+    review_history: { type: [reviewSchema], default: [], select: false },
   },
   modelOptions,
 );
@@ -55,6 +65,10 @@ const pwdVerificationSchema = new mongoose.Schema(
 pwdVerificationSchema.index(
   { patient_id: 1, status: 1 },
   { name: 'patient_pwd_verification_status' },
+);
+pwdVerificationSchema.index(
+  { status: 1, submitted_at: 1, _id: 1 },
+  { name: 'pwd_verification_pending_queue' },
 );
 
 export const PwdVerification = mongoose.models.PwdVerification

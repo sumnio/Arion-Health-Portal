@@ -215,11 +215,15 @@ test('PWD verification keeps one private bounded record per Patient with review-
   await valid.validate();
   valid.status = 'verified'; await valid.validate();
   valid.status = 'rejected'; await valid.validate();
+  valid.review_history.push({ action: 'rejected', reviewed_by: objectId(), reviewed_at: new Date(), rejection_reason: 'Document unreadable.' });
+  await valid.validate();
   valid.status = 'self_declared';
   await assert.rejects(valid.validate(), /status/);
   assert.equal(PwdVerification.schema.path('pwd_id_number').options.select, false);
   assert.equal(PwdVerification.schema.path('storage_file_id').options.select, false);
+  assert.equal(PwdVerification.schema.path('review_history').options.select, false);
   assert.ok(PwdVerification.schema.indexes().some(([fields, options]) => fields.patient_id === 1 && options.unique === true));
+  assert.ok(indexByName(PwdVerification, 'pwd_verification_pending_queue'));
 });
 
 test('UserProfile accepts approved roles and statuses', async () => {

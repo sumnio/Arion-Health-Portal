@@ -24,6 +24,9 @@ export function createGridFsPwdVerificationStorage({
         stream.end(buffer);
       });
     },
+    openDownload(storageFileId) {
+      return bucket().openDownloadStream(new mongoose.Types.ObjectId(storageFileId));
+    },
     async delete(storageFileId) {
       try {
         await bucket().delete(new mongoose.Types.ObjectId(storageFileId));

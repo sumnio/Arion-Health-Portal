@@ -59,3 +59,46 @@ test('Staff patient history and walk-in consultation previews show five items pe
 test('Staff walk-in uses authoritative published slots, disables occupied times, and omits queue preview',async()=>{const source=await readFile(new URL('../src/pages/staff/StaffWalkInAppointment.jsx',import.meta.url),'utf8');assert.match(source,/staffApiService\.getAvailableSlots/);assert.match(source,/disabled=\{!slot\.available\}/);assert.match(source,/Occupied/);assert.match(source,/published times/);assert.doesNotMatch(source,/WalkInQueuePreview|sameDayTimeOptions|Today’s queue/);});
 
 test('Patient, Doctor, Staff, and Admin portals use live API services',async()=>{const patientPage=await readFile(new URL('../src/pages/patient/PatientDashboard.jsx',import.meta.url),'utf8');const doctorPage=await readFile(new URL('../src/pages/doctor/DoctorDashboard.jsx',import.meta.url),'utf8');const adminPage=await readFile(new URL('../src/pages/admin/ManageDoctors.jsx',import.meta.url),'utf8');assert.match(patientPage,/patientApiService/);assert.match(doctorPage,/doctorApiService/);assert.match(adminPage,/adminApiService/);assert.doesNotMatch(adminPage,/adminDoctorService/);});
+
+test('Staff PWD verification repository uses only Staff-scoped private review routes', async () => {
+  const calls = [];
+  const client = {
+    async request(path, options = {}) {
+      calls.push({ path, options, kind: 'request' });
+      if (path.includes('?page=')) return { pwd_verifications: { items: [], page: 1, page_count: 1, total: 0 } };
+      return { pwd_verification: { id: 'verification-1', status: 'pending' } };
+    },
+    async download(path) { calls.push({ path, kind: 'download' }); return { blob: new Blob(['private']), contentType: 'application/pdf' }; },
+  };
+  const repository = createStaffApiRepository(client);
+  await repository.getPwdVerifications(2);
+  await repository.getPwdVerification('verification/1');
+  await repository.getPwdVerificationDocument('verification/1');
+  await repository.verifyPwdVerification('verification/1');
+  await repository.rejectPwdVerification('verification/1', 'Document unreadable');
+  assert.equal(calls[0].path, '/api/staff/pwd-verifications?page=2&limit=10');
+  assert.equal(calls[1].path, '/api/staff/pwd-verifications/verification%2F1');
+  assert.equal(calls[2].path, '/api/staff/pwd-verifications/verification%2F1/document');
+  assert.equal(calls[2].kind, 'download');
+  assert.equal(calls[3].options.method, 'PATCH');
+  assert.deepEqual(calls[4].options.body, { reason: 'Document unreadable' });
+  assert.equal(calls.some(call => call.path.includes('/api/patient/')), false);
+});
+
+test('Staff Patients includes accessible pending PWD review without public or download links', async () => {
+  const [page, review, styles] = await Promise.all([
+    readFile(new URL('../src/pages/staff/StaffPatients.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/components/StaffPwdVerification.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles/staff-patients.css', import.meta.url), 'utf8'),
+  ]);
+  assert.match(page, /PWD Verification/);
+  assert.match(page, /aria-pressed/);
+  assert.match(review, /Pending requests are shown oldest first/);
+  assert.match(review, /Promise\.all/);
+  assert.match(review, /Verify PWD/);
+  assert.match(review, /Rejection reason/);
+  assert.match(review, /Enter a rejection reason/);
+  assert.match(review, /URL\.revokeObjectURL/);
+  assert.doesNotMatch(review, /storage_file_id|stored_filename|download=/);
+  assert.match(styles, /@media\(max-width:550px\)/);
+});

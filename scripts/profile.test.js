@@ -44,6 +44,10 @@ test('PWD verification is a separate private status and upload section with no s
   assert.match(section, /\.pdf,\.jpg,\.jpeg,\.png/);
   assert.match(section, /maximum 5 MB/);
   assert.match(section, /stored privately/);
+  assert.match(section, /Submit Again/);
+  assert.match(section, /rejection_reason/);
+  assert.match(section, /status === 'rejected'/);
+  assert.doesNotMatch(section, /setVerification\([^)]*verified/);
   assert.doesNotMatch(register, /is_pwd|PWD/);
   assert.doesNotMatch(walkIn, /type="checkbox"|values\.is_pwd/);
   assert.match(walkIn, /verified PWD status/);

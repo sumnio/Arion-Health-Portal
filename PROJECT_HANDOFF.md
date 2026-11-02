@@ -329,3 +329,11 @@ The current local milestone replaces every self-declared PWD control with a priv
 The old `Patient.is_pwd` field remains in the schema strictly for compatibility. It is ignored by queue, Doctor clinical projection, Staff projection, and analytics. Only `PwdVerification.status === verified` supplies PWD classification. Senior DOB and Urgent priority rules are unchanged. Staff cannot grant PWD status when registering a walk-in.
 
 For v1.2.6, add a narrowly scoped Staff verification queue and explicit review transition only after re-reading the v1.2.5 ownership and privacy tests. Do not add direct GridFS/public download, Doctor/Admin review, OCR/AI, or Patient-controlled verification. Add approved outcome notification only after a successful review transition and keep it free of ID/document content.
+
+## v1.2.6 handoff — Staff PWD verification and Patient notifications
+
+The local v1.2.6 milestone completes the manual verification workflow in **Staff → Patients → PWD Verification**. Pending submissions are server-paginated and oldest first. Only an authenticated active Staff account may inspect the full ID number and stream the private PDF/image inline from `/api/staff/pwd-verifications/:verificationId/document`; there is no public URL or download action. Doctor, Admin, Patient, inactive, and unauthenticated access remain denied.
+
+Verify and Reject are single atomic Pending-only transitions. Successful reviews store the current reviewer/time and append an immutable history item. Rejection requires a bounded reason. A rejected Patient sees that reason and may upload a corrected document; the current binary is safely replaced while review history is retained. Verified Patients cannot reset or resubmit their status. Concurrent or repeated reviewers receive `409` rather than overwriting the first decision.
+
+Each successful transition triggers one fixed Patient notification after the database commit. Notification text contains no ID, filename, reason, document details, or URL. Only Verified status affects queue priority. v1.2.6 adds no OCR/AI, automated approval, external verification provider, public storage, environment variable, or deployment.

@@ -847,3 +847,17 @@ Patient 1 ─── 0..1 PwdVerification 1 ─── 1 private GridFS file
 Absence of a PwdVerification means `not_submitted`. A record begins `pending` and is structurally ready for a later Staff-controlled `verified` or `rejected` transition, but v1.2.5 implements no reviewer route. Patient access follows only `authenticated UserProfile -> own Patient -> own PwdVerification status/submission`. No role has a raw-file traversal route in this milestone.
 
 The queue reads only the safe related status and grants the Senior/PWD tier when the Patient is DOB-derived Senior or the PwdVerification is `verified`. `Patient.is_pwd` is a legacy compatibility value and is excluded from this authority path. The relationship does not connect to Appointment mutation, MedicalRecord, Prescription, MedicalCertificate, supporting documents, notifications, assistant data, AI/OCR, or any public/external storage node.
+
+## Milestone v1.2.6 PWD review relationship
+
+```text
+Patient 1 ─── 0..1 PwdVerification 1 ─── 1 current private GridFS file
+                         │
+                         ├── 0..many embedded ReviewHistory decisions
+                         │                  └── 1 Staff UserProfile reviewer
+                         └── 0..1 current Staff UserProfile reviewer
+```
+
+Only an authenticated active Staff reviewer can traverse from a Pending verification to the ID number and private inline document. Verify or Reject atomically changes the current state and appends one decision to the embedded audit history. Rejected resubmission keeps the same PwdVerification relationship and history while safely replacing the current private file. The Patient can read only status, safe timestamps, and their own rejection reason; Doctor and Admin have no traversal path to verification content.
+
+A successful review creates a privacy-safe Notification for the owning Patient without attaching the ID, file, rejection reason, or document metadata. Queue classification continues to read only `status=verified`. No relationship is added to AI/OCR, an external verifier, a public file location, MedicalRecord, Prescription, MedicalCertificate, or SupportingDocument.

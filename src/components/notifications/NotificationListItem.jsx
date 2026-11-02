@@ -11,6 +11,8 @@ const EVENT_LABELS = Object.freeze({
   appointment_marked_urgent: 'Marked urgent',
   appointment_completed: 'Completed',
   appointment_reminder: 'Sent',
+  pwd_verification_verified: 'PWD verification reviewed',
+  pwd_verification_rejected: 'PWD verification reviewed',
 });
 
 function heading(notification) {

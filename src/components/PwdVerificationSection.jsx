@@ -49,6 +49,7 @@ export default function PwdVerificationSection() {
   }
 
   const status = verification?.status ?? 'not_submitted';
+  const canSubmit = status === 'not_submitted' || status === 'rejected';
   return <section className="profile-card pwd-verification-card" aria-labelledby="pwd-verification-heading">
     <div className="pwd-verification-heading">
       <div><h2 id="pwd-verification-heading">PWD Verification</h2><p>Submit your PWD ID for private clinic verification.</p></div>
@@ -56,14 +57,14 @@ export default function PwdVerificationSection() {
     </div>
     {message && <p className="profile-message profile-message-error" role="alert">{message}</p>}
     {!verification && !message && <p role="status">Loading verification status…</p>}
-    {status === 'not_submitted' && verification && <form onSubmit={submit} noValidate className="pwd-verification-form">
+    {status === 'rejected' && <div className="pwd-rejection-summary"><p>Your submission could not be verified. Correct the information and submit a new document.</p>{verification.rejection_reason && <p><strong>Reason:</strong> {verification.rejection_reason}</p>}</div>}
+    {canSubmit && verification && <form onSubmit={submit} noValidate className="pwd-verification-form">
       <div><label htmlFor="pwd-id-number">PWD ID number *</label><input id="pwd-id-number" value={pwdIdNumber} maxLength={64} autoComplete="off" aria-invalid={!!errors.pwdIdNumber} onChange={event => { setPwdIdNumber(event.target.value); setErrors(current => ({ ...current, pwdIdNumber: undefined })); }} />{errors.pwdIdNumber && <p className="profile-error">{errors.pwdIdNumber}</p>}</div>
       <div><label htmlFor="pwd-document">PWD verification document *</label><input ref={fileRef} id="pwd-document" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" aria-invalid={!!errors.document} onChange={event => { setDocument(event.target.files?.[0] ?? null); setErrors(current => ({ ...current, document: undefined })); }} /><p className="profile-note">PDF, JPG, JPEG, or PNG only · maximum 5 MB.</p>{errors.document && <p className="profile-error">{errors.document}</p>}</div>
       <p className="profile-note pwd-privacy-note">Your document is stored privately and is not available through a public link.</p>
-      <button type="submit" className="action-link profile-save" disabled={busy}>{busy ? 'Submitting…' : 'Submit for Verification'}</button>
+      <button type="submit" className="action-link profile-save" disabled={busy}>{busy ? 'Submitting…' : status === 'rejected' ? 'Submit Again' : 'Submit for Verification'}</button>
     </form>}
     {status === 'pending' && <><p>Your submission is awaiting clinic review.</p><p className="profile-note">Submitted {verification.submitted_at ? new Date(verification.submitted_at).toLocaleString() : 'recently'}.</p></>}
     {status === 'verified' && <p>Your PWD status has been verified. Verified status may be used for clinic queue priority.</p>}
-    {status === 'rejected' && <p>Your submission could not be verified. Please contact the clinic for assistance. Resubmission will be available in a later update.</p>}
   </section>;
 }

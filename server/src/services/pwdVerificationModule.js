@@ -5,9 +5,10 @@ import { createPwdVerificationService } from './pwdVerificationService.js';
 export function createPwdVerificationModule({
   repository = pwdVerificationRepository,
   storage = createGridFsPwdVerificationStorage(),
+  notificationTriggers,
   now,
 } = {}) {
   return Object.freeze({
-    pwdVerificationService: createPwdVerificationService({ repository, storage, now }),
+    pwdVerificationService: createPwdVerificationService({ repository, storage, notificationTriggers, now }),
   });
 }

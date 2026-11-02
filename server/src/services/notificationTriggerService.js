@@ -6,6 +6,8 @@ const CONTENT = Object.freeze({
     appointment_rescheduled: ['Appointment rescheduled', 'Your appointment has been rescheduled.'],
     appointment_cancelled: ['Appointment cancelled', 'Your appointment has been cancelled.'],
     appointment_completed: ['Consultation completed', 'Your consultation has been completed.'],
+    pwd_verification_verified: ['PWD status verified', 'Your PWD status has been verified. PWD queue priority is now active on eligible visits.'],
+    pwd_verification_rejected: ['PWD verification not approved', 'Your PWD verification could not be approved. Please review your information and submit again.'],
   }),
   staff: Object.freeze({
     patient_booking_created: ['New patient booking', 'A patient appointment has been booked.'],
@@ -44,6 +46,8 @@ function contentFor(role, type, context) {
       appointment_rescheduled: doctor ? `Your appointment with ${doctor} has been rescheduled.` : fallback,
       appointment_cancelled: doctor ? `Your appointment with ${doctor} has been cancelled.` : fallback,
       appointment_completed: doctor ? `Your consultation with ${doctor} has been completed.` : fallback,
+      pwd_verification_verified: fallback,
+      pwd_verification_rejected: fallback,
     },
     staff: {
       patient_booking_created: patient && doctor ? `${patient} booked an appointment with ${doctor}.` : fallback,
@@ -69,7 +73,7 @@ function contextForRole(role, context) {
   };
 }
 
-function eventInput(profile, role, type, appointmentId, context = {}) {
+function eventInput(profile, role, type, resourceId, context = {}, resourceType = APPOINTMENT_RESOURCE) {
   const [title, message] = contentFor(role, type, context);
   return {
     recipient_user_profile_id: id(profile),
@@ -77,8 +81,8 @@ function eventInput(profile, role, type, appointmentId, context = {}) {
     type,
     title,
     message,
-    related_resource_type: APPOINTMENT_RESOURCE,
-    related_resource_id: id(appointmentId),
+    related_resource_type: resourceType,
+    related_resource_id: id(resourceId),
     ...contextForRole(role, context),
   };
 }
@@ -108,20 +112,20 @@ export function createNotificationTriggerService({ repository, notificationServi
     }
   }
 
-  async function createForProfile(profile, role, type, appointmentId, context) {
+  async function createForProfile(profile, role, type, resourceId, context, resourceType = APPOINTMENT_RESOURCE) {
     try {
-      await notificationService.createNotification(eventInput(profile, role, type, appointmentId, context));
+      await notificationService.createNotification(eventInput(profile, role, type, resourceId, context, resourceType));
     } catch {
-      log({ role, type, appointmentId });
+      log({ role, type, appointmentId: resourceId });
     }
   }
 
-  async function notifyPatient(patientId, type, appointmentId, context) {
+  async function notifyPatient(patientId, type, resourceId, context, resourceType = APPOINTMENT_RESOURCE) {
     try {
       const profile = await repository.findActivePatientProfileByPatientId(patientId);
-      if (profile) await createForProfile(profile, 'patient', type, appointmentId, context);
+      if (profile) await createForProfile(profile, 'patient', type, resourceId, context, resourceType);
     } catch {
-      log({ role: 'patient', type, appointmentId });
+      log({ role: 'patient', type, appointmentId: resourceId });
     }
   }
 
@@ -215,6 +219,11 @@ export function createNotificationTriggerService({ repository, notificationServi
     async appointmentCompleted({ appointmentId, patientId }) {
       const context = await appointmentContext(appointmentId, 'patient', 'appointment_completed');
       await notifyPatient(patientId, 'appointment_completed', appointmentId, context);
+    },
+
+    async pwdVerificationReviewed({ patientId, status }) {
+      const type = status === 'verified' ? 'pwd_verification_verified' : 'pwd_verification_rejected';
+      await notifyPatient(patientId, type, patientId, {}, 'patient');
     },
   });
 }

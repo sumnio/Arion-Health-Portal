@@ -146,6 +146,14 @@ export function createStaffApiService(repository = staffApiRepository) {
     registerWalkIn(values) { return repository.registerWalkIn({ ...values, contact_number: canonicalizePhilippineMobile(values.contact_number), address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: canonicalizePhilippineMobile(values.emergency_contact_number) || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean) }); },
     createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: 'normal' }); },
     confirm: (id) => repository.confirmAppointment(id), checkIn: (id) => repository.checkIn(id), updatePriority: (id, payload) => repository.updatePriority(id, payload), getPriorityHistory: (id) => repository.getPriorityHistory(id), noShow: (id) => repository.markNoShow(id), cancel: (id) => repository.cancelAppointment(id),
+    async getPwdVerifications(page = 1) {
+      const result = await repository.getPwdVerifications(page);
+      return { ...result, items: (result.items ?? []).map(item => ({ ...item, patientName: item.patient_name })) };
+    },
+    getPwdVerification: (id) => repository.getPwdVerification(id),
+    getPwdVerificationDocument: (id) => repository.getPwdVerificationDocument(id),
+    verifyPwdVerification: (id) => repository.verifyPwdVerification(id),
+    rejectPwdVerification: (id, reason) => repository.rejectPwdVerification(id, reason.trim()),
   };
   return service;
 }

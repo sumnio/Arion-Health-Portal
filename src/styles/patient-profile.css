@@ -40,6 +40,9 @@
 .patient-profile .pwd-status-rejected { background: #fff0ef; color: #a33434; }
 .patient-profile .pwd-verification-form { display: grid; gap: 16px; margin-top: 18px; }
 .patient-profile .pwd-verification-form button { justify-self: start; }
+.patient-profile .pwd-rejection-summary { margin-top:16px; padding:14px; border-left:4px solid #a33434; background:#fff2f3; border-radius:4px; }
+.patient-profile .pwd-rejection-summary p { margin:0 0 8px; }
+.patient-profile .pwd-rejection-summary p:last-child { margin-bottom:0; }
 .patient-profile .pwd-privacy-note { padding: 10px; background: #f1f5f9; border-radius: 6px; }
 .patient-profile [aria-invalid="true"] { border-color: #a33434; }
 .patient-profile :is(input, select, textarea, button):focus-visible { outline: 3px solid #86b5f4; outline-offset: 2px; }

@@ -901,11 +901,16 @@ Collection: `pwd_verifications`
 | `document_sha256` | String | Required 64-character SHA-256 integrity digest; excluded from default query selection |
 | `status` | enum | `pending`, `verified`, or `rejected`; absence of a record means `not_submitted` |
 | `submitted_at` | Date | Required server timestamp |
-| `verified_at` | Date, nullable | Future reviewer-controlled verification timestamp |
-| `verified_by` | ObjectId, nullable | Future reviewer UserProfile reference |
-| `rejection_reason` | String, nullable | Future bounded reviewer reason, maximum 500 characters, excluded from default query selection |
+| `verified_at` | Date, nullable | Successful verification timestamp |
+| `verified_by` | ObjectId, nullable | Staff UserProfile that verified the submission |
+| `reviewed_at` | Date, nullable | Timestamp of the current Verify or Reject decision |
+| `reviewed_by` | ObjectId, nullable | Staff UserProfile that made the current decision |
+| `rejection_reason` | String, nullable | Trimmed rejection reason, maximum 500 characters, excluded from default query selection |
+| `review_history` | Embedded array | Immutable append-only Verify/Reject decisions containing action, reviewer, time, and optional bounded reason; excluded from default query selection |
 | `created_at`, `updated_at` | Date | Mongoose timestamps |
 
-Indexes are unique `patient_id`, unique `storage_file_id`, and `(patient_id, status)` for safe status lookup. Binary content lives only in the dedicated private GridFS bucket `pwd_verification_files`. There is no public URL, original filename, raw-document API, OCR/AI field, external-provider identifier, or notification payload.
+Indexes are unique `patient_id`, unique `storage_file_id`, `(patient_id, status)` for safe status lookup, and `(status, submitted_at, _id)` for stable oldest-first Staff review pagination. Binary content lives only in the dedicated private GridFS bucket `pwd_verification_files`. Staff document access is authenticated, inline, and Pending-only; there is no public URL, original filename, Patient/Doctor/Admin document API, OCR/AI field, external-provider identifier, or notification payload.
+
+Rejected resubmission updates the same Patient-owned record from Rejected to Pending only through an atomic status filter. It resets the current review fields and replaces the current private file metadata after safe upload, but preserves the append-only `review_history`. The superseded private binary is deleted only after the replacement metadata succeeds. Verified and Pending records cannot be reset by the Patient.
 
 `Patient.is_pwd` remains a legacy compatibility field but is not an authority. No migration converts legacy `true` values into PwdVerification records. Only a related PwdVerification with `status=verified` can affect PWD queue/analytics classification.

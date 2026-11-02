@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { Readable } from 'node:stream';
 import { createApp } from '../src/app.js';
 import { createPwdVerificationModule } from '../src/services/pwdVerificationModule.js';
 import { createTokenService } from '../src/services/tokenService.js';
@@ -13,6 +14,7 @@ const ids = Object.freeze({
   staffProfile: '444444444444444444444444',
   adminProfile: '555555555555555555555555',
   inactiveProfile: '666666666666666666666666',
+  inactiveStaffProfile: '777777777777777777777777',
   patient: 'aaaaaaaaaaaaaaaaaaaaaaaa',
   otherPatient: 'bbbbbbbbbbbbbbbbbbbbbbbb',
 });
@@ -24,23 +26,53 @@ const profiles = new Map([
   [ids.staffProfile, { user_profile_id: ids.staffProfile, role: 'staff', status: 'active' }],
   [ids.adminProfile, { user_profile_id: ids.adminProfile, role: 'admin', status: 'active' }],
   [ids.inactiveProfile, { user_profile_id: ids.inactiveProfile, role: 'patient', status: 'inactive' }],
+  [ids.inactiveStaffProfile, { user_profile_id: ids.inactiveStaffProfile, role: 'staff', status: 'inactive' }],
 ]);
 
 function createContext() {
   const tokens = createTokenService(SECRET, 'test');
   const patients = new Map([
-    [ids.patientProfile, { _id: ids.patient, user_profile_id: ids.patientProfile, is_pwd: true }],
-    [ids.otherPatientProfile, { _id: ids.otherPatient, user_profile_id: ids.otherPatientProfile }],
-    [ids.inactiveProfile, { _id: 'cccccccccccccccccccccccc', user_profile_id: ids.inactiveProfile }],
+    [ids.patientProfile, { _id: ids.patient, user_profile_id: ids.patientProfile, full_name: 'Primary Patient', is_pwd: true }],
+    [ids.otherPatientProfile, { _id: ids.otherPatient, user_profile_id: ids.otherPatientProfile, full_name: 'Other Patient' }],
+    [ids.inactiveProfile, { _id: 'cccccccccccccccccccccccc', user_profile_id: ids.inactiveProfile, full_name: 'Inactive Patient' }],
   ]);
   const records = new Map();
   const stored = new Map();
   const events = [];
+  const notifications = [];
   let sequence = 0;
   const controls = { storageFailure: false, metadataFailure: false };
   const repository = {
     async findPatientByUserProfileId(profileId) { return patients.get(String(profileId)) ?? null; },
     async findByPatientId(patientId) { return records.get(String(patientId)) ?? null; },
+    async findRejectedForResubmission(patientId) { const record = records.get(String(patientId)); return record?.status === 'rejected' ? { ...record } : null; },
+    async replaceRejected(patientId, input) {
+      const record = records.get(String(patientId));
+      if (!record || record.status !== 'rejected') return null;
+      Object.assign(record, input, { status: 'pending', verified_at: null, verified_by: null, reviewed_at: null, reviewed_by: null, rejection_reason: null });
+      return record;
+    },
+    async listPending({ page, limit }) {
+      const items = [...records.values()].filter(record => record.status === 'pending').sort((left, right) => left.submitted_at - right.submitted_at || String(left._id).localeCompare(String(right._id)));
+      return {
+        items: items.slice((page - 1) * limit, page * limit).map(record => ({ ...record, patient_id: { _id: record.patient_id, full_name: [...patients.values()].find(patient => patient._id === record.patient_id)?.full_name } })),
+        total: items.length,
+      };
+    },
+    async findPendingReviewById(verificationId) {
+      const record = [...records.values()].find(item => item._id === String(verificationId) && item.status === 'pending');
+      if (!record) return null;
+      const patient = [...patients.values()].find(item => item._id === record.patient_id);
+      return { ...record, patient_id: { _id: record.patient_id, full_name: patient?.full_name } };
+    },
+    async reviewPending(verificationId, { action, reviewerId, reviewedAt, rejectionReason }) {
+      const record = [...records.values()].find(item => item._id === String(verificationId) && item.status === 'pending');
+      if (!record) return null;
+      Object.assign(record, { status: action, reviewed_at: reviewedAt, reviewed_by: reviewerId, rejection_reason: rejectionReason, verified_at: action === 'verified' ? reviewedAt : null, verified_by: action === 'verified' ? reviewerId : null });
+      record.review_history ??= [];
+      record.review_history.push({ action, reviewed_by: reviewerId, reviewed_at: reviewedAt, rejection_reason: rejectionReason });
+      return record;
+    },
     async create(input) {
       if (controls.metadataFailure) throw new Error('private database detail');
       if (records.has(String(input.patient_id))) throw Object.assign(new Error('duplicate'), { code: 11000 });
@@ -60,9 +92,12 @@ function createContext() {
       return { storageFileId, storedFilename: `generated-${sequence}.${file.extension}` };
     },
     async delete(storageFileId) { stored.delete(String(storageFileId)); },
+    openDownload(storageFileId) { return Readable.from(stored.get(String(storageFileId)) ?? Buffer.alloc(0)); },
   };
   const pwdVerificationModule = createPwdVerificationModule({
-    repository, storage, now: () => new Date('2026-11-02T01:00:00.000Z'),
+    repository, storage,
+    notificationTriggers: { async pwdVerificationReviewed(payload) { notifications.push(payload); } },
+    now: () => new Date('2026-11-02T01:00:00.000Z'),
   });
   const authModule = {
     tokens,
@@ -77,7 +112,7 @@ function createContext() {
   const securityLogger = { logSecurityEvent(event) { events.push(event); } };
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, pwdVerificationModule, securityLogger });
   return {
-    app, records, stored, events, controls,
+    app, records, stored, events, controls, notifications,
     cookie(profileId, mfaVerified = false) { return `arion_auth=${tokens.sign(profileId, { mfaVerified })}`; },
   };
 }
@@ -110,7 +145,7 @@ test('legacy is_pwd=true remains not submitted and does not become verified', as
   await withServer(context.app, async base => {
     const response = await fetch(`${base}/api/patient/pwd-verification`, { headers: { cookie: context.cookie(ids.patientProfile) } });
     assert.equal(response.status, 200);
-    assert.deepEqual((await response.json()).pwd_verification, { status: 'not_submitted', submitted_at: null, verified_at: null });
+    assert.deepEqual((await response.json()).pwd_verification, { status: 'not_submitted', submitted_at: null, verified_at: null, rejection_reason: null });
   });
 });
 
@@ -199,5 +234,104 @@ test('no raw PWD document route is exposed to any role', async () => {
       });
       assert.equal([403, 404].includes(response.status), true);
     }
+  });
+});
+
+test('active Staff lists pending requests oldest first without ID numbers or storage details', async () => {
+  const context = createContext();
+  await withServer(context.app, async base => {
+    assert.equal((await submit(base, context.cookie(ids.patientProfile))).status, 201);
+    assert.equal((await submit(base, context.cookie(ids.otherPatientProfile), { idNumber: 'PWD-OTHER-002' })).status, 201);
+    const response = await fetch(`${base}/api/staff/pwd-verifications?page=1&limit=10`, { headers: { cookie: context.cookie(ids.staffProfile) } });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.deepEqual(body.pwd_verifications.items.map(item => item.patient_name), ['Primary Patient', 'Other Patient']);
+    assert.equal(body.pwd_verifications.total, 2);
+    assert.equal(JSON.stringify(body).includes('PWD-2026-001'), false);
+    assert.equal(JSON.stringify(body).includes('storage'), false);
+  });
+});
+
+test('only active Staff can review the private pending document with safe inline headers', async () => {
+  const context = createContext();
+  await withServer(context.app, async base => {
+    await submit(base, context.cookie(ids.patientProfile));
+    const verificationId = [...context.records.values()][0]._id;
+    for (const profileId of [ids.patientProfile, ids.doctorProfile, ids.adminProfile, ids.inactiveStaffProfile]) {
+      const response = await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document`, { headers: { cookie: context.cookie(profileId, profileId === ids.adminProfile) } });
+      assert.equal(response.status, 403);
+    }
+    assert.equal((await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document`)).status, 401);
+    const response = await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document`, { headers: { cookie: context.cookie(ids.staffProfile) } });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'application/pdf');
+    assert.match(response.headers.get('content-disposition'), /^inline;/);
+    assert.equal(response.headers.get('cache-control'), 'private, no-store');
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), PDF);
+  });
+});
+
+test('Staff verifies Pending once, records reviewer audit, and triggers a privacy-safe Patient notification', async () => {
+  const context = createContext();
+  await withServer(context.app, async base => {
+    await submit(base, context.cookie(ids.patientProfile));
+    const record = [...context.records.values()][0];
+    const path = `${base}/api/staff/pwd-verifications/${record._id}/verify`;
+    const response = await fetch(path, { method: 'PATCH', headers: { cookie: context.cookie(ids.staffProfile) } });
+    assert.equal(response.status, 200);
+    assert.equal(record.status, 'verified');
+    assert.equal(record.verified_by, ids.staffProfile);
+    assert.equal(record.verified_at.toISOString(), '2026-11-02T01:00:00.000Z');
+    assert.equal(record.review_history.length, 1);
+    assert.deepEqual(record.review_history[0], { action: 'verified', reviewed_by: ids.staffProfile, reviewed_at: record.verified_at, rejection_reason: null });
+    assert.deepEqual(context.notifications, [{ patientId: ids.patient, status: 'verified' }]);
+    assert.equal(JSON.stringify(context.notifications).includes('PWD-2026-001'), false);
+    assert.equal((await fetch(path, { method: 'PATCH', headers: { cookie: context.cookie(ids.staffProfile) } })).status, 409);
+    assert.equal((await submit(base, context.cookie(ids.patientProfile), { idNumber: 'SELF-RESET' })).status, 409);
+  });
+});
+
+test('Staff rejection requires a bounded reason, notifies safely, and rejected Patient can resubmit without losing audit history', async () => {
+  const context = createContext();
+  await withServer(context.app, async base => {
+    await submit(base, context.cookie(ids.patientProfile));
+    const record = [...context.records.values()][0];
+    const path = `${base}/api/staff/pwd-verifications/${record._id}/reject`;
+    const headers = { cookie: context.cookie(ids.staffProfile), 'content-type': 'application/json' };
+    assert.equal((await fetch(path, { method: 'PATCH', headers, body: '{}' })).status, 400);
+    assert.equal((await fetch(path, { method: 'PATCH', headers, body: JSON.stringify({ reason: 'x'.repeat(501) }) })).status, 400);
+    const rejected = await fetch(path, { method: 'PATCH', headers, body: JSON.stringify({ reason: 'Document is unreadable.' }) });
+    assert.equal(rejected.status, 200);
+    assert.equal(record.status, 'rejected');
+    assert.equal(record.rejection_reason, 'Document is unreadable.');
+    assert.equal(record.review_history.length, 1);
+    assert.deepEqual(context.notifications, [{ patientId: ids.patient, status: 'rejected' }]);
+    const status = await (await fetch(`${base}/api/patient/pwd-verification`, { headers: { cookie: context.cookie(ids.patientProfile) } })).json();
+    assert.equal(status.pwd_verification.rejection_reason, 'Document is unreadable.');
+    const oldStorageId = record.storage_file_id;
+    const resubmitted = await submit(base, context.cookie(ids.patientProfile), { idNumber: 'PWD-CORRECTED-003' });
+    assert.equal(resubmitted.status, 201);
+    assert.equal((await resubmitted.json()).pwd_verification.status, 'pending');
+    assert.equal(record.review_history.length, 1);
+    assert.equal(record.status, 'pending');
+    assert.equal(context.stored.has(String(oldStorageId)), false);
+    assert.equal((await submit(base, context.cookie(ids.patientProfile))).status, 409);
+  });
+});
+
+test('concurrent Staff reviews permit exactly one Pending transition', async () => {
+  const context = createContext();
+  await withServer(context.app, async base => {
+    await submit(base, context.cookie(ids.patientProfile));
+    const record = [...context.records.values()][0];
+    const headers = { cookie: context.cookie(ids.staffProfile), 'content-type': 'application/json' };
+    const responses = await Promise.all([
+      fetch(`${base}/api/staff/pwd-verifications/${record._id}/verify`, { method: 'PATCH', headers: { cookie: context.cookie(ids.staffProfile) } }),
+      fetch(`${base}/api/staff/pwd-verifications/${record._id}/reject`, { method: 'PATCH', headers, body: JSON.stringify({ reason: 'Unable to verify.' }) }),
+    ]);
+    assert.deepEqual(responses.map(response => response.status).sort(), [200, 409]);
+    assert.equal(record.review_history.length, 1);
+    assert.equal(context.notifications.length, 1);
+    assert.ok(['verified', 'rejected'].includes(record.status));
   });
 });

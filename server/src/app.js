@@ -27,6 +27,7 @@ import { createPublicAssistantModule } from './services/publicAssistantModule.js
 import { createPublicAssistantRouter } from './routes/publicAssistantRoutes.js';
 import { createSupportingDocumentModule } from './services/supportingDocumentModule.js';
 import { createPwdVerificationModule } from './services/pwdVerificationModule.js';
+import { createStaffPwdVerificationRouter } from './routes/staffPwdVerificationRoutes.js';
 import { createDoctorSignatureModule } from './services/doctorSignatureModule.js';
 import { createDoctorSignatureRouter } from './routes/doctorSignatureRoutes.js';
 import { createSmsModule } from './services/smsModule.js';
@@ -224,7 +225,7 @@ export function createApp(
     maxMessageLength: assistantMaxMessageLength,
   });
   const supportingDocumentModule = dependencies.supportingDocumentModule ?? createSupportingDocumentModule();
-  const pwdVerificationModule = dependencies.pwdVerificationModule ?? createPwdVerificationModule();
+  const pwdVerificationModule = dependencies.pwdVerificationModule ?? createPwdVerificationModule({ notificationTriggers });
   app.use('/api/health', healthRouter);
   app.use('/api/internal/sms-reminders', createInternalSmsReminderRouter({
     smsModule,
@@ -256,6 +257,7 @@ export function createApp(
     '/api/staff/appointments',
     createStaffAppointmentRouter({ authModule, patientAppointmentModule }),
   );
+  app.use('/api/staff/pwd-verifications', createStaffPwdVerificationRouter({ authModule, pwdVerificationModule }));
   app.use('/api/staff', createStaffOperationsRouter({ authModule, staffOperationsModule }));
   app.use('/api/staff', createStaffSchedulingRouter({ authModule, schedulingModule }));
   app.use('/api/staff', createAnalyticsRouter({ authModule, analyticsModule, role: 'staff' }));

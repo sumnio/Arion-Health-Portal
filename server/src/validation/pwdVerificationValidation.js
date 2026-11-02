@@ -1,9 +1,14 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { PWD_ID_NUMBER_MAX } from '../models/index.js';
+import { PWD_REJECTION_REASON_MAX } from '../models/index.js';
 import { httpError } from '../utils/httpError.js';
+import { boundedText, queryInteger, rejectUnknownFields, requireObject, validateQueryKeys } from './inputValidation.js';
+import { validateObjectId } from './appointmentValidation.js';
 
 export const PWD_VERIFICATION_MAX_FILE_SIZE = 5 * 1024 * 1024;
+const LIST_FIELDS = new Set(['page', 'limit']);
+const REJECT_FIELDS = new Set(['reason']);
 
 const TYPES = Object.freeze({
   pdf: Object.freeze({ mimeType: 'application/pdf', extensions: new Set(['.pdf']) }),
@@ -51,4 +56,22 @@ export function validatePwdVerificationFile(file) {
     size,
     sha256: createHash('sha256').update(file.buffer).digest('hex'),
   });
+}
+
+export function validatePwdVerificationListQuery(query = {}) {
+  const value = validateQueryKeys(query, LIST_FIELDS);
+  return {
+    page: queryInteger(value.page, 'page', { defaultValue: 1, max: 1_000_000 }),
+    limit: queryInteger(value.limit, 'limit', { defaultValue: 10, max: 25 }),
+  };
+}
+
+export function validatePwdVerificationId(value) {
+  return validateObjectId(value, 'verificationId');
+}
+
+export function validatePwdRejection(value) {
+  const body = requireObject(value, 'PWD rejection');
+  rejectUnknownFields(body, REJECT_FIELDS);
+  return boundedText(body.reason, 'reason', PWD_REJECTION_REASON_MAX);
 }
