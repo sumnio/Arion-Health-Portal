@@ -1,5 +1,11 @@
 # Arion Health Portal MVP Handoff
 
+## v1.2.8 walk-in portal invitations
+
+Clinic Patient records and portal accounts remain separate. A Staff-created walk-in may have no email and remain No Account, or may have an optional email and receive an invitation only after appointment creation succeeds. The Patient verifies that email by OTP and creates their own password; Staff never creates or receives credentials. Claiming links the account to the existing Patient record, so prior appointments, records, certificates, PWD verification, and other Patient-owned history remain attached.
+
+Invitation tokens expire after 24 hours, are one-time, and are stored only as protected hashes. Resend invalidates earlier unused invitations. Email delivery is best effort and cannot roll back clinic work. Duplicate account emails, already-linked Patients, stale invitations, and concurrent claims fail closed. The invitation and OTP emails contain no clinical data. No deployment was performed, and the returning-Patient search/duplicate UI remains deferred to v1.2.9.
+
 ## Final project status
 
 Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestones 1.25–1.38 add the local email/account-token foundation, Patient registration email OTP verification, Patient-only secure password recovery, the Arion Assistant v1 feature set and acceptance gate, and the complete Consultation Supporting Documents v1 Patient/Doctor workflow. None of these post-MVP milestones has been deployed.

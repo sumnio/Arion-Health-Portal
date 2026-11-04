@@ -24,7 +24,7 @@ test('Staff Patients shows linked and walk-in operational details without clinic
 
   await expect(page.getByRole('heading', { name: portalPatient.full_name })).toBeVisible();
   await expect(page.getByText('E2E Portal Address')).toBeVisible();
-  await expect(page.getByText('Portal Patient')).toBeVisible();
+  await expect(page.getByText('Active', { exact: true })).toBeVisible();
   await expect(page.getByText('E2E completed operational visit', { exact: true })).toBeVisible();
   await expect(page.getByText('E2E upcoming operational visit', { exact: true })).toBeVisible();
   await expect(page.getByText('Urgent', { exact: true }).first()).toBeVisible();
@@ -40,7 +40,7 @@ test('Staff Patients shows linked and walk-in operational details without clinic
 
   await page.goto(`/staff/patients/${walkInPatient.patientId}`);
   await expect(page.getByRole('heading', { name: walkInPatient.full_name })).toBeVisible();
-  await expect(page.getByText('Walk-in / Unlinked')).toBeVisible();
+  await expect(page.getByText('No Account', { exact: true })).toBeVisible();
   await expect(page.getByText('E2E Walk-in Address')).toBeVisible();
   await expect(page.getByText('No appointment history found.')).toBeVisible();
   assertBrowserClean();

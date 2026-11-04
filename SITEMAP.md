@@ -5,6 +5,7 @@ PUBLIC
 /verify-email
 /forgot-password
 /reset-password
+/claim-account
 /unauthorized
 
 Authentication notes:
@@ -13,6 +14,7 @@ Authentication notes:
 - `/verify-email` is the public Patient registration verification step. It uses an HttpOnly temporary verification session, displays only a masked email address, and never authenticates the Patient automatically.
 - `/forgot-password` accepts an email and always shows the same confirmation for valid submissions. Only eligible active Patient accounts receive reset email.
 - `/reset-password` immediately exchanges an emailed one-time token for an opaque HttpOnly reset session, removes the token from the visible URL, and requires normal login after a successful reset.
+- `/claim-account` validates a one-time Staff-issued walk-in invitation, verifies email ownership with a protected OTP, and lets the Patient create their own password for the existing Patient record.
 - Unauthenticated access to any protected route redirects to `/login`.
 - An authenticated user with the wrong role is sent to `/unauthorized` or denied access.
 - Inactive accounts do not receive normal portal access.

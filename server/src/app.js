@@ -9,6 +9,8 @@ import { createPatientRouter } from './routes/patientRoutes.js';
 import { createStaffAppointmentRouter } from './routes/staffAppointmentRoutes.js';
 import { createDoctorAvailabilityRouter } from './routes/doctorAvailabilityRoutes.js';
 import { createAuthModule } from './services/authModule.js';
+import { createPortalInvitationModule } from './services/portalInvitationModule.js';
+import { createPortalInvitationRouter } from './routes/portalInvitationRoutes.js';
 import { createPatientAppointmentModule } from './services/patientAppointmentModule.js';
 import { createSchedulingModule } from './services/schedulingModule.js';
 import { createClinicalModule } from './services/clinicalModule.js';
@@ -180,6 +182,7 @@ export function createApp(
       location: clinicLocation,
     },
   });
+  const portalInvitationModule = dependencies.portalInvitationModule ?? createPortalInvitationModule({ tokens: authModule.accountTokens, email: authModule.emailService });
   const notificationModule = dependencies.notificationModule ?? createNotificationModule({ logger: securityLogger });
   const notificationTriggers = dependencies.notificationTriggers ?? notificationModule.notificationTriggerService;
   const smsModule = dependencies.smsModule ?? createSmsModule({
@@ -206,7 +209,7 @@ export function createApp(
     doctorSignatureService: doctorSignatureModule.doctorSignatureService,
     certificateIssuanceEnabled,
   });
-  const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic, bookingAvailabilityService: schedulingModule.bookingAvailabilityService, notificationTriggers, smsReminders: smsModule.smsReminderService });
+  const staffOperationsModule = dependencies.staffOperationsModule ?? createStaffOperationsModule({ clinic: schedulingModule.clinic, bookingAvailabilityService: schedulingModule.bookingAvailabilityService, notificationTriggers, smsReminders: smsModule.smsReminderService, portalInvitations: portalInvitationModule.portalInvitationService });
   const adminAccountModule = dependencies.adminAccountModule ?? createAdminAccountModule();
   const analyticsModule = dependencies.analyticsModule ?? createAnalyticsModule({ clinic: schedulingModule.clinic });
   const assistantModule = dependencies.assistantModule ?? createAssistantModule({
@@ -245,6 +248,7 @@ export function createApp(
     }));
   }
   app.use('/api/auth', createAuthRouter({ ...authModule, nodeEnv, rateLimiters }));
+  app.use('/api/auth/portal-invitations', createPortalInvitationRouter({ portalInvitationModule, rateLimiters }));
   app.use('/api/doctor', createDoctorAvailabilityRouter({ authModule, schedulingModule }));
   app.use('/api/doctor', createDoctorSignatureRouter({ authModule, doctorSignatureModule }));
   app.use('/api/doctor', createDoctorClinicalRouter({ authModule, clinicalModule, supportingDocumentModule }));
@@ -258,7 +262,7 @@ export function createApp(
     createStaffAppointmentRouter({ authModule, patientAppointmentModule }),
   );
   app.use('/api/staff/pwd-verifications', createStaffPwdVerificationRouter({ authModule, pwdVerificationModule }));
-  app.use('/api/staff', createStaffOperationsRouter({ authModule, staffOperationsModule }));
+  app.use('/api/staff', createStaffOperationsRouter({ authModule, staffOperationsModule, rateLimiters }));
   app.use('/api/staff', createStaffSchedulingRouter({ authModule, schedulingModule }));
   app.use('/api/staff', createAnalyticsRouter({ authModule, analyticsModule, role: 'staff' }));
   app.use('/api/admin', createAdminAccountRouter({ authModule, adminAccountModule, rateLimiters }));

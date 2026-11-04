@@ -1,5 +1,9 @@
 # Arion Health Portal - Revised ERD
 
+## v1.2.8 relationship addition
+
+`Patient (1) → (many historical, at most one current) PortalInvitation` and, only after a successful OTP-backed claim, `Patient (1) → (1) UserProfile → (1) AuthAccount`. Claiming updates the existing Patient; it never creates a replacement Patient or moves appointment/clinical ownership.
+
 This ERD is the logical and relational reference model. UUID and PostgreSQL-specific default notation is retained pending the backend decision; it does not require Supabase as the only implementation and is not a MongoDB collection design.
 
 ## Entity Overview

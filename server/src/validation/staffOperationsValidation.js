@@ -5,7 +5,7 @@ import { validateObjectId } from './appointmentValidation.js';
 import { boundedText, INPUT_LIMITS, queryInteger, queryText, rejectUnknownFields, validateQueryKeys } from './inputValidation.js';
 import { validatePhilippineMobile } from './phoneValidation.js';
 
-const patientFields = new Set(['full_name', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies']);
+const patientFields = new Set(['full_name', 'email', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies']);
 const appointmentFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason', 'priority']);
 export const STAFF_HISTORY_RANGES = Object.freeze(['today', 'last_7_days', 'last_30_days', 'this_month', 'custom']);
 export const STAFF_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 'no_show']);
@@ -38,6 +38,7 @@ export function validateWalkInPatient(body = {}, now = new Date()) {
   if ((body.allergies?.length ?? 0) > INPUT_LIMITS.allergies) throw httpError(400, 'VALIDATION_ERROR', `allergies must contain at most ${INPUT_LIMITS.allergies} items.`);
   return {
     user_profile_id: null, full_name: text(body.full_name, 'full_name', false, INPUT_LIMITS.name), contact_number: contact,
+    portal_email: body.email == null || String(body.email).trim() === '' ? null : (() => { const value = String(body.email).trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || value.length > 254) throw httpError(400, 'INVALID_EMAIL', 'email must be a valid email address.'); return value; })(),
     dob, sex, address: text(body.address, 'address', true, INPUT_LIMITS.address),
     emergency_contact_name: text(body.emergency_contact_name, 'emergency_contact_name', true, INPUT_LIMITS.name),
     emergency_contact_number: emergencyNumber,

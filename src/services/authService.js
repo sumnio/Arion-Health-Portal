@@ -74,6 +74,10 @@ export function createAuthService(client = apiClient) {
         skipUnauthorizedHandling: true,
       });
     },
+    inspectPortalInvitation(token) { return client.request(`/api/auth/portal-invitations/${encodeURIComponent(token)}`, { skipUnauthorizedHandling: true }); },
+    sendPortalClaimCode(token) { return client.request(`/api/auth/portal-invitations/${encodeURIComponent(token)}/send-code`, { method: 'POST', skipUnauthorizedHandling: true }); },
+    verifyPortalClaimCode(token, otpSession, code) { return client.request(`/api/auth/portal-invitations/${encodeURIComponent(token)}/verify-code`, { method: 'POST', body: { otp_session: otpSession, code }, skipUnauthorizedHandling: true }); },
+    completePortalClaim(token, claimSession, password) { return client.request(`/api/auth/portal-invitations/${encodeURIComponent(token)}/complete`, { method: 'POST', body: { claim_session: claimSession, password }, skipUnauthorizedHandling: true }); },
     async logout() {
       return client.request('/api/auth/logout', { method: 'POST', skipUnauthorizedHandling: true });
     },

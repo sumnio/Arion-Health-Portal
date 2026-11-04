@@ -1,5 +1,11 @@
 # Arion Health Portal
 
+## v1.2.8 walk-in portal invitation foundation
+
+Staff walk-in registration accepts an optional normalized email without creating credentials. After the same-day walk-in appointment is successfully saved, the backend creates a 24-hour one-time invitation and sends a privacy-minimized claim link. Email failure never rolls back the Patient or appointment and Staff may resend safely. Staff sees only No Account, Invitation Sent, or Active.
+
+The public claim flow validates the opaque invitation, sends a protected ten-minute email OTP, verifies ownership with bounded attempts, and then lets the Patient create their own password. Final account creation links the new UserProfile/AuthAccount to the existing Patient in a guarded transaction, preserving all existing appointment and clinical relationships without creating another Patient. Tokens, OTPs, and claim sessions are stored only as keyed hashes; invitation email contains no clinical data. No deployment occurred.
+
 ## Backend transition status
 
 The selected backend direction is Node.js, Express, and MongoDB through Mongoose. The backend now includes its foundation, approved models, authentication and authorization foundations, Patient profile and appointment APIs, Doctor scheduling/bookability APIs, clinical record/certificate/Doctor completion APIs, Staff operations APIs, and Admin account-management APIs.

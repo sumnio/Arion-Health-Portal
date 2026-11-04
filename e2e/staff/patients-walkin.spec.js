@@ -3,14 +3,31 @@ import { test, expect } from '../fixtures/test.js';
 import { loginAsStaff } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
 import { browserApi } from '../helpers/browserApi.js';
+import { e2eApiUrl } from '../helpers/browserApi.js';
+
+const captureKey = process.env.E2E_EMAIL_CAPTURE_KEY || 'arion-e2e-email-capture-only';
 
 async function fillWalkIn(page, values) {
   await page.getByLabel('Full name *').fill(values.full_name);
+  if (values.email) await page.getByLabel('Email (optional)').fill(values.email);
   await page.getByLabel('Date of birth *').fill(values.dob);
   await page.getByLabel('Sex *').selectOption(values.sex ?? 'other');
   await page.getByLabel('Contact number *').fill(values.contact_number);
   if (values.address) await page.getByLabel('Address (optional)').fill(values.address);
   if (values.emergency_contact_name) await page.getByLabel('Emergency contact name (optional)').fill(values.emergency_contact_name);
+}
+
+async function latestPortalDelivery(request, email, type) {
+  let delivery = null;
+  await expect.poll(async () => {
+    const response = await request.get(`${e2eApiUrl}/api/e2e/email-capture/latest`, {
+      params: { recipient: email, type },
+      headers: { 'x-e2e-capture-key': captureKey },
+    });
+    if (response.ok()) delivery = await response.json();
+    return response.ok();
+  }).toBe(true);
+  return delivery;
 }
 
 function nextSameDayHalfHour(now = new Date()) {
@@ -143,5 +160,72 @@ test('Staff creates a same-day walk-in Appointment with its own creator and non-
   expect(rejected.status).toBe(400);
   expect(rejected.body.error.code).toBe('WALK_IN_MUST_BE_TODAY');
   expect(await Appointment.countDocuments({ patient_id: patient.patientId })).toBe(1);
+  assertBrowserClean();
+});
+
+test('Staff invitation lets a walk-in Patient securely claim the existing record after the appointment succeeds', async ({ page, request, staffScenario, seededStaff }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const suffix = `${staffScenario.marker.slice(0, 8)}-${Date.now()}`;
+  const values = {
+    full_name: `E2E Invited Walkin ${suffix.slice(0, 12)}`,
+    email: `e2e-invited-${suffix}@example.invalid`.toLowerCase(),
+    dob: '1990-06-15',
+    sex: 'other',
+    contact_number: `0956${String(Date.now()).slice(-7)}`,
+  };
+  const password = `E2e!Claim-${suffix}`;
+  const doctor = await staffScenario.createDoctor();
+  const appointmentTime = nextSameDayHalfHour();
+  const endTime = appointmentTime && addMinutes(appointmentTime, 30);
+  test.skip(!appointmentTime || !endTime, 'No future same-day slot remains in Asia/Manila.');
+  await staffScenario.createBookableSlot({ doctor, offset: 0, startTime: appointmentTime, endTime });
+
+  await loginAsStaff(page, seededStaff);
+  await page.goto('/staff/patients/new');
+  await fillWalkIn(page, values);
+  await page.getByRole('button', { name: 'Register and continue' }).click();
+  await expect(page).toHaveURL(/\/staff\/patients\/[a-f\d]{24}\/walk-in$/);
+  const patient = await Patient.findOne({ contact_number: values.contact_number }).lean();
+  staffScenario.rememberPatient(patient._id);
+  expect(patient.user_profile_id).toBeNull();
+  expect(patient.portal_email).toBe(values.email);
+
+  await page.getByLabel('Doctor').selectOption(doctor.doctorId);
+  await page.getByLabel('Visit type / service').selectOption('general_consultation');
+  await page.getByLabel('Available same-day time').selectOption(appointmentTime);
+  await page.getByLabel('Reason for visit').fill('E2E invitation claim journey');
+  await page.getByRole('button', { name: 'Create Walk-in Appointment' }).click();
+  await expect(page.getByRole('heading', { name: 'Walk-in appointment created' })).toBeVisible();
+  await expect(page.getByText(/Portal invitation sent to/)).toBeVisible();
+
+  const invitation = await latestPortalDelivery(request, values.email, 'portal_invitation');
+  await page.getByRole('button', { name: 'Log out' }).click();
+  await expect(page).toHaveURL('/login');
+  await page.goto(invitation.claim_url);
+  await expect(page.getByRole('heading', { name: 'Claim Your Portal Account' })).toBeVisible();
+  await expect(page.getByText(values.email, { exact: false })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Send verification code' }).click();
+  const verification = await latestPortalDelivery(request, values.email, 'portal_claim_verification');
+  await page.getByLabel('6-digit verification code').fill(verification.code);
+  await page.getByRole('button', { name: 'Verify email' }).click();
+  await page.getByLabel('Create password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Create portal account' }).click();
+  await expect(page.getByRole('status')).toContainText('existing clinic history remains linked');
+
+  await page.getByRole('link', { name: 'Continue to login' }).click();
+  await page.getByLabel('Email').fill(values.email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Login' }).click();
+  await expect(page).toHaveURL('/patient/dashboard');
+  const linkedPatient = await Patient.findById(patient._id).lean();
+  expect(linkedPatient.user_profile_id).not.toBeNull();
+  expect(await AuthAccount.countDocuments({ email: values.email, user_profile_id: linkedPatient.user_profile_id })).toBe(1);
+  expect(await Patient.countDocuments({ contact_number: values.contact_number })).toBe(1);
+  expect(await Appointment.countDocuments({ patient_id: patient._id })).toBe(1);
+
+  await page.getByRole('button', { name: 'Log out' }).click();
+  await page.goto(invitation.claim_url);
+  await expect(page.getByText('This invitation is invalid, expired, or already used.')).toBeVisible();
   assertBrowserClean();
 });

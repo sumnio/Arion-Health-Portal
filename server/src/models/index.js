@@ -3,6 +3,7 @@ export { AuthAccount } from './AuthAccount.js';
 export { EmailVerificationChallenge, EMAIL_VERIFICATION_PURPOSES } from './EmailVerificationChallenge.js';
 export { PasswordResetToken } from './PasswordResetToken.js';
 export { Patient } from './Patient.js';
+export { PortalInvitation } from './PortalInvitation.js';
 export {
   PwdVerification,
   PWD_ID_NUMBER_MAX,

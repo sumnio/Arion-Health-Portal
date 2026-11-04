@@ -5,6 +5,7 @@ export const VERIFICATION_CODE_LENGTH = 6;
 export const PASSWORD_RESET_TOKEN_BYTES = 32;
 export const VERIFICATION_SESSION_TOKEN_BYTES = 32;
 export const PASSWORD_RESET_SESSION_TOKEN_BYTES = 32;
+export const PORTAL_INVITATION_TOKEN_BYTES = 32;
 function safeEqual(left, right) {
   const leftBuffer = Buffer.from(String(left));
   const rightBuffer = Buffer.from(String(right));
@@ -35,6 +36,18 @@ export function createAccountTokenService(
     return digest(`password-reset-session\0${String(token)}`);
   }
 
+  function hashPortalInvitationToken(token) {
+    return digest(`portal-invitation\0${String(token)}`);
+  }
+
+  function hashPortalInvitationCode(invitationId, code) {
+    return digest(`portal-invitation-code\0${String(invitationId)}\0${String(code)}`);
+  }
+
+  function hashPortalInvitationSession(token) {
+    return digest(`portal-invitation-session\0${String(token)}`);
+  }
+
   return Object.freeze({
     generateVerificationCode() {
       return String(randomInteger(0, 10 ** VERIFICATION_CODE_LENGTH)).padStart(
@@ -58,6 +71,18 @@ export function createAccountTokenService(
     hashVerificationSessionToken,
     hashPasswordResetSessionToken,
     hashPasswordResetToken,
+    generatePortalInvitationToken() {
+      return randomByteSource(PORTAL_INVITATION_TOKEN_BYTES).toString('base64url');
+    },
+    generatePortalInvitationSession() {
+      return randomByteSource(PORTAL_INVITATION_TOKEN_BYTES).toString('base64url');
+    },
+    hashPortalInvitationToken,
+    hashPortalInvitationCode,
+    verifyPortalInvitationCode(invitationId, code, expectedHash) {
+      return safeEqual(hashPortalInvitationCode(invitationId, code), expectedHash);
+    },
+    hashPortalInvitationSession,
     verifyPasswordResetToken(token, expectedHash) {
       return safeEqual(hashPasswordResetToken(token), expectedHash);
     },

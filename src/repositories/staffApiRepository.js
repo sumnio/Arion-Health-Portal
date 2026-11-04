@@ -26,6 +26,7 @@ export function createStaffApiRepository(client = apiClient) {
     async getPatientDetails(id) { return request(`/api/staff/patients/${encodeURIComponent(id)}`); },
     async registerWalkIn(payload) { return (await request('/api/staff/patients/walk-in', { method: 'POST', body: payload })).patient; },
     async createWalkInAppointment(patientId, payload) { return (await request(`/api/staff/patients/${encodeURIComponent(patientId)}/walk-in-appointments`, { method: 'POST', body: payload })).appointment; },
+    async resendPortalInvitation(patientId, email) { return (await request(`/api/staff/patients/${encodeURIComponent(patientId)}/portal-invitation`, { method: 'POST', body: email ? { email } : {} })).portal_invitation; },
     async getQueue() { return (await request('/api/staff/queue')).queue; },
     async confirmAppointment(id) { return (await request(`/api/staff/appointments/${encodeURIComponent(id)}/confirm`, { method: 'PATCH' })).appointment; },
     async checkIn(id) { return (await request(`/api/staff/appointments/${encodeURIComponent(id)}/check-in`, { method: 'PATCH' })).queue_entry; },

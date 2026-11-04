@@ -22,7 +22,7 @@ export default function AppRouter() {
     window.scrollTo(0, 0);
   }, [pathname]);
   const guestOnlyPaths = [
-    '/login', '/register', '/verify-email',
+    '/login', '/register', '/verify-email', '/claim-account',
   ];
   return <Routes>
     <Route element={<PublicLayout />}>

@@ -1,5 +1,9 @@
 # Arion Health Portal - Revised Database Schema
 
+## v1.2.8 schema addition
+
+`portal_invitations` stores an immutable `patient_id`, normalized `email`, unique protected `token_hash`, expiry/consumption/invalidation timestamps, protected OTP code/session hashes with expiry and attempts, and a protected short-lived claim-session hash. Patient adds nullable `portal_email` and `portal_invitation_expires_at`; neither field creates credentials. Successful claim creates one UserProfile/AuthAccount and links the existing Patient in the same transaction.
+
 This is the approved logical schema for the Arion Health Portal MVP. Relational type examples remain useful as a reference, while the selected MEN backend implements the same entities with Mongoose documents, generated `_id` ObjectIds, ObjectId references, and `created_at`/`updated_at` timestamps. The implementation must preserve the approved data, relationships, constraints, and access rules.
 
 Main revisions:

@@ -29,7 +29,9 @@ function ageAt(dob, date) {
 function patientView(item, date) {
   const age = ageAt(item.dob, date);
   const pwdVerificationStatus = item?.pwd_verification?.status ?? 'not_submitted';
-  return { id: id(item), full_name: item.full_name, contact_number: item.contact_number, dob: new Date(item.dob).toISOString().slice(0, 10), age, sex: item.sex, address: item.address ?? null, is_pwd: pwdVerificationStatus === 'verified', pwd_verification_status: pwdVerificationStatus, is_senior: age >= 60, has_portal_account: Boolean(item.user_profile_id) };
+  const hasAccount = Boolean(item.user_profile_id);
+  const invitationSent = !hasAccount && item.portal_email && item.portal_invitation_expires_at && new Date(item.portal_invitation_expires_at) > new Date();
+  return { id: id(item), full_name: item.full_name, email: item.portal_email ?? null, contact_number: item.contact_number, dob: new Date(item.dob).toISOString().slice(0, 10), age, sex: item.sex, address: item.address ?? null, is_pwd: pwdVerificationStatus === 'verified', pwd_verification_status: pwdVerificationStatus, is_senior: age >= 60, has_portal_account: hasAccount, portal_status: hasAccount ? 'Active' : invitationSent ? 'Invitation Sent' : 'No Account' };
 }
 function doctorView(item) { return { id: id(item), display_name: item?.user_profile_id?.display_name ?? null, specialty: item?.specialty ?? null }; }
 function tier(appointment, patient, date) { if (appointment.priority === 'urgent') return 0; return patient?.pwd_verification?.status === 'verified' || ageAt(patient.dob, date) >= 60 ? 1 : 2; }
@@ -71,7 +73,7 @@ function appointmentHighlights(items, current) {
   return { latest_appointment: past.at(-1) ?? null, upcoming_appointment: upcoming };
 }
 
-export function createStaffOperationsService({ repository, clinic, bookingAvailabilityService, notificationTriggers, smsReminders, now = () => new Date() }) {
+export function createStaffOperationsService({ repository, clinic, bookingAvailabilityService, notificationTriggers, smsReminders, portalInvitations, now = () => new Date() }) {
   return {
     async appointments(dateValue) {
       const date = dateValue || clinicDate(now(), clinic.timeZone);
@@ -139,11 +141,26 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
           appointmentId: created._id ?? created.id,
           doctorId: created.doctor_id?._id ?? created.doctor_id,
         });
-        return { id: id(created), patient_id: id(created.patient_id), doctor_id: id(created.doctor_id), appointment_at: iso(created.appointment_at), visit_type: created.visit_type, reason: created.reason, priority: created.priority, status: created.status, check_in_at: null };
+        let portal_invitation = { status: 'not_requested' };
+        const patient = await repository.findPatientById(patientId);
+        if (patient?.portal_email && !patient.user_profile_id && portalInvitations) {
+          try { const issued = await portalInvitations.issue(patientId, patient.portal_email); portal_invitation = { status: 'sent', masked_email: issued.masked_email }; }
+          catch { portal_invitation = { status: 'failed', message: 'Patient registered successfully, but the portal invitation could not be sent.' }; }
+        } else if (patient?.user_profile_id) portal_invitation = { status: 'active' };
+        return { id: id(created), patient_id: id(created.patient_id), doctor_id: id(created.doctor_id), appointment_at: iso(created.appointment_at), visit_type: created.visit_type, reason: created.reason, priority: created.priority, status: created.status, check_in_at: null, portal_invitation };
       } catch (error) {
         if (duplicateKey(error)) throw httpError(409, 'APPOINTMENT_SLOT_CONFLICT', 'That Doctor and time slot is no longer available.');
         throw error;
       }
+    },
+    async resendPortalInvitation(patientId, body = {}) {
+      validateObjectId(patientId, 'patientId');
+      const patient = await repository.findPatientById(patientId);
+      if (!patient) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
+      if (patient.user_profile_id) throw httpError(409, 'PORTAL_ACCOUNT_ACTIVE', 'This Patient already has an active portal account.');
+      const email = body.email == null ? patient.portal_email : String(body.email).trim().toLowerCase();
+      if (!email) throw httpError(400, 'EMAIL_REQUIRED', 'An email address is required to send an invitation.');
+      return portalInvitations.issue(patientId, email);
     },
     async checkIn(appointmentId) {
       validateObjectId(appointmentId, 'appointmentId');

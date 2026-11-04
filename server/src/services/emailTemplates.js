@@ -26,3 +26,23 @@ export function passwordResetTemplate({ resetUrl, expiresMinutes = 30 }) {
     html: `<p>Arion Health Portal</p><p><a href="${safeUrl}">Reset Password</a></p><p>This link expires in ${expiresMinutes} minutes and can be used only once.</p><p>If you did not request a password reset, you can ignore this email.</p>`,
   });
 }
+
+export function portalInvitationTemplate({ claimUrl, expiresHours = 24 }) {
+  const safeUrl = escapeHtml(claimUrl);
+  return Object.freeze({
+    type: 'portal_invitation',
+    subject: 'Claim your Arion Health Portal account',
+    text: ['Arion Health Portal', '', 'The clinic created a Patient record for you. Use the secure link below to create your own portal password.', claimUrl, `This link expires in ${expiresHours} hours and can be used only once.`, 'If you were not expecting this invitation, you can ignore this email.'].join('\n'),
+    html: `<p>Arion Health Portal</p><p>The clinic created a Patient record for you. Use the secure link below to create your own portal password.</p><p><a href="${safeUrl}">Claim Portal Account</a></p><p>This link expires in ${expiresHours} hours and can be used only once.</p><p>If you were not expecting this invitation, you can ignore this email.</p>`,
+  });
+}
+
+export function portalClaimCodeTemplate({ code, expiresMinutes = 10 }) {
+  const safeCode = escapeHtml(code);
+  return Object.freeze({
+    type: 'portal_claim_verification',
+    subject: 'Verify your Arion Health Portal invitation',
+    text: ['Arion Health Portal', '', `Your verification code is ${code}.`, `This code expires in ${expiresMinutes} minutes.`, 'Do not share this code.'].join('\n'),
+    html: `<p>Arion Health Portal</p><p>Your verification code is <strong>${safeCode}</strong>.</p><p>This code expires in ${expiresMinutes} minutes.</p><p>Do not share this code.</p>`,
+  });
+}

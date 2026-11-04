@@ -193,6 +193,20 @@ test('email verification UI is segmented, numeric, refresh-safe, and contains no
   assert.doesNotMatch(source, /localStorage|sessionStorage|accountId|challengeId/);
 });
 
+test('walk-in portal claim uses invitation, OTP, and password steps without browser storage', async () => {
+  const calls = [];
+  const service = createAuthService({ async request(path, options = {}) { calls.push({ path, options }); return path.endsWith('verify-code') ? { claim_session: 'claim-session' } : path.endsWith('send-code') ? { otp_session: 'otp-session' } : { status: 'active', masked_email: 'w***@example.com' }; } });
+  await service.inspectPortalInvitation('invite-token');
+  await service.sendPortalClaimCode('invite-token');
+  await service.verifyPortalClaimCode('invite-token', 'otp-session', '123456');
+  await service.completePortalClaim('invite-token', 'claim-session', 'PatientPassword1!');
+  assert.deepEqual(calls.map(item => item.path), ['/api/auth/portal-invitations/invite-token', '/api/auth/portal-invitations/invite-token/send-code', '/api/auth/portal-invitations/invite-token/verify-code', '/api/auth/portal-invitations/invite-token/complete']);
+  const source = readFileSync(new URL('../src/pages/public/ClaimAccountPage.jsx', import.meta.url), 'utf8');
+  assert.match(source, /6-digit verification code/);
+  assert.match(source, /Create password/);
+  assert.doesNotMatch(source, /localStorage|sessionStorage|patient_id|appointment|diagnosis|certificate/);
+});
+
 test('session restore and logout use the real backend endpoints', async () => {
   const paths = [];
   const service = createAuthService({

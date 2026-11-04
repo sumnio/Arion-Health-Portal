@@ -14,6 +14,7 @@ import {
   MedicalRecord,
   Notification,
   Patient,
+  PortalInvitation,
   PwdVerification,
   Prescription,
   Staff,
@@ -341,7 +342,14 @@ export class PatientScenario {
       await DoctorAvailability.deleteMany({ doctor_id: { $in: doctorIds } });
       await Doctor.deleteMany({ _id: { $in: doctorIds } });
     }
+    const linkedPatientProfileIds = patientIds.length
+      ? (await Patient.find({ _id: { $in: patientIds }, user_profile_id: { $ne: null } }).distinct('user_profile_id')).map(String)
+      : [];
+    for (const profileId of linkedPatientProfileIds) {
+      if (!profileIds.includes(profileId)) profileIds.push(profileId);
+    }
     if (patientIds.length) {
+      await PortalInvitation.deleteMany({ patient_id: { $in: patientIds } });
       const pwdVerifications = await PwdVerification.find({ patient_id: { $in: patientIds } })
         .select('+storage_file_id')
         .lean();
