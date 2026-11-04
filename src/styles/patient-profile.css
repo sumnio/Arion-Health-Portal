@@ -40,6 +40,9 @@
 .patient-profile .pwd-status-rejected { background: #fff0ef; color: #a33434; }
 .patient-profile .pwd-verification-form { display: grid; gap: 16px; margin-top: 18px; }
 .patient-profile .pwd-verification-form button { justify-self: start; }
+.patient-profile .pwd-verification-form input[type="file"] { padding: 6px; color: #52657b; background: #fff; }
+.patient-profile .pwd-verification-form input[type="file"]::file-selector-button { margin-right: 12px; padding: 8px 12px; border: 1px solid #c6d4e1; border-radius: 4px; background: #edf4fb; color: #284764; font: inherit; font-weight: 600; cursor: pointer; }
+.patient-profile .pwd-verification-form input[type="file"]::file-selector-button:hover { background: #e2edf7; }
 .patient-profile .pwd-rejection-summary { margin-top:16px; padding:14px; border-left:4px solid #a33434; background:#fff2f3; border-radius:4px; }
 .patient-profile .pwd-rejection-summary p { margin:0 0 8px; }
 .patient-profile .pwd-rejection-summary p:last-child { margin-bottom:0; }

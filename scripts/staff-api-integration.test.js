@@ -73,14 +73,15 @@ test('Staff PWD verification repository uses only Staff-scoped private review ro
   const repository = createStaffApiRepository(client);
   await repository.getPwdVerifications(2);
   await repository.getPwdVerification('verification/1');
-  await repository.getPwdVerificationDocument('verification/1');
+  await repository.getPwdVerificationDocument('verification/1', 'front');
   await repository.verifyPwdVerification('verification/1');
   await repository.rejectPwdVerification('verification/1', 'Document unreadable');
   assert.equal(calls[0].path, '/api/staff/pwd-verifications?page=2&limit=10');
   assert.equal(calls[1].path, '/api/staff/pwd-verifications/verification%2F1');
-  assert.equal(calls[2].path, '/api/staff/pwd-verifications/verification%2F1/document');
+  assert.equal(calls[2].path, '/api/staff/pwd-verifications/verification%2F1/document/front');
   assert.equal(calls[2].kind, 'download');
   assert.equal(calls[3].options.method, 'PATCH');
+  assert.equal('body' in calls[3].options, false);
   assert.deepEqual(calls[4].options.body, { reason: 'Document unreadable' });
   assert.equal(calls.some(call => call.path.includes('/api/patient/')), false);
 });
@@ -91,11 +92,13 @@ test('Staff Patients includes accessible pending PWD review without public or do
     readFile(new URL('../src/components/StaffPwdVerification.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/styles/staff-patients.css', import.meta.url), 'utf8'),
   ]);
-  assert.match(page, /PWD Verification/);
+  assert.match(page, /PWD Verification \(\{pendingPwdCount\}\)/);
   assert.match(page, /aria-pressed/);
   assert.match(review, /Pending requests are shown oldest first/);
   assert.match(review, /Promise\.all/);
   assert.match(review, /Verify PWD/);
+  assert.match(review, /name printed on the PWD ID matches the Patient profile name above/);
+  assert.doesNotMatch(review, /pwd-name-confirmation|nameMatchesProfile/);
   assert.match(review, /Rejection reason/);
   assert.match(review, /Enter a rejection reason/);
   assert.match(review, /URL\.revokeObjectURL/);

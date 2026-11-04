@@ -203,12 +203,16 @@ test('supporting document metadata is bounded and declares appointment slot owne
 test('PWD verification keeps one private bounded record per Patient with review-ready states', async () => {
   const valid = new PwdVerification({
     patient_id: objectId(),
-    pwd_id_number: 'PWD-2026-001',
-    storage_file_id: objectId(),
-    stored_filename: 'generated.pdf',
-    mime_type: 'application/pdf',
-    file_size: 128,
-    document_sha256: 'a'.repeat(64),
+    front_storage_file_id: objectId(),
+    front_stored_filename: 'front.png',
+    front_mime_type: 'image/png',
+    front_file_size: 128,
+    front_document_sha256: 'a'.repeat(64),
+    back_storage_file_id: objectId(),
+    back_stored_filename: 'back.jpg',
+    back_mime_type: 'image/jpeg',
+    back_file_size: 256,
+    back_document_sha256: 'b'.repeat(64),
     status: 'pending',
     submitted_at: new Date(),
   });
@@ -221,6 +225,8 @@ test('PWD verification keeps one private bounded record per Patient with review-
   await assert.rejects(valid.validate(), /status/);
   assert.equal(PwdVerification.schema.path('pwd_id_number').options.select, false);
   assert.equal(PwdVerification.schema.path('storage_file_id').options.select, false);
+  assert.equal(PwdVerification.schema.path('front_storage_file_id').options.select, false);
+  assert.equal(PwdVerification.schema.path('back_storage_file_id').options.select, false);
   assert.equal(PwdVerification.schema.path('review_history').options.select, false);
   assert.ok(PwdVerification.schema.indexes().some(([fields, options]) => fields.patient_id === 1 && options.unique === true));
   assert.ok(indexByName(PwdVerification, 'pwd_verification_pending_queue'));

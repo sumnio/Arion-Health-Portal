@@ -49,17 +49,15 @@ test('Patient profile validates Philippine mobile fields only in Edit mode', asy
   await expect(contact).toHaveValue('09991234567');
 });
 
-test('Patient submits one private PWD document and sees Pending Verification after reload', async ({ page, seededPatient }) => {
+test('Patient submits private front and back PWD ID images and sees Pending Verification after reload', async ({ page, seededPatient }) => {
   await loginAsPatient(page, seededPatient);
   await page.goto('/patient/profile');
   await expect(page.getByRole('heading', { name: 'PWD Verification' })).toBeVisible();
   await expect(page.getByText('Not Submitted')).toBeVisible();
-  await page.getByLabel('PWD ID number *').fill('E2E-PWD-001');
-  await page.getByLabel('PWD verification document *').setInputFiles({
-    name: 'pwd-verification.pdf',
-    mimeType: 'application/pdf',
-    buffer: Buffer.from('%PDF-1.7\nE2E private verification'),
-  });
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+  await expect(page.getByText(/name printed on the ID must match the name on your Patient profile/)).toBeVisible();
+  await page.getByLabel('Front of PWD ID *').setInputFiles({ name: 'pwd-front.png', mimeType: 'image/png', buffer: png });
+  await page.getByLabel('Back of PWD ID *').setInputFiles({ name: 'pwd-back.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('button', { name: 'Submit for Verification' }).click();
   await expect(page.getByText('Pending Verification')).toBeVisible();
   await expect(page.getByText('Your submission is awaiting clinic review.')).toBeVisible();

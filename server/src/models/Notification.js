@@ -17,6 +17,7 @@ export const NOTIFICATION_TYPES = Object.freeze([
   'account_status_notice',
   'pwd_verification_verified',
   'pwd_verification_rejected',
+  'pwd_verification_submitted',
 ]);
 export const NOTIFICATION_RESOURCE_TYPES = Object.freeze(['appointment', 'patient', 'doctor']);
 export const NOTIFICATION_TITLE_MAX = 120;

@@ -13,6 +13,7 @@ const CONTENT = Object.freeze({
     patient_booking_created: ['New patient booking', 'A patient appointment has been booked.'],
     appointment_rescheduled: ['Appointment rescheduled', 'A patient appointment has been rescheduled.'],
     appointment_cancelled: ['Appointment cancelled', 'A patient appointment has been cancelled.'],
+    pwd_verification_submitted: ['New PWD verification request', 'A patient submitted a PWD ID for verification.'],
   }),
   doctor: Object.freeze({
     assigned_appointment_created: ['New assigned appointment', 'A new appointment has been assigned to you.'],
@@ -53,6 +54,7 @@ function contentFor(role, type, context) {
       patient_booking_created: patient && doctor ? `${patient} booked an appointment with ${doctor}.` : fallback,
       appointment_rescheduled: patient && doctor ? `${patient} rescheduled their appointment with ${doctor}.` : fallback,
       appointment_cancelled: patient && doctor ? `${patient}'s appointment with ${doctor} has been cancelled.` : fallback,
+      pwd_verification_submitted: fallback,
     },
     doctor: {
       assigned_appointment_created: patient ? `A new appointment with ${patient} has been assigned to you.` : fallback,
@@ -142,11 +144,11 @@ export function createNotificationTriggerService({ repository, notificationServi
     }
   }
 
-  async function notifyStaff(type, appointmentId, context) {
+  async function notifyStaff(type, appointmentId, context, resourceType = APPOINTMENT_RESOURCE) {
     try {
       const profiles = await repository.listActiveStaffProfiles();
       for (const profile of profiles) {
-        await createForProfile(profile, 'staff', type, appointmentId, context);
+        await createForProfile(profile, 'staff', type, appointmentId, context, resourceType);
       }
     } catch {
       log({ role: 'staff', type, appointmentId });
@@ -224,6 +226,10 @@ export function createNotificationTriggerService({ repository, notificationServi
     async pwdVerificationReviewed({ patientId, status }) {
       const type = status === 'verified' ? 'pwd_verification_verified' : 'pwd_verification_rejected';
       await notifyPatient(patientId, type, patientId, {}, 'patient');
+    },
+
+    async pwdVerificationSubmitted({ patientId }) {
+      await notifyStaff('pwd_verification_submitted', patientId, {}, 'patient');
     },
   });
 }

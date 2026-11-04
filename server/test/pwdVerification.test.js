@@ -96,7 +96,10 @@ function createContext() {
   };
   const pwdVerificationModule = createPwdVerificationModule({
     repository, storage,
-    notificationTriggers: { async pwdVerificationReviewed(payload) { notifications.push(payload); } },
+    notificationTriggers: {
+      async pwdVerificationSubmitted(payload) { notifications.push({ event: 'submitted', ...payload }); },
+      async pwdVerificationReviewed(payload) { notifications.push({ event: 'reviewed', ...payload }); },
+    },
     now: () => new Date('2026-11-02T01:00:00.000Z'),
   });
   const authModule = {
@@ -124,12 +127,12 @@ async function withServer(app, callback) {
   finally { await new Promise(resolve => server.close(resolve)); }
 }
 
-const PDF = Buffer.from('%PDF-1.7\nprivate PWD verification');
+const PNG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
 
-function submission({ idNumber = 'PWD-2026-001', name = 'pwd-card.pdf', bytes = PDF, mimeType = 'application/pdf', extraField = null } = {}) {
+function submission({ frontName = 'pwd-front.png', backName = 'pwd-back.png', frontBytes = PNG, backBytes = PNG, frontMimeType = 'image/png', backMimeType = 'image/png', omitFront = false, omitBack = false, extraField = null } = {}) {
   const data = new FormData();
-  data.append('pwd_id_number', idNumber);
-  data.append('document', new Blob([bytes], { type: mimeType }), name);
+  if (!omitFront) data.append('front_document', new Blob([frontBytes], { type: frontMimeType }), frontName);
+  if (!omitBack) data.append('back_document', new Blob([backBytes], { type: backMimeType }), backName);
   if (extraField) data.append(extraField, 'not allowed');
   return data;
 }
@@ -149,7 +152,7 @@ test('legacy is_pwd=true remains not submitted and does not become verified', as
   });
 });
 
-test('Patient submits one private PDF and receives status-only pending response', async () => {
+test('Patient submits private front and back ID images and receives status-only pending response', async () => {
   const context = createContext();
   await withServer(context.app, async base => {
     const response = await submit(base, context.cookie(ids.patientProfile));
@@ -157,11 +160,12 @@ test('Patient submits one private PDF and receives status-only pending response'
     assert.equal(response.status, 201);
     assert.equal(body.pwd_verification.status, 'pending');
     assert.equal(body.pwd_verification.submitted_at, '2026-11-02T01:00:00.000Z');
-    assert.equal(JSON.stringify(body).includes('PWD-2026-001'), false);
+    assert.equal(JSON.stringify(body).includes('pwd-front'), false);
     assert.equal(JSON.stringify(body).includes('storage'), false);
     assert.equal(JSON.stringify(body).includes('filename'), false);
     assert.equal(context.records.size, 1);
-    assert.equal(context.stored.size, 1);
+    assert.equal(context.stored.size, 2);
+    assert.deepEqual(context.notifications, [{ event: 'submitted', patientId: ids.patient }]);
     assert.equal(context.events.some(event => event.event === 'PWD_VERIFICATION_SUBMITTED'), true);
   });
 });
@@ -174,7 +178,7 @@ test('duplicate submission is blocked without creating another private file', as
     assert.equal(duplicate.status, 409);
     assert.equal((await duplicate.json()).error.code, 'PWD_VERIFICATION_ALREADY_SUBMITTED');
     assert.equal(context.records.size, 1);
-    assert.equal(context.stored.size, 1);
+    assert.equal(context.stored.size, 2);
   });
 });
 
@@ -191,15 +195,16 @@ test('upload enforces authentication, active Patient role, and private ownership
   });
 });
 
-test('file extension, signature, size, fields, and ID number are validated', async () => {
+test('front/back presence, image extension, signature, size, and fields are validated', async () => {
   const context = createContext();
   await withServer(context.app, async base => {
     const cookie = context.cookie(ids.patientProfile);
-    assert.equal((await submit(base, cookie, { name: 'card.txt' })).status, 400);
-    assert.equal((await submit(base, cookie, { name: 'card.pdf', bytes: Buffer.from('not a pdf') })).status, 400);
-    assert.equal((await submit(base, cookie, { mimeType: 'image/png' })).status, 400);
-    assert.equal((await submit(base, cookie, { bytes: Buffer.alloc(5 * 1024 * 1024 + 1) })).status, 413);
-    assert.equal((await submit(base, cookie, { idNumber: '  ' })).status, 400);
+    assert.equal((await submit(base, cookie, { frontName: 'card.txt' })).status, 400);
+    assert.equal((await submit(base, cookie, { frontName: 'card.png', frontBytes: Buffer.from('not an image') })).status, 400);
+    assert.equal((await submit(base, cookie, { frontName: 'card.pdf', frontBytes: Buffer.from('%PDF-1.7'), frontMimeType: 'application/pdf' })).status, 400);
+    assert.equal((await submit(base, cookie, { frontBytes: Buffer.alloc(5 * 1024 * 1024 + 1) })).status, 413);
+    assert.equal((await submit(base, cookie, { omitFront: true })).status, 400);
+    assert.equal((await submit(base, cookie, { omitBack: true })).status, 400);
     assert.equal((await submit(base, cookie, { extraField: 'status' })).status, 400);
     assert.equal(context.records.size, 0);
     assert.equal(context.stored.size, 0);
@@ -241,13 +246,13 @@ test('active Staff lists pending requests oldest first without ID numbers or sto
   const context = createContext();
   await withServer(context.app, async base => {
     assert.equal((await submit(base, context.cookie(ids.patientProfile))).status, 201);
-    assert.equal((await submit(base, context.cookie(ids.otherPatientProfile), { idNumber: 'PWD-OTHER-002' })).status, 201);
+    assert.equal((await submit(base, context.cookie(ids.otherPatientProfile))).status, 201);
     const response = await fetch(`${base}/api/staff/pwd-verifications?page=1&limit=10`, { headers: { cookie: context.cookie(ids.staffProfile) } });
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.deepEqual(body.pwd_verifications.items.map(item => item.patient_name), ['Primary Patient', 'Other Patient']);
     assert.equal(body.pwd_verifications.total, 2);
-    assert.equal(JSON.stringify(body).includes('PWD-2026-001'), false);
+    assert.equal(JSON.stringify(body).includes('pwd-front'), false);
     assert.equal(JSON.stringify(body).includes('storage'), false);
   });
 });
@@ -258,16 +263,18 @@ test('only active Staff can review the private pending document with safe inline
     await submit(base, context.cookie(ids.patientProfile));
     const verificationId = [...context.records.values()][0]._id;
     for (const profileId of [ids.patientProfile, ids.doctorProfile, ids.adminProfile, ids.inactiveStaffProfile]) {
-      const response = await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document`, { headers: { cookie: context.cookie(profileId, profileId === ids.adminProfile) } });
+      const response = await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document/front`, { headers: { cookie: context.cookie(profileId, profileId === ids.adminProfile) } });
       assert.equal(response.status, 403);
     }
-    assert.equal((await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document`)).status, 401);
-    const response = await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document`, { headers: { cookie: context.cookie(ids.staffProfile) } });
+    assert.equal((await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document/front`)).status, 401);
+    const response = await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document/front`, { headers: { cookie: context.cookie(ids.staffProfile) } });
     assert.equal(response.status, 200);
-    assert.equal(response.headers.get('content-type'), 'application/pdf');
+    assert.equal(response.headers.get('content-type'), 'image/png');
     assert.match(response.headers.get('content-disposition'), /^inline;/);
     assert.equal(response.headers.get('cache-control'), 'private, no-store');
-    assert.deepEqual(Buffer.from(await response.arrayBuffer()), PDF);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), PNG);
+    const back = await fetch(`${base}/api/staff/pwd-verifications/${verificationId}/document/back`, { headers: { cookie: context.cookie(ids.staffProfile) } });
+    assert.equal(back.status, 200);
   });
 });
 
@@ -277,17 +284,17 @@ test('Staff verifies Pending once, records reviewer audit, and triggers a privac
     await submit(base, context.cookie(ids.patientProfile));
     const record = [...context.records.values()][0];
     const path = `${base}/api/staff/pwd-verifications/${record._id}/verify`;
-    const response = await fetch(path, { method: 'PATCH', headers: { cookie: context.cookie(ids.staffProfile) } });
+    const verifyHeaders = { cookie: context.cookie(ids.staffProfile), 'content-type': 'application/json' };
+    const response = await fetch(path, { method: 'PATCH', headers: verifyHeaders, body: '{}' });
     assert.equal(response.status, 200);
     assert.equal(record.status, 'verified');
     assert.equal(record.verified_by, ids.staffProfile);
     assert.equal(record.verified_at.toISOString(), '2026-11-02T01:00:00.000Z');
     assert.equal(record.review_history.length, 1);
     assert.deepEqual(record.review_history[0], { action: 'verified', reviewed_by: ids.staffProfile, reviewed_at: record.verified_at, rejection_reason: null });
-    assert.deepEqual(context.notifications, [{ patientId: ids.patient, status: 'verified' }]);
-    assert.equal(JSON.stringify(context.notifications).includes('PWD-2026-001'), false);
-    assert.equal((await fetch(path, { method: 'PATCH', headers: { cookie: context.cookie(ids.staffProfile) } })).status, 409);
-    assert.equal((await submit(base, context.cookie(ids.patientProfile), { idNumber: 'SELF-RESET' })).status, 409);
+    assert.deepEqual(context.notifications, [{ event: 'submitted', patientId: ids.patient }, { event: 'reviewed', patientId: ids.patient, status: 'verified' }]);
+    assert.equal((await fetch(path, { method: 'PATCH', headers: verifyHeaders, body: '{}' })).status, 409);
+    assert.equal((await submit(base, context.cookie(ids.patientProfile))).status, 409);
   });
 });
 
@@ -305,11 +312,11 @@ test('Staff rejection requires a bounded reason, notifies safely, and rejected P
     assert.equal(record.status, 'rejected');
     assert.equal(record.rejection_reason, 'Document is unreadable.');
     assert.equal(record.review_history.length, 1);
-    assert.deepEqual(context.notifications, [{ patientId: ids.patient, status: 'rejected' }]);
+    assert.deepEqual(context.notifications, [{ event: 'submitted', patientId: ids.patient }, { event: 'reviewed', patientId: ids.patient, status: 'rejected' }]);
     const status = await (await fetch(`${base}/api/patient/pwd-verification`, { headers: { cookie: context.cookie(ids.patientProfile) } })).json();
     assert.equal(status.pwd_verification.rejection_reason, 'Document is unreadable.');
     const oldStorageId = record.storage_file_id;
-    const resubmitted = await submit(base, context.cookie(ids.patientProfile), { idNumber: 'PWD-CORRECTED-003' });
+    const resubmitted = await submit(base, context.cookie(ids.patientProfile));
     assert.equal(resubmitted.status, 201);
     assert.equal((await resubmitted.json()).pwd_verification.status, 'pending');
     assert.equal(record.review_history.length, 1);
@@ -326,12 +333,12 @@ test('concurrent Staff reviews permit exactly one Pending transition', async () 
     const record = [...context.records.values()][0];
     const headers = { cookie: context.cookie(ids.staffProfile), 'content-type': 'application/json' };
     const responses = await Promise.all([
-      fetch(`${base}/api/staff/pwd-verifications/${record._id}/verify`, { method: 'PATCH', headers: { cookie: context.cookie(ids.staffProfile) } }),
+      fetch(`${base}/api/staff/pwd-verifications/${record._id}/verify`, { method: 'PATCH', headers, body: '{}' }),
       fetch(`${base}/api/staff/pwd-verifications/${record._id}/reject`, { method: 'PATCH', headers, body: JSON.stringify({ reason: 'Unable to verify.' }) }),
     ]);
     assert.deepEqual(responses.map(response => response.status).sort(), [200, 409]);
     assert.equal(record.review_history.length, 1);
-    assert.equal(context.notifications.length, 1);
+    assert.equal(context.notifications.filter(item => item.event === 'reviewed').length, 1);
     assert.ok(['verified', 'rejected'].includes(record.status));
   });
 });

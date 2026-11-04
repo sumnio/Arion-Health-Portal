@@ -32,16 +32,23 @@ test('save supports blank optional fields, normalizes allergies, and protects ac
 });
 
 test('PWD verification is a separate private status and upload section with no self-declared control', async () => {
-  const [page, section, register, walkIn] = await Promise.all([
+  const [page, section, register, walkIn, styles] = await Promise.all([
     readFile(new URL('../src/pages/patient/PatientProfile.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/components/PwdVerificationSection.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/public/RegisterPage.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/staff/StaffRegisterWalkIn.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles/patient-profile.css', import.meta.url), 'utf8'),
   ]);
   assert.match(page, /<PwdVerificationSection/);
   assert.doesNotMatch(page, /profile-pwd|Person with Disability \(PWD\) status/);
   assert.match(section, /Pending Verification/);
-  assert.match(section, /\.pdf,\.jpg,\.jpeg,\.png/);
+  assert.match(section, /Front of PWD ID/);
+  assert.match(section, /Back of PWD ID/);
+  assert.match(section, /name printed on the ID must match the name on your Patient profile/);
+  assert.doesNotMatch(section, /PWD ID number/);
+  assert.doesNotMatch(section, /\.pdf/);
+  assert.match(styles, /::file-selector-button/);
+  assert.match(styles, /background: #edf4fb/);
   assert.match(section, /maximum 5 MB/);
   assert.match(section, /stored privately/);
   assert.match(section, /Submit Again/);

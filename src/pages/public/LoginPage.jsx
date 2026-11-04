@@ -108,7 +108,7 @@ export default function LoginPage() {
   }
 
   return <AuthCard title="Login to Your Account" subtitle="Welcome back. Access your health portal.">
-    <div className="auth-notice"><strong>Secure account access</strong><p>Use your Arion Health Portal email and password. Your account role determines which portal opens.</p></div>
+    <div className="auth-notice"><strong>Secure sign in</strong><p>Enter your registered email and password to continue.</p></div>
     <form onSubmit={submitLogin}>
       <FormField label="Email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
       <FormField label="Password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" required />

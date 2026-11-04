@@ -32,9 +32,8 @@ export default function RegisterPage() {
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
-  return <AuthCard title="Create Your Account" subtitle="Join Arion Health Portal as a patient." wide>
+  return <AuthCard title="Create Your Account" subtitle="Enter your details to create your Arion Health Portal account." wide>
     <>
-      <p className="auth-notice">Patient self-registration. Doctor and staff accounts are created by an administrator.</p>
       <form onSubmit={submit}>
         <FormField label="Full Name" name="display_name" placeholder="e.g. Alex Santos" autoComplete="name" required />
         <div className="form-grid">

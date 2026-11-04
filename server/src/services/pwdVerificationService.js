@@ -1,10 +1,9 @@
 import { httpError } from '../utils/httpError.js';
 import {
-  validatePwdIdNumber,
   validatePwdRejection,
   validatePwdVerificationId,
   validatePwdVerificationListQuery,
-  validatePwdVerificationFile,
+  validatePwdVerificationFiles,
 } from '../validation/pwdVerificationValidation.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
 
@@ -36,14 +35,53 @@ function pendingListItem(record) {
 }
 
 function reviewView(record) {
+  const documents = record.front_storage_file_id && record.back_storage_file_id
+    ? [
+        { side: 'front', mime_type: record.front_mime_type, file_size: record.front_file_size },
+        { side: 'back', mime_type: record.back_mime_type, file_size: record.back_file_size },
+      ]
+    : [{ side: 'legacy', mime_type: record.mime_type, file_size: record.file_size }];
   return Object.freeze({
     id: id(record),
     patient_name: record.patient_id?.full_name ?? 'Patient unavailable',
-    pwd_id_number: record.pwd_id_number,
     status: record.status,
     submitted_at: new Date(record.submitted_at).toISOString(),
-    document: { mime_type: record.mime_type, file_size: record.file_size },
+    documents,
   });
+}
+
+async function uploadPair(storage, documents) {
+  const results = await Promise.allSettled([
+    storage.upload(documents.front, { side: 'front' }),
+    storage.upload(documents.back, { side: 'back' }),
+  ]);
+  const uploaded = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+  if (results.some(result => result.status === 'rejected')) {
+    await Promise.all(uploaded.map(file => storage.delete(file.storageFileId).catch(() => {})));
+    throw results.find(result => result.status === 'rejected').reason;
+  }
+  return { front: results[0].value, back: results[1].value };
+}
+
+function storedPair(documents, uploaded) {
+  return {
+    pwd_id_number: null,
+    storage_file_id: uploaded.front.storageFileId,
+    stored_filename: uploaded.front.storedFilename,
+    mime_type: documents.front.mimeType,
+    file_size: documents.front.size,
+    document_sha256: documents.front.sha256,
+    front_storage_file_id: uploaded.front.storageFileId,
+    front_stored_filename: uploaded.front.storedFilename,
+    front_mime_type: documents.front.mimeType,
+    front_file_size: documents.front.size,
+    front_document_sha256: documents.front.sha256,
+    back_storage_file_id: uploaded.back.storageFileId,
+    back_stored_filename: uploaded.back.storedFilename,
+    back_mime_type: documents.back.mimeType,
+    back_file_size: documents.back.size,
+    back_document_sha256: documents.back.sha256,
+  };
 }
 
 export function createPwdVerificationService({ repository, storage, notificationTriggers, now = () => new Date() }) {
@@ -59,7 +97,7 @@ export function createPwdVerificationService({ repository, storage, notification
       return present(await repository.findByPatientId(id(patient)));
     },
 
-    async submitOwn(userProfileId, body, file) {
+    async submitOwn(userProfileId, body, files) {
       const patient = await ownPatient(userProfileId);
       const patientId = id(patient);
       const existing = await repository.findByPatientId(patientId);
@@ -72,53 +110,50 @@ export function createPwdVerificationService({ repository, storage, notification
             : 'A PWD verification record already exists. Resubmission is not available yet.',
         );
       }
-      const pwdIdNumber = validatePwdIdNumber(body?.pwd_id_number);
-      const document = validatePwdVerificationFile(file);
+      if (body && Object.keys(body).length) {
+        throw httpError(400, 'UNEXPECTED_PWD_FIELDS', 'PWD verification accepts only the front and back ID images.');
+      }
+      const documents = validatePwdVerificationFiles(files);
       let uploaded;
       try {
-        uploaded = await storage.upload(document);
+        uploaded = await uploadPair(storage, documents);
+        const fileInput = storedPair(documents, uploaded);
         if (existing?.status === 'rejected') {
           const rejected = await repository.findRejectedForResubmission(patientId);
           if (!rejected) {
             throw httpError(409, 'PWD_VERIFICATION_RESUBMISSION_CONFLICT', 'PWD verification can no longer be resubmitted. Refresh the page.');
           }
           const record = await repository.replaceRejected(patientId, {
-            pwd_id_number: pwdIdNumber,
-            storage_file_id: uploaded.storageFileId,
-            stored_filename: uploaded.storedFilename,
-            mime_type: document.mimeType,
-            file_size: document.size,
-            document_sha256: document.sha256,
+            ...fileInput,
             submitted_at: now(),
           });
           if (!record) {
             throw httpError(409, 'PWD_VERIFICATION_RESUBMISSION_CONFLICT', 'PWD verification can no longer be resubmitted. Refresh the page.');
           }
-          await storage.delete(rejected.storage_file_id).catch(() => {});
+          const oldIds = [...new Map([rejected.storage_file_id, rejected.front_storage_file_id, rejected.back_storage_file_id].filter(Boolean).map(fileId => [String(fileId), fileId])).values()];
+          await Promise.all(oldIds.map(fileId => storage.delete(fileId).catch(() => {})));
+          await invokeNotificationTrigger(notificationTriggers, 'pwdVerificationSubmitted', { patientId });
           return present(record);
         }
         try {
           const record = await repository.create({
             patient_id: patientId,
-            pwd_id_number: pwdIdNumber,
-            storage_file_id: uploaded.storageFileId,
-            stored_filename: uploaded.storedFilename,
-            mime_type: document.mimeType,
-            file_size: document.size,
-            document_sha256: document.sha256,
+            ...fileInput,
             status: 'pending',
             submitted_at: now(),
           });
+          await invokeNotificationTrigger(notificationTriggers, 'pwdVerificationSubmitted', { patientId });
           return present(record);
         } catch (error) {
-          await repository.deleteByStorageFileId?.(uploaded.storageFileId);
           if (duplicateKey(error)) {
             throw httpError(409, 'PWD_VERIFICATION_ALREADY_SUBMITTED', 'PWD verification is already pending review.');
           }
           throw error;
         }
       } catch (error) {
-        if (uploaded) await storage.delete(uploaded.storageFileId).catch(() => {});
+        if (uploaded) {
+          await Promise.all([uploaded.front, uploaded.back].filter(Boolean).map(file => storage.delete(file.storageFileId).catch(() => {})));
+        }
         if (error?.status) throw error;
         throw httpError(503, 'PWD_VERIFICATION_UPLOAD_UNAVAILABLE', 'PWD verification upload is temporarily unavailable.');
       }
@@ -143,14 +178,22 @@ export function createPwdVerificationService({ repository, storage, notification
       return reviewView(record);
     },
 
-    async pendingDocument(verificationId) {
+    async pendingDocument(verificationId, side) {
       const validId = validatePwdVerificationId(verificationId);
       const record = await repository.findPendingReviewById(validId);
       if (!record) throw httpError(404, 'PWD_VERIFICATION_NOT_REVIEWABLE', 'Pending PWD verification was not found.');
-      return {
-        metadata: { mime_type: record.mime_type, file_size: record.file_size },
-        stream: storage.openDownload(record.storage_file_id),
-      };
+      if (side === 'front' || side === 'back') {
+        const storageFileId = record[`${side}_storage_file_id`];
+        if (!storageFileId) throw httpError(404, 'PWD_DOCUMENT_NOT_FOUND', 'The requested PWD ID image was not found.');
+        return {
+          metadata: { mime_type: record[`${side}_mime_type`], file_size: record[`${side}_file_size`] },
+          stream: storage.openDownload(storageFileId),
+        };
+      }
+      if (side != null || !record.storage_file_id) {
+        throw httpError(404, 'PWD_DOCUMENT_NOT_FOUND', 'The requested PWD ID image was not found.');
+      }
+      return { metadata: { mime_type: record.mime_type, file_size: record.file_size }, stream: storage.openDownload(record.storage_file_id) };
     },
 
     async verify(verificationId, reviewerId) {

@@ -16,6 +16,7 @@ export function createStaffPwdVerificationRouter({ authModule, pwdVerificationMo
   router.get('/', controller.list);
   router.get('/:verificationId', controller.review);
   router.get('/:verificationId/document', controller.document);
+  router.get('/:verificationId/document/:side', controller.document);
   router.patch('/:verificationId/verify', controller.verify);
   router.patch('/:verificationId/reject', controller.reject);
   return router;

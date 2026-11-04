@@ -839,7 +839,7 @@ Milestone 1.45 adds no ERD entity or relationship. The Doctor History tab is a p
 ## Milestone v1.2.5 PWD verification relationship
 
 ```text
-Patient 1 ─── 0..1 PwdVerification 1 ─── 1 private GridFS file
+Patient 1 ─── 0..1 PwdVerification 1 ─── 2 private GridFS images (front + back)
                          │
                          └── optional future reviewer UserProfile
 ```
@@ -851,13 +851,13 @@ The queue reads only the safe related status and grants the Senior/PWD tier when
 ## Milestone v1.2.6 PWD review relationship
 
 ```text
-Patient 1 ─── 0..1 PwdVerification 1 ─── 1 current private GridFS file
+Patient 1 ─── 0..1 PwdVerification 1 ─── 2 current private GridFS images
                          │
                          ├── 0..many embedded ReviewHistory decisions
                          │                  └── 1 Staff UserProfile reviewer
                          └── 0..1 current Staff UserProfile reviewer
 ```
 
-Only an authenticated active Staff reviewer can traverse from a Pending verification to the ID number and private inline document. Verify or Reject atomically changes the current state and appends one decision to the embedded audit history. Rejected resubmission keeps the same PwdVerification relationship and history while safely replacing the current private file. The Patient can read only status, safe timestamps, and their own rejection reason; Doctor and Admin have no traversal path to verification content.
+Only an authenticated active Staff reviewer can traverse from a Pending verification to the private front and back ID images. New submissions contain no separately typed PWD ID number. Staff is instructed to compare the printed ID name with the Patient profile name before the direct Verify action; Verify or Reject then atomically changes the current state and appends one decision to the embedded audit history. Rejected resubmission keeps the same PwdVerification relationship and history while safely replacing both current images. The Patient can read only status, safe timestamps, and their own rejection reason; Doctor and Admin have no traversal path to verification content.
 
-A successful review creates a privacy-safe Notification for the owning Patient without attaching the ID, file, rejection reason, or document metadata. Queue classification continues to read only `status=verified`. No relationship is added to AI/OCR, an external verifier, a public file location, MedicalRecord, Prescription, MedicalCertificate, or SupportingDocument.
+A successful submission creates a privacy-safe notification for active Staff, and a successful review creates a privacy-safe Notification for the owning Patient. Neither notification attaches the ID, file, rejection reason, or document metadata. Queue classification continues to read only `status=verified`. No relationship is added to AI/OCR, an external verifier, a public file location, MedicalRecord, Prescription, MedicalCertificate, or SupportingDocument.

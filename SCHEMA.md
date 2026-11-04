@@ -558,7 +558,7 @@ Recipient-private, non-clinical operational messages are stored in the `notifica
 | created_at | timestamp | Server-generated creation time |
 | updated_at | timestamp | Server-maintained update time |
 
-The fixed type contract is: `appointment_created`, `appointment_confirmed`, `appointment_rescheduled`, `appointment_cancelled`, `appointment_completed`, `appointment_reminder`, `patient_booking_created`, `patient_arrived`, `appointment_marked_urgent`, `assigned_appointment_created`, `security_notice`, and `account_status_notice`. Current internal triggers generate only confirmation, reschedule, cancellation, completion, Patient booking, arrival, urgency, and assigned-appointment events after their source mutation succeeds. Appointment-created self-notices, reminders, security notices, and account-status notices remain reserved and are not generated.
+The fixed type contract includes the appointment/security types plus `pwd_verification_submitted`, `pwd_verification_verified`, and `pwd_verification_rejected`. A committed Patient submission sends active Staff a generic review notification, and a committed Staff decision sends the owning Patient a privacy-safe outcome notification. PWD notifications contain no ID number, filename, document metadata, rejection reason, or file URL.
 
 Creation is available only to trusted backend code through the notification service. There is no user-facing notification creation endpoint and no arbitrary metadata field. The three optional rich-context fields are resolved from the related Appointment and are role-minimized: Patient notifications may contain Doctor name and schedule, Staff notifications may contain Patient name, Doctor name, and schedule, and Doctor notifications may contain Patient name and schedule. Admin receives no routine Appointment context. Text must contain only short operational wording and must never include visit reason, diagnosis, MedicalRecord notes, Prescription or certificate clinical details, urgent explanations, contact details, DOB, address, private notes, credentials, MFA material, tokens, or environment values. A related-resource reference is navigation metadata only and does not grant resource access.
 
@@ -893,12 +893,10 @@ Collection: `pwd_verifications`
 |---|---|---|
 | `_id` | ObjectId | Primary identifier |
 | `patient_id` | ObjectId | Required, unique Patient reference; one current record per Patient |
-| `pwd_id_number` | String | Required normalized text, 3–64 characters, excluded from default query selection |
-| `storage_file_id` | ObjectId | Required unique private GridFS file reference, excluded from default query selection |
-| `stored_filename` | String | Required generated name, maximum 100 characters, excluded from default query selection |
-| `mime_type` | String | `application/pdf`, `image/png`, or `image/jpeg`; excluded from default query selection |
-| `file_size` | Number | Required, 1 byte through 5 MB; excluded from default query selection |
-| `document_sha256` | String | Required 64-character SHA-256 integrity digest; excluded from default query selection |
+| `pwd_id_number` | String, nullable | Legacy compatibility only; new submissions do not collect a typed ID number; excluded from default query selection |
+| `storage_file_id`, `stored_filename`, `mime_type`, `file_size`, `document_sha256` | nullable legacy file metadata | Retained for existing one-file submissions and internal storage-index compatibility; excluded from default query selection |
+| `front_storage_file_id`, `front_stored_filename`, `front_mime_type`, `front_file_size`, `front_document_sha256` | private front-image metadata | New-submission front image; PNG or JPEG, maximum 5 MB, SHA-256 protected, excluded from default query selection |
+| `back_storage_file_id`, `back_stored_filename`, `back_mime_type`, `back_file_size`, `back_document_sha256` | private back-image metadata | New-submission back image; PNG or JPEG, maximum 5 MB, SHA-256 protected, excluded from default query selection |
 | `status` | enum | `pending`, `verified`, or `rejected`; absence of a record means `not_submitted` |
 | `submitted_at` | Date | Required server timestamp |
 | `verified_at` | Date, nullable | Successful verification timestamp |
@@ -909,8 +907,8 @@ Collection: `pwd_verifications`
 | `review_history` | Embedded array | Immutable append-only Verify/Reject decisions containing action, reviewer, time, and optional bounded reason; excluded from default query selection |
 | `created_at`, `updated_at` | Date | Mongoose timestamps |
 
-Indexes are unique `patient_id`, unique `storage_file_id`, `(patient_id, status)` for safe status lookup, and `(status, submitted_at, _id)` for stable oldest-first Staff review pagination. Binary content lives only in the dedicated private GridFS bucket `pwd_verification_files`. Staff document access is authenticated, inline, and Pending-only; there is no public URL, original filename, Patient/Doctor/Admin document API, OCR/AI field, external-provider identifier, or notification payload.
+Indexes are unique `patient_id`, sparse unique legacy/front/back storage references, `(patient_id, status)` for safe status lookup, and `(status, submitted_at, _id)` for stable oldest-first Staff review pagination. New submissions require one front image and one back image and do not accept PDFs or a typed PWD ID number. Binary content lives only in the dedicated private GridFS bucket `pwd_verification_files`. Staff document access is authenticated, inline, and Pending-only; there is no public URL, original filename, Patient/Doctor/Admin document API, OCR/AI field, or external-provider identifier.
 
-Rejected resubmission updates the same Patient-owned record from Rejected to Pending only through an atomic status filter. It resets the current review fields and replaces the current private file metadata after safe upload, but preserves the append-only `review_history`. The superseded private binary is deleted only after the replacement metadata succeeds. Verified and Pending records cannot be reset by the Patient.
+Rejected resubmission updates the same Patient-owned record from Rejected to Pending only through an atomic status filter. It resets the current review fields and replaces both private images after safe upload, but preserves the append-only `review_history`. Superseded private binaries are deleted only after replacement metadata succeeds. Verified and Pending records cannot be reset by the Patient.
 
 `Patient.is_pwd` remains a legacy compatibility field but is not an authority. No migration converts legacy `true` values into PwdVerification records. Only a related PwdVerification with `status=verified` can affect PWD queue/analytics classification.

@@ -13,7 +13,7 @@ export function createPwdVerificationController({ pwdVerificationService }) {
       const result = await pwdVerificationService.submitOwn(
         request.authUser.user_profile_id,
         request.body,
-        request.file,
+        request.files,
       );
       requestSecurityEvent(request, {
         event: 'PWD_VERIFICATION_SUBMITTED',
@@ -36,7 +36,7 @@ export function createStaffPwdVerificationController({ pwdVerificationService })
       response.json({ pwd_verification: await pwdVerificationService.pendingReview(request.params.verificationId) });
     },
     async document(request, response) {
-      const result = await pwdVerificationService.pendingDocument(request.params.verificationId);
+      const result = await pwdVerificationService.pendingDocument(request.params.verificationId, request.params.side);
       const extension = result.metadata.mime_type === 'application/pdf' ? 'pdf' : result.metadata.mime_type === 'image/png' ? 'png' : 'jpg';
       response.set({
         'Content-Type': result.metadata.mime_type,

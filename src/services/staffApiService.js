@@ -151,7 +151,7 @@ export function createStaffApiService(repository = staffApiRepository) {
       return { ...result, items: (result.items ?? []).map(item => ({ ...item, patientName: item.patient_name })) };
     },
     getPwdVerification: (id) => repository.getPwdVerification(id),
-    getPwdVerificationDocument: (id) => repository.getPwdVerificationDocument(id),
+    getPwdVerificationDocument: (id, side) => repository.getPwdVerificationDocument(id, side),
     verifyPwdVerification: (id) => repository.verifyPwdVerification(id),
     rejectPwdVerification: (id, reason) => repository.rejectPwdVerification(id, reason.trim()),
   };

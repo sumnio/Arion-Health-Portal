@@ -42,14 +42,16 @@ test('PWD verification repository uses only the own status and private multipart
   };
   const repository = createPatientApiRepository(client);
   assert.equal((await repository.getPwdVerification()).status, 'not_submitted');
-  const file = new File(['%PDF-1.7'], 'pwd.pdf', { type: 'application/pdf' });
-  assert.equal((await repository.submitPwdVerification({ pwdIdNumber: 'PWD-001', document: file })).status, 'pending');
+  const frontDocument = new File(['front'], 'pwd-front.png', { type: 'image/png' });
+  const backDocument = new File(['back'], 'pwd-back.jpg', { type: 'image/jpeg' });
+  assert.equal((await repository.submitPwdVerification({ frontDocument, backDocument })).status, 'pending');
   assert.deepEqual(calls.slice(0, 2).map(item => item.slice(0, 3)), [
     ['request', '/api/patient/pwd-verification'],
     ['upload', '/api/patient/pwd-verification', 'POST'],
   ]);
-  assert.equal(calls[1][3].get('pwd_id_number'), 'PWD-001');
-  assert.equal(calls[1][3].get('document').name, 'pwd.pdf');
+  assert.equal(calls[1][3].has('pwd_id_number'), false);
+  assert.equal(calls[1][3].get('front_document').name, 'pwd-front.png');
+  assert.equal(calls[1][3].get('back_document').name, 'pwd-back.jpg');
   assert.equal(calls.some(item => String(item[1]).includes('document/')), false);
 });
 

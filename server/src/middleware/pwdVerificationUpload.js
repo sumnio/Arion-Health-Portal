@@ -6,12 +6,15 @@ const parser = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: PWD_VERIFICATION_MAX_FILE_SIZE,
-    files: 1,
-    fields: 1,
+    files: 2,
+    fields: 0,
     parts: 2,
     fieldNameSize: 40,
   },
-}).single('document');
+}).fields([
+  { name: 'front_document', maxCount: 1 },
+  { name: 'back_document', maxCount: 1 },
+]);
 
 function safeMultipartError(error) {
   if (!(error instanceof multer.MulterError)) return error;
@@ -19,10 +22,10 @@ function safeMultipartError(error) {
     return httpError(413, 'PWD_DOCUMENT_TOO_LARGE', 'PWD verification document must not exceed 5 MB.');
   }
   if (['LIMIT_FILE_COUNT', 'LIMIT_PART_COUNT'].includes(error.code)) {
-    return httpError(400, 'TOO_MANY_PWD_DOCUMENTS', 'Submit one PWD verification document only.');
+    return httpError(400, 'INVALID_PWD_DOCUMENT_COUNT', 'Submit exactly one front and one back image of the PWD ID.');
   }
   if (['LIMIT_FIELD_COUNT', 'LIMIT_UNEXPECTED_FILE', 'LIMIT_FIELD_KEY'].includes(error.code)) {
-    const result = httpError(400, 'UNEXPECTED_MULTIPART_FIELD', 'Only the PWD ID number and document fields are accepted.');
+    const result = httpError(400, 'UNEXPECTED_MULTIPART_FIELD', 'Only the front_document and back_document file fields are accepted.');
     result.securityRelevant = true;
     result.securityMetadata = { rejection_type: 'unexpected_multipart_field' };
     return result;

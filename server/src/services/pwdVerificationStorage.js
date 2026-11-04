@@ -12,12 +12,12 @@ export function createGridFsPwdVerificationStorage({
     return new mongoose.mongo.GridFSBucket(connection.db, { bucketName });
   }
   return Object.freeze({
-    async upload({ buffer, extension, mimeType }) {
+    async upload({ buffer, extension, mimeType }, { side = 'legacy' } = {}) {
       const storedFilename = `${randomUUID()}.${extension}`;
       return new Promise((resolve, reject) => {
         const stream = bucket().openUploadStream(storedFilename, {
           contentType: mimeType,
-          metadata: { purpose: 'pwd_verification_document' },
+          metadata: { purpose: 'pwd_verification_document', side },
         });
         stream.once('error', reject);
         stream.once('finish', () => resolve({ storageFileId: stream.id, storedFilename }));

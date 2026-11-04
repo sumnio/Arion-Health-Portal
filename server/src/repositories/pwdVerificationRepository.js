@@ -2,7 +2,7 @@ import { Patient, PwdVerification } from '../models/index.js';
 
 export const pwdVerificationRepository = Object.freeze({
   async findPatientByUserProfileId(userProfileId) {
-    return Patient.findOne({ user_profile_id: userProfileId }).select('_id').lean();
+    return Patient.findOne({ user_profile_id: userProfileId }).select('_id full_name').lean();
   },
   async findByPatientId(patientId) {
     return PwdVerification.findOne({ patient_id: patientId })
@@ -11,7 +11,7 @@ export const pwdVerificationRepository = Object.freeze({
   },
   async findRejectedForResubmission(patientId) {
     return PwdVerification.findOne({ patient_id: patientId, status: 'rejected' })
-      .select('+storage_file_id status')
+      .select('+storage_file_id +front_storage_file_id +back_storage_file_id status')
       .lean();
   },
   async replaceRejected(patientId, input) {
@@ -47,7 +47,7 @@ export const pwdVerificationRepository = Object.freeze({
   },
   async findPendingReviewById(verificationId) {
     return PwdVerification.findOne({ _id: verificationId, status: 'pending' })
-      .select('patient_id pwd_id_number status submitted_at mime_type file_size storage_file_id')
+      .select('patient_id status submitted_at mime_type file_size storage_file_id front_mime_type front_file_size front_storage_file_id back_mime_type back_file_size back_storage_file_id')
       .populate({ path: 'patient_id', select: 'full_name' })
       .lean();
   },

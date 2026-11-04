@@ -36,7 +36,7 @@ export function createStaffApiRepository(client = apiClient) {
     async getRecordSummary(patientId) { return (await request(`/api/staff/patients/${encodeURIComponent(patientId)}/record-summary`)).medical_record_summaries; },
     async getPwdVerifications(page = 1) { return (await request(`/api/staff/pwd-verifications?page=${encodeURIComponent(page)}&limit=10`)).pwd_verifications; },
     async getPwdVerification(id) { return (await request(`/api/staff/pwd-verifications/${encodeURIComponent(id)}`)).pwd_verification; },
-    async getPwdVerificationDocument(id) { return client.download(`/api/staff/pwd-verifications/${encodeURIComponent(id)}/document`); },
+    async getPwdVerificationDocument(id, side = 'legacy') { return client.download(`/api/staff/pwd-verifications/${encodeURIComponent(id)}/document${side === 'legacy' ? '' : `/${encodeURIComponent(side)}`}`); },
     async verifyPwdVerification(id) { return (await request(`/api/staff/pwd-verifications/${encodeURIComponent(id)}/verify`, { method: 'PATCH' })).pwd_verification; },
     async rejectPwdVerification(id, reason) { return (await request(`/api/staff/pwd-verifications/${encodeURIComponent(id)}/reject`, { method: 'PATCH', body: { reason } })).pwd_verification; },
   };

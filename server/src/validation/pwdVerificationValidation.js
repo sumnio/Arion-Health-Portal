@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { PWD_ID_NUMBER_MAX } from '../models/index.js';
 import { PWD_REJECTION_REASON_MAX } from '../models/index.js';
 import { httpError } from '../utils/httpError.js';
 import { boundedText, queryInteger, rejectUnknownFields, requireObject, validateQueryKeys } from './inputValidation.js';
@@ -23,20 +22,9 @@ function detectedType(buffer) {
   return null;
 }
 
-export function validatePwdIdNumber(value) {
-  if (typeof value !== 'string') {
-    throw httpError(400, 'PWD_ID_NUMBER_REQUIRED', 'Enter the PWD ID number shown on the document.');
-  }
-  const normalized = value.replace(/\s+/g, ' ').trim();
-  if (normalized.length < 3 || normalized.length > PWD_ID_NUMBER_MAX || /[\u0000-\u001f\u007f]/.test(normalized)) {
-    throw httpError(400, 'INVALID_PWD_ID_NUMBER', `PWD ID number must be from 3 through ${PWD_ID_NUMBER_MAX} characters.`);
-  }
-  return normalized;
-}
-
-export function validatePwdVerificationFile(file) {
+export function validatePwdVerificationFile(file, side = 'document') {
   if (!file?.buffer || !Buffer.isBuffer(file.buffer) || file.buffer.length < 1) {
-    throw httpError(400, 'PWD_DOCUMENT_REQUIRED', 'Select a PWD verification document.');
+    throw httpError(400, 'PWD_DOCUMENT_REQUIRED', `Select the ${side} image of the PWD ID.`);
   }
   const size = file.buffer.length;
   if (size > PWD_VERIFICATION_MAX_FILE_SIZE) {
@@ -46,8 +34,8 @@ export function validatePwdVerificationFile(file) {
   const definition = TYPES[type];
   const extension = path.extname(path.basename(String(file.originalname ?? ''))).toLowerCase();
   const declaredMimeType = String(file.mimetype ?? '').toLowerCase();
-  if (!definition || !definition.extensions.has(extension) || declaredMimeType !== definition.mimeType) {
-    throw httpError(400, 'UNSUPPORTED_PWD_DOCUMENT', 'Only PDF, JPG, JPEG, and PNG files are allowed.');
+  if (!definition || type === 'pdf' || !definition.extensions.has(extension) || declaredMimeType !== definition.mimeType) {
+    throw httpError(400, 'UNSUPPORTED_PWD_DOCUMENT', 'Only JPG, JPEG, and PNG images are allowed for the front and back of the PWD ID.');
   }
   return Object.freeze({
     buffer: file.buffer,
@@ -55,6 +43,13 @@ export function validatePwdVerificationFile(file) {
     mimeType: definition.mimeType,
     size,
     sha256: createHash('sha256').update(file.buffer).digest('hex'),
+  });
+}
+
+export function validatePwdVerificationFiles(files = {}) {
+  return Object.freeze({
+    front: validatePwdVerificationFile(files.front_document?.[0], 'front'),
+    back: validatePwdVerificationFile(files.back_document?.[0], 'back'),
   });
 }
 

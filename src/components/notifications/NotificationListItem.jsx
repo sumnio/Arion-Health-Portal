@@ -13,6 +13,7 @@ const EVENT_LABELS = Object.freeze({
   appointment_reminder: 'Sent',
   pwd_verification_verified: 'PWD verification reviewed',
   pwd_verification_rejected: 'PWD verification reviewed',
+  pwd_verification_submitted: 'PWD verification request',
 });
 
 function heading(notification) {

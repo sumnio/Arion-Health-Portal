@@ -15,6 +15,10 @@
 .staff-patients .pwd-review-detail { margin-top:24px; padding-top:24px; border-top:1px solid #dfe7ee; }
 .staff-patients .pwd-review-detail dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
 .staff-patients .pwd-private-document { margin:18px 0; min-height:360px; border:1px solid #bacbdc; border-radius:8px; overflow:hidden; background:#eef3f7; }
+.staff-patients .pwd-private-documents { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.staff-patients .pwd-private-documents .pwd-private-document { margin:18px 0 0; }
+.staff-patients .pwd-private-document figcaption { padding:10px 12px; font-weight:700; background:white; }
+.staff-patients .pwd-name-match-note { padding:12px 14px; border-left:4px solid #0b684d; background:#eef5f2; }
 .staff-patients .pwd-private-document iframe { display:block; width:100%; min-height:560px; border:0; }
 .staff-patients .pwd-private-document img { display:block; max-width:100%; max-height:640px; margin:auto; object-fit:contain; }
 .staff-patients .pwd-private-note { font-weight:600; }
@@ -49,4 +53,4 @@
 .staff-patients button:disabled { opacity:.45; cursor:default; }
 .staff-patients .patients-empty { padding:36px 0; text-align:center; }
 @media(max-width:1000px) { .staff-patients dl { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:550px) { .staff-patients .patients-heading, .staff-patients .patient-card-heading, .staff-patients .pwd-review-heading, .staff-patients .pwd-review-detail-heading, .staff-patients .pwd-request-list li { flex-direction:column; align-items:start; } .staff-patients .patients-panel, .staff-patients .patient-card { padding:16px; } .staff-patients .patient-card-actions { width:100%; } .staff-patients .patient-card .action-link { flex:1 1 140px; text-align:center; } .staff-patients .patients-view-tabs { overflow-x:auto; } .staff-patients .pwd-review-detail dl { grid-template-columns:1fr; } .staff-patients .pwd-private-document iframe { min-height:420px; } }
+@media(max-width:550px) { .staff-patients .patients-heading, .staff-patients .patient-card-heading, .staff-patients .pwd-review-heading, .staff-patients .pwd-review-detail-heading, .staff-patients .pwd-request-list li { flex-direction:column; align-items:start; } .staff-patients .patients-panel, .staff-patients .patient-card { padding:16px; } .staff-patients .patient-card-actions { width:100%; } .staff-patients .patient-card .action-link { flex:1 1 140px; text-align:center; } .staff-patients .patients-view-tabs { overflow-x:auto; } .staff-patients .pwd-review-detail dl, .staff-patients .pwd-private-documents { grid-template-columns:1fr; } .staff-patients .pwd-private-document iframe { min-height:420px; } }

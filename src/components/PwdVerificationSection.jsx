@@ -2,27 +2,28 @@ import { useEffect, useRef, useState } from 'react';
 import { patientApiErrorMessage, patientApiService } from '../services/patientApiService.js';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = /\.(?:pdf|png|jpe?g)$/i;
+const ACCEPTED_EXTENSIONS = /\.(?:png|jpe?g)$/i;
 const labels = Object.freeze({ not_submitted: 'Not Submitted', pending: 'Pending Verification', verified: 'Verified', rejected: 'Rejected' });
 
-function validate(pwdIdNumber, document) {
+function validate(frontDocument, backDocument) {
   const errors = {};
-  const normalized = pwdIdNumber.replace(/\s+/g, ' ').trim();
-  if (normalized.length < 3 || normalized.length > 64) errors.pwdIdNumber = 'Enter a PWD ID number from 3 through 64 characters.';
-  if (!document) errors.document = 'Select a PWD verification document.';
-  else if (!ACCEPTED_EXTENSIONS.test(document.name)) errors.document = 'Select a PDF, JPG, JPEG, or PNG file.';
-  else if (document.size > MAX_FILE_SIZE) errors.document = 'The document must not exceed 5 MB.';
+  for (const [side, document] of [['front', frontDocument], ['back', backDocument]]) {
+    if (!document) errors[side] = `Select the ${side} image of your PWD ID.`;
+    else if (!ACCEPTED_EXTENSIONS.test(document.name)) errors[side] = 'Select a JPG, JPEG, or PNG image.';
+    else if (document.size > MAX_FILE_SIZE) errors[side] = 'Each image must not exceed 5 MB.';
+  }
   return errors;
 }
 
 export default function PwdVerificationSection() {
   const [verification, setVerification] = useState(null);
-  const [pwdIdNumber, setPwdIdNumber] = useState('');
-  const [document, setDocument] = useState(null);
+  const [frontDocument, setFrontDocument] = useState(null);
+  const [backDocument, setBackDocument] = useState(null);
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const fileRef = useRef(null);
+  const frontFileRef = useRef(null);
+  const backFileRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -34,15 +35,14 @@ export default function PwdVerificationSection() {
 
   async function submit(event) {
     event.preventDefault();
-    const nextErrors = validate(pwdIdNumber, document);
+    const nextErrors = validate(frontDocument, backDocument);
     if (Object.keys(nextErrors).length) { setErrors(nextErrors); return; }
     setBusy(true); setMessage('');
     try {
-      const result = await patientApiService.submitPwdVerification({
-        pwdIdNumber: pwdIdNumber.replace(/\s+/g, ' ').trim(), document,
-      });
-      setVerification(result); setPwdIdNumber(''); setDocument(null); setErrors({});
-      if (fileRef.current) fileRef.current.value = '';
+      const result = await patientApiService.submitPwdVerification({ frontDocument, backDocument });
+      setVerification(result); setFrontDocument(null); setBackDocument(null); setErrors({});
+      if (frontFileRef.current) frontFileRef.current.value = '';
+      if (backFileRef.current) backFileRef.current.value = '';
     } catch (error) {
       setMessage(patientApiErrorMessage(error, 'Unable to submit PWD verification.'));
     } finally { setBusy(false); }
@@ -52,16 +52,17 @@ export default function PwdVerificationSection() {
   const canSubmit = status === 'not_submitted' || status === 'rejected';
   return <section className="profile-card pwd-verification-card" aria-labelledby="pwd-verification-heading">
     <div className="pwd-verification-heading">
-      <div><h2 id="pwd-verification-heading">PWD Verification</h2><p>Submit your PWD ID for private clinic verification.</p></div>
+      <div><h2 id="pwd-verification-heading">PWD Verification</h2><p>Submit clear front and back images of your PWD ID for private clinic verification.</p></div>
       <span className={`pwd-status pwd-status-${status}`}>{labels[status] ?? labels.not_submitted}</span>
     </div>
     {message && <p className="profile-message profile-message-error" role="alert">{message}</p>}
     {!verification && !message && <p role="status">Loading verification status…</p>}
-    {status === 'rejected' && <div className="pwd-rejection-summary"><p>Your submission could not be verified. Correct the information and submit a new document.</p>{verification.rejection_reason && <p><strong>Reason:</strong> {verification.rejection_reason}</p>}</div>}
+    {status === 'rejected' && <div className="pwd-rejection-summary"><p>Your submission could not be verified. Correct the images and submit both sides again.</p>{verification.rejection_reason && <p><strong>Reason:</strong> {verification.rejection_reason}</p>}</div>}
     {canSubmit && verification && <form onSubmit={submit} noValidate className="pwd-verification-form">
-      <div><label htmlFor="pwd-id-number">PWD ID number *</label><input id="pwd-id-number" value={pwdIdNumber} maxLength={64} autoComplete="off" aria-invalid={!!errors.pwdIdNumber} onChange={event => { setPwdIdNumber(event.target.value); setErrors(current => ({ ...current, pwdIdNumber: undefined })); }} />{errors.pwdIdNumber && <p className="profile-error">{errors.pwdIdNumber}</p>}</div>
-      <div><label htmlFor="pwd-document">PWD verification document *</label><input ref={fileRef} id="pwd-document" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" aria-invalid={!!errors.document} onChange={event => { setDocument(event.target.files?.[0] ?? null); setErrors(current => ({ ...current, document: undefined })); }} /><p className="profile-note">PDF, JPG, JPEG, or PNG only · maximum 5 MB.</p>{errors.document && <p className="profile-error">{errors.document}</p>}</div>
-      <p className="profile-note pwd-privacy-note">Your document is stored privately and is not available through a public link.</p>
+      <p className="profile-note"><strong>Important:</strong> The name printed on the ID must match the name on your Patient profile.</p>
+      <div><label htmlFor="pwd-front-document">Front of PWD ID *</label><input ref={frontFileRef} id="pwd-front-document" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" aria-invalid={!!errors.front} onChange={event => { setFrontDocument(event.target.files?.[0] ?? null); setErrors(current => ({ ...current, front: undefined })); }} />{errors.front && <p className="profile-error">{errors.front}</p>}</div>
+      <div><label htmlFor="pwd-back-document">Back of PWD ID *</label><input ref={backFileRef} id="pwd-back-document" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" aria-invalid={!!errors.back} onChange={event => { setBackDocument(event.target.files?.[0] ?? null); setErrors(current => ({ ...current, back: undefined })); }} /><p className="profile-note">JPG, JPEG, or PNG only · maximum 5 MB per image.</p>{errors.back && <p className="profile-error">{errors.back}</p>}</div>
+      <p className="profile-note pwd-privacy-note">Both images are stored privately and are not available through a public link.</p>
       <button type="submit" className="action-link profile-save" disabled={busy}>{busy ? 'Submitting…' : status === 'rejected' ? 'Submit Again' : 'Submit for Verification'}</button>
     </form>}
     {status === 'pending' && <><p>Your submission is awaiting clinic review.</p><p className="profile-note">Submitted {verification.submitted_at ? new Date(verification.submitted_at).toLocaleString() : 'recently'}.</p></>}

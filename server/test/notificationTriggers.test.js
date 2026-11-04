@@ -112,6 +112,17 @@ test('PWD review creates only the approved privacy-safe Patient notification', a
   for (const forbidden of ['pwd-2026', 'filename', 'mime', 'document', 'rejection reason']) assert.equal(serialized.includes(forbidden), false);
 });
 
+test('PWD submission notifies active Staff without exposing ID or document details', async () => {
+  const { created, triggers } = context();
+  await triggers.pwdVerificationSubmitted({ patientId: ids.patient });
+  assert.deepEqual(recipients(created), [`staff:${ids.staffOne}`, `staff:${ids.staffTwo}`]);
+  assert.ok(created.every(item => item.type === 'pwd_verification_submitted'));
+  assert.ok(created.every(item => item.message === 'A patient submitted a PWD ID for verification.'));
+  assert.ok(created.every(item => item.related_resource_type === 'patient' && item.related_resource_id === ids.patient));
+  const serialized = JSON.stringify(created).toLowerCase();
+  for (const forbidden of ['pwd-2026', 'filename', 'mime', 'document', 'rejection reason']) assert.equal(serialized.includes(forbidden), false);
+});
+
 test('Patient reschedule and cancellation fan out to Patient, active Staff, and assigned Doctor', async () => {
   const { created, triggers } = context();
   const payload = { appointmentId: ids.appointment, patientId: ids.patient, doctorId: ids.doctor };
