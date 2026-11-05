@@ -14,17 +14,15 @@ test('Staff Patients shows linked and walk-in operational details without clinic
 
   await loginAsStaff(page, seededStaff);
   await page.goto('/staff/patients');
-  await page.getByLabel('Search by patient name or contact number').fill(portalPatient.full_name);
-  await expect(page.getByText('Portal Patient')).toBeVisible();
+  await page.getByLabel('Search by full name, contact number, or email').fill(portalPatient.full_name);
+  await expect(page.getByText('Active', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('E2E completed operational visit')).toHaveCount(0);
   await expect(page.getByText('E2E private diagnosis')).toHaveCount(0);
-  await expect(page.getByText('Completed', { exact: true })).toBeVisible();
-  await expect(page.getByText('Confirmed', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'View Patient' }).click();
 
   await expect(page.getByRole('heading', { name: portalPatient.full_name })).toBeVisible();
   await expect(page.getByText('E2E Portal Address')).toBeVisible();
-  await expect(page.getByText('Active', { exact: true })).toBeVisible();
+  await expect(page.getByText('Active', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('E2E completed operational visit', { exact: true })).toBeVisible();
   await expect(page.getByText('E2E upcoming operational visit', { exact: true })).toBeVisible();
   await expect(page.getByText('Urgent', { exact: true }).first()).toBeVisible();
@@ -40,7 +38,7 @@ test('Staff Patients shows linked and walk-in operational details without clinic
 
   await page.goto(`/staff/patients/${walkInPatient.patientId}`);
   await expect(page.getByRole('heading', { name: walkInPatient.full_name })).toBeVisible();
-  await expect(page.getByText('No Account', { exact: true })).toBeVisible();
+  await expect(page.getByText('No Account', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('E2E Walk-in Address')).toBeVisible();
   await expect(page.getByText('No appointment history found.')).toBeVisible();
   assertBrowserClean();

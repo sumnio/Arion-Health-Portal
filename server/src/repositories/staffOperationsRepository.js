@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Appointment, AppointmentPriorityAudit, Doctor, MedicalRecord, Patient } from '../models/index.js';
+import { Appointment, AppointmentPriorityAudit, AuthAccount, Doctor, MedicalRecord, Patient } from '../models/index.js';
 
 const doctorPopulation = { path: 'doctor_id', select: 'specialty user_profile_id', populate: { path: 'user_profile_id', select: 'display_name' } };
 const pwdVerificationPopulation = { path: 'pwd_verification', select: 'patient_id status' };
@@ -57,10 +57,25 @@ export const staffOperationsRepository = {
   },
   async searchPatients(search) {
     const query = search.trim();
-    if (!query) return Patient.find({}).sort({ full_name: 1 }).limit(50).populate(pwdVerificationPopulation).lean();
-    const pattern = new RegExp(escapeRegex(query), 'i');
-    const phonePattern = flexiblePhoneRegex(query);
-    return Patient.find({ $or: [{ full_name: pattern }, { contact_number: phonePattern ?? pattern }] }).sort({ full_name: 1 }).limit(50).populate(pwdVerificationPopulation).lean();
+    let patients;
+    if (!query) patients = await Patient.find({}).sort({ full_name: 1 }).limit(50).lean();
+    else {
+      const pattern = new RegExp(escapeRegex(query), 'i');
+      const phonePattern = flexiblePhoneRegex(query);
+      const accountProfileIds = await AuthAccount.find({ email: pattern }).distinct('user_profile_id');
+      patients = await Patient.find({ $or: [
+        { full_name: pattern },
+        { contact_number: phonePattern ?? pattern },
+        { portal_email: pattern },
+        ...(accountProfileIds.length ? [{ user_profile_id: { $in: accountProfileIds } }] : []),
+      ] }).sort({ full_name: 1 }).limit(50).lean();
+    }
+    const profileIds = patients.map(item => item.user_profile_id).filter(Boolean);
+    const accounts = profileIds.length
+      ? await AuthAccount.find({ user_profile_id: { $in: profileIds } }).select('user_profile_id email').lean()
+      : [];
+    const accountEmails = new Map(accounts.map(item => [String(item.user_profile_id), item.email]));
+    return patients.map(item => ({ ...item, account_email: item.user_profile_id ? accountEmails.get(String(item.user_profile_id)) ?? null : null }));
   },
   async listAppointmentsForPatients(patientIds) {
     return Appointment.find({ patient_id: { $in: patientIds } })
@@ -74,14 +89,30 @@ export const staffOperationsRepository = {
       .populate(doctorPopulation)
       .lean();
   },
-  async findPotentialDuplicate({ full_name, contact_number, dob }) {
-    return Patient.findOne({ $or: [
+  async findPotentialDuplicates({ full_name, contact_number, portal_email, dob }) {
+    const account = portal_email ? await AuthAccount.findOne({ email: portal_email }).select('user_profile_id email').lean() : null;
+    const query = { $or: [
       { contact_number: flexiblePhoneRegex(contact_number, true) },
       { full_name: new RegExp(`^${escapeRegex(full_name)}$`, 'i'), dob },
-    ] }).lean();
+      ...(portal_email ? [{ portal_email }] : []),
+      ...(account?.user_profile_id ? [{ user_profile_id: account.user_profile_id }] : []),
+    ] };
+    const patients = await Patient.find(query).limit(10).lean();
+    const profileIds = patients.map(item => item.user_profile_id).filter(Boolean);
+    const accounts = profileIds.length
+      ? await AuthAccount.find({ user_profile_id: { $in: profileIds } }).select('user_profile_id email').lean()
+      : [];
+    const accountEmails = new Map(accounts.map(item => [String(item.user_profile_id), item.email]));
+    return patients.map(item => ({ ...item, account_email: item.user_profile_id ? accountEmails.get(String(item.user_profile_id)) ?? null : null }));
   },
+  async findAuthAccountByEmail(email) { return email ? AuthAccount.findOne({ email }).select('_id user_profile_id').lean() : null; },
   async createPatient(data) { return (await Patient.create(data)).toObject(); },
-  async findPatientById(id) { return Patient.findById(id).populate(pwdVerificationPopulation).lean(); },
+  async findPatientById(id) {
+    const patient = await Patient.findById(id).populate(pwdVerificationPopulation).lean();
+    if (!patient?.user_profile_id) return patient;
+    const account = await AuthAccount.findOne({ user_profile_id: patient.user_profile_id }).select('email').lean();
+    return { ...patient, account_email: account?.email ?? null };
+  },
   async doctorExists(id) { return Boolean(await Doctor.exists({ _id: id })); },
   async createAppointment(data) { return (await Appointment.create(data)).toObject(); },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },

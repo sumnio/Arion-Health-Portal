@@ -24,6 +24,7 @@ export function createStaffApiRepository(client = apiClient) {
     async searchPatients(search = '') { return (await request(`/api/staff/patients?search=${encodeURIComponent(search)}`)).patients; },
     async getPatient(id) { return (await request(`/api/staff/patients/${encodeURIComponent(id)}`)).patient; },
     async getPatientDetails(id) { return request(`/api/staff/patients/${encodeURIComponent(id)}`); },
+    async checkWalkInDuplicates(payload) { return (await request('/api/staff/patients/walk-in/duplicate-check', { method: 'POST', body: payload })).duplicate_review; },
     async registerWalkIn(payload) { return (await request('/api/staff/patients/walk-in', { method: 'POST', body: payload })).patient; },
     async createWalkInAppointment(patientId, payload) { return (await request(`/api/staff/patients/${encodeURIComponent(patientId)}/walk-in-appointments`, { method: 'POST', body: payload })).appointment; },
     async resendPortalInvitation(patientId, email) { return (await request(`/api/staff/patients/${encodeURIComponent(patientId)}/portal-invitation`, { method: 'POST', body: email ? { email } : {} })).portal_invitation; },

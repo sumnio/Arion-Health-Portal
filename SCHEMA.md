@@ -1,5 +1,9 @@
 # Arion Health Portal - Revised Database Schema
 
+## v1.2.9 Patient identity safeguards
+
+Nullable `Patient.portal_email` now has a unique partial index for string values. It protects pre-claim invitation identities from concurrent duplicate attachment while allowing any number of Patients with no email. `AuthAccount.email` remains independently unique. Duplicate review uses canonical `Patient.contact_number`, normalized `portal_email`/AuthAccount email, and normalized full name plus DOB; it creates no merge table and never changes an existing relationship. Invitation replacement is transactional so concurrent resend/claim operations fail closed or leave one current invitation.
+
 ## v1.2.8 schema addition
 
 `portal_invitations` stores an immutable `patient_id`, normalized `email`, unique protected `token_hash`, expiry/consumption/invalidation timestamps, protected OTP code/session hashes with expiry and attempts, and a protected short-lived claim-session hash. Patient adds nullable `portal_email` and `portal_invitation_expires_at`; neither field creates credentials. Successful claim creates one UserProfile/AuthAccount and links the existing Patient in the same transaction.

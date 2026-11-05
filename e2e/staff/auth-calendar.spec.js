@@ -110,7 +110,7 @@ test('Staff empty dashboard, calendar, queue, and Patient-search states are hone
   await page.goto('/staff/queue');
   await expect(page.getByText('No patients currently waiting.')).toBeVisible();
   await page.goto('/staff/patients');
-  await page.getByLabel('Search by patient name or contact number').fill(`missing-${Date.now()}`);
+  await page.getByLabel('Search by full name, contact number, or email').fill(`missing-${Date.now()}`);
   await expect(page.getByRole('heading', { name: 'No patients found' })).toBeVisible();
   assertBrowserClean();
 });

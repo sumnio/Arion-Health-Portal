@@ -8,6 +8,7 @@ export function createStaffOperationsController({ staffOperationsService }) {
     async doctors(_request, response) { response.json({ doctors: await staffOperationsService.doctors() }); },
     async patients(request, response) { response.json({ patients: await staffOperationsService.searchPatients(validatePatientSearchQuery(request.query)) }); },
     async patient(request, response) { response.json(await staffOperationsService.patient(request.params.patientId)); },
+    async walkInDuplicateReview(request, response) { response.json({ duplicate_review: await staffOperationsService.walkInDuplicateReview(request.body) }); },
     async registerWalkIn(request, response) { response.status(201).json({ patient: await staffOperationsService.registerWalkIn(request.body) }); },
     async createWalkInAppointment(request, response) { response.status(201).json({ appointment: await staffOperationsService.createWalkInAppointment(request.authUser.user_profile_id, request.params.patientId, request.body) }); },
     async resendPortalInvitation(request, response) { const body = request.body ?? {}; if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'email')) throw Object.assign(new Error('Only email may be provided.'), { status: 400, code: 'INVALID_INPUT' }); response.json({ portal_invitation: await staffOperationsService.resendPortalInvitation(request.params.patientId, body) }); },

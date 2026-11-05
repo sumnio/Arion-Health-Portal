@@ -10,6 +10,15 @@
 .staff-patient-detail dl > div { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 1.5fr); gap: 14px; padding: 11px 0; border-bottom: 1px solid #edf1f5; }
 .staff-patient-detail dt { color: #52657b; font-size: 13px; }
 .staff-patient-detail dd { margin: 0; overflow-wrap: anywhere; }
+.staff-patient-detail .portal-access-card { max-width: 760px; }
+.staff-patient-detail .portal-access-card form { display: grid; gap: 10px; margin-top: 18px; }
+.staff-patient-detail .portal-access-card label { font-weight: 700; font-size: 14px; }
+.staff-patient-detail .portal-access-card input { width: 100%; border: 1px solid #bacbdc; border-radius: 6px; padding: 12px; font: inherit; }
+.staff-patient-detail .portal-access-card input:focus-visible, .staff-patient-detail .portal-access-card button:focus-visible { outline: 3px solid #165ec0; outline-offset: 2px; }
+.staff-patient-detail .portal-access-card button { justify-self: start; min-height: 44px; border: 0; border-radius: 6px; background: #165ec0; color: white; padding: 11px 18px; cursor: pointer; }
+.staff-patient-detail .portal-access-card button:disabled { opacity: .55; cursor: default; }
+.staff-patient-detail .portal-access-error { color: #a33434; }
+.staff-patient-detail .portal-access-success { color: #166447; }
 .staff-patient-detail .appointment-history ol { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 14px; }
 .staff-patient-detail .patient-history-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; font-size: 13px; }
 .staff-patient-detail .patient-history-pagination button { min-height: 40px; border: 1px solid #c6d4e1; border-radius: 6px; background: white; color: #165ec0; padding: 8px 12px; cursor: pointer; }

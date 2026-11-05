@@ -1,10 +1,18 @@
 # Arion Health Portal MVP Handoff
 
+## v1.2.9 returning Patient and Portal Access completion
+
+Staff now searches returning Patients by full name, canonical phone, Patient invitation email, or linked account email. Search results show only full name, DOB, masked phone/email, Portal Access status, and optional last visit. Selecting a result reuses the same Patient record for the next walk-in appointment, preserving all prior appointments, clinical records, prescriptions, certificates, PWD verification, notifications, and account linkage.
+
+New Patient registration runs a server-authoritative duplicate review. Phone/email matches are strong, normalized name plus DOB is possible, and name alone remains allowed. Safe candidate cards offer Use Existing Patient. Allowed matches require the explicit Continue as New Patient action; no records are auto-merged. Emails already attached to a Patient or AuthAccount are blocked from a second identity, and nullable `Patient.portal_email` is now uniquely indexed.
+
+Patient Detail includes Send, Resend, and failure Retry controls. Before claim, Staff may correct the email; the replacement transaction invalidates older unused links. Active accounts have no invitation action and cannot change login email through this flow. Resend remains rate-limited, Staff-only, hash-only, transaction-safe, and privacy-minimized. No deployment was performed.
+
 ## v1.2.8 walk-in portal invitations
 
 Clinic Patient records and portal accounts remain separate. A Staff-created walk-in may have no email and remain No Account, or may have an optional email and receive an invitation only after appointment creation succeeds. The Patient verifies that email by OTP and creates their own password; Staff never creates or receives credentials. Claiming links the account to the existing Patient record, so prior appointments, records, certificates, PWD verification, and other Patient-owned history remain attached.
 
-Invitation tokens expire after 24 hours, are one-time, and are stored only as protected hashes. Resend invalidates earlier unused invitations. Email delivery is best effort and cannot roll back clinic work. Duplicate account emails, already-linked Patients, stale invitations, and concurrent claims fail closed. The invitation and OTP emails contain no clinical data. No deployment was performed, and the returning-Patient search/duplicate UI remains deferred to v1.2.9.
+Invitation tokens expire after 24 hours, are one-time, and are stored only as protected hashes. Resend invalidates earlier unused invitations. Email delivery is best effort and cannot roll back clinic work. Duplicate account emails, already-linked Patients, stale invitations, and concurrent claims fail closed. The invitation and OTP emails contain no clinical data. No deployment was performed. The formerly deferred returning-Patient and duplicate-review UI is completed in v1.2.9.
 
 ## Final project status
 

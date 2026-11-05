@@ -17,7 +17,7 @@ async function fillWalkIn(page, values) {
   if (values.emergency_contact_name) await page.getByLabel('Emergency contact name (optional)').fill(values.emergency_contact_name);
 }
 
-async function latestPortalDelivery(request, email, type) {
+async function latestPortalDelivery(request, email, type, previousClaimUrl = null) {
   let delivery = null;
   await expect.poll(async () => {
     const response = await request.get(`${e2eApiUrl}/api/e2e/email-capture/latest`, {
@@ -25,7 +25,7 @@ async function latestPortalDelivery(request, email, type) {
       headers: { 'x-e2e-capture-key': captureKey },
     });
     if (response.ok()) delivery = await response.json();
-    return response.ok();
+    return response.ok() && (!previousClaimUrl || delivery?.claim_url !== previousClaimUrl);
   }).toBe(true);
   return delivery;
 }
@@ -45,22 +45,24 @@ function addMinutes(time, amount) {
   return total >= 24 * 60 ? null : `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-test('Staff searches existing Patients by name and contact with a real empty result', async ({ page, staffScenario, seededStaff }) => {
+test('Staff searches existing Patients by name, contact, and email with a real empty result', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const patient = await staffScenario.createPatient({ full_name: `E2E Search ${staffScenario.marker.slice(0, 8)}` });
   await loginAsStaff(page, seededStaff);
   await page.goto('/staff/patients');
-  const search = page.getByLabel('Search by patient name or contact number');
+  const search = page.getByLabel('Search by full name, contact number, or email');
   await search.fill(patient.full_name);
   await expect(page.getByRole('heading', { name: patient.full_name })).toBeVisible();
   await search.fill(patient.contact_number);
+  await expect(page.getByRole('heading', { name: patient.full_name })).toBeVisible();
+  await search.fill(patient.email);
   await expect(page.getByRole('heading', { name: patient.full_name })).toBeVisible();
   await search.fill(`absent-${staffScenario.marker}`);
   await expect(page.getByRole('heading', { name: 'No patients found' })).toBeVisible();
   assertBrowserClean();
 });
 
-test('Staff registers a persistent no-account walk-in and duplicate matching is rejected', async ({ page, staffScenario, seededStaff }) => {
+test('Staff reuses a returning Patient and requires explicit review before a duplicate is created', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const values = {
     full_name: `E2E Walkin UI ${staffScenario.marker.slice(0, 8)}`,
@@ -73,7 +75,7 @@ test('Staff registers a persistent no-account walk-in and duplicate matching is 
   await loginAsStaff(page, seededStaff);
   await page.goto('/staff/patients/new');
   await fillWalkIn(page, values);
-  await page.getByRole('button', { name: 'Register and continue' }).click();
+  await page.getByRole('button', { name: 'Review and continue' }).click();
   await expect(page).toHaveURL(/\/staff\/patients\/[a-f\d]{24}\/walk-in$/);
   await expect(page.getByRole('heading', { name: values.full_name })).toBeVisible();
   const stored = await Patient.findOne({ contact_number: values.contact_number }).lean();
@@ -83,13 +85,28 @@ test('Staff registers a persistent no-account walk-in and duplicate matching is 
   expect(await AuthAccount.exists({ user_profile_id: stored.user_profile_id })).toBeNull();
 
   await page.goto('/staff/patients');
-  await page.getByLabel('Search by patient name or contact number').fill(values.full_name);
+  await page.getByLabel('Search by full name, contact number, or email').fill(values.contact_number);
   await expect(page.getByRole('heading', { name: values.full_name })).toBeVisible();
+  await page.getByRole('link', { name: 'Create Walk-in' }).click();
+  await expect(page).toHaveURL(new RegExp(`/staff/patients/${stored._id}/walk-in$`));
   await page.goto('/staff/patients/new');
   await fillWalkIn(page, values);
-  await page.getByRole('button', { name: 'Register and continue' }).click();
-  await expect(page.getByRole('alert')).toContainText('An existing Patient may match this person.');
+  await page.getByRole('button', { name: 'Review and continue' }).click();
+  await expect(page.getByRole('heading', { name: 'A similar Patient already exists' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Use Existing Patient' })).toBeVisible();
   expect(await Patient.countDocuments({ contact_number: values.contact_number })).toBe(1);
+
+  const legitimateSecond = { ...values, contact_number: `0954${String(Date.now() + 1).slice(-7)}` };
+  await page.goto('/staff/patients/new');
+  await fillWalkIn(page, legitimateSecond);
+  await page.getByRole('button', { name: 'Review and continue' }).click();
+  await expect(page.getByRole('heading', { name: 'A similar Patient already exists' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue as New Patient' }).click();
+  await expect(page).toHaveURL(/\/staff\/patients\/[a-f\d]{24}\/walk-in$/);
+  const second = await Patient.findOne({ contact_number: legitimateSecond.contact_number }).lean();
+  staffScenario.rememberPatient(second._id);
+  expect(String(second._id)).not.toBe(String(stored._id));
+  expect(await Patient.countDocuments({ full_name: values.full_name, dob: new Date(`${values.dob}T00:00:00.000Z`) })).toBe(2);
   assertBrowserClean();
 });
 
@@ -163,7 +180,7 @@ test('Staff creates a same-day walk-in Appointment with its own creator and non-
   assertBrowserClean();
 });
 
-test('Staff invitation lets a walk-in Patient securely claim the existing record after the appointment succeeds', async ({ page, request, staffScenario, seededStaff }) => {
+test('Staff Send and Resend invitation lets a walk-in Patient securely claim the existing record', async ({ page, request, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const suffix = `${staffScenario.marker.slice(0, 8)}-${Date.now()}`;
   const values = {
@@ -174,33 +191,24 @@ test('Staff invitation lets a walk-in Patient securely claim the existing record
     contact_number: `0956${String(Date.now()).slice(-7)}`,
   };
   const password = `E2e!Claim-${suffix}`;
-  const doctor = await staffScenario.createDoctor();
-  const appointmentTime = nextSameDayHalfHour();
-  const endTime = appointmentTime && addMinutes(appointmentTime, 30);
-  test.skip(!appointmentTime || !endTime, 'No future same-day slot remains in Asia/Manila.');
-  await staffScenario.createBookableSlot({ doctor, offset: 0, startTime: appointmentTime, endTime });
+  const guest = await staffScenario.createGuestPatient({ full_name: values.full_name, dob: new Date(`${values.dob}T00:00:00.000Z`), sex: values.sex, contact_number: values.contact_number, portal_email: values.email });
+  const patient = await Patient.findById(guest.patientId).lean();
 
   await loginAsStaff(page, seededStaff);
-  await page.goto('/staff/patients/new');
-  await fillWalkIn(page, values);
-  await page.getByRole('button', { name: 'Register and continue' }).click();
-  await expect(page).toHaveURL(/\/staff\/patients\/[a-f\d]{24}\/walk-in$/);
-  const patient = await Patient.findOne({ contact_number: values.contact_number }).lean();
-  staffScenario.rememberPatient(patient._id);
   expect(patient.user_profile_id).toBeNull();
   expect(patient.portal_email).toBe(values.email);
-
-  await page.getByLabel('Doctor').selectOption(doctor.doctorId);
-  await page.getByLabel('Visit type / service').selectOption('general_consultation');
-  await page.getByLabel('Available same-day time').selectOption(appointmentTime);
-  await page.getByLabel('Reason for visit').fill('E2E invitation claim journey');
-  await page.getByRole('button', { name: 'Create Walk-in Appointment' }).click();
-  await expect(page.getByRole('heading', { name: 'Walk-in appointment created' })).toBeVisible();
-  await expect(page.getByText(/Portal invitation sent to/)).toBeVisible();
-
-  const invitation = await latestPortalDelivery(request, values.email, 'portal_invitation');
+  await page.goto(`/staff/patients/${patient._id}`);
+  await page.getByRole('button', { name: 'Send Invitation' }).click();
+  await expect(page.getByRole('status')).toContainText('Invitation sent to');
+  const originalInvitation = await latestPortalDelivery(request, values.email, 'portal_invitation');
+  await expect(page.getByRole('heading', { name: 'Portal Access' })).toBeVisible();
+  await page.getByRole('button', { name: 'Resend Invitation' }).click();
+  await expect(page.getByRole('status')).toContainText('Any earlier unused invitation is no longer valid');
+  const invitation = await latestPortalDelivery(request, values.email, 'portal_invitation', originalInvitation.claim_url);
   await page.getByRole('button', { name: 'Log out' }).click();
   await expect(page).toHaveURL('/login');
+  await page.goto(originalInvitation.claim_url);
+  await expect(page.getByText('This invitation is invalid, expired, or already used.')).toBeVisible();
   await page.goto(invitation.claim_url);
   await expect(page.getByRole('heading', { name: 'Claim Your Portal Account' })).toBeVisible();
   await expect(page.getByText(values.email, { exact: false })).toHaveCount(0);
@@ -222,8 +230,13 @@ test('Staff invitation lets a walk-in Patient securely claim the existing record
   expect(linkedPatient.user_profile_id).not.toBeNull();
   expect(await AuthAccount.countDocuments({ email: values.email, user_profile_id: linkedPatient.user_profile_id })).toBe(1);
   expect(await Patient.countDocuments({ contact_number: values.contact_number })).toBe(1);
-  expect(await Appointment.countDocuments({ patient_id: patient._id })).toBe(1);
+  expect(await Appointment.countDocuments({ patient_id: patient._id })).toBe(0);
 
+  await page.getByRole('button', { name: 'Log out' }).click();
+  await loginAsStaff(page, seededStaff);
+  await page.goto(`/staff/patients/${patient._id}`);
+  await expect(page.getByText('Active', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Send Invitation|Resend Invitation|Retry Invitation/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Log out' }).click();
   await page.goto(invitation.claim_url);
   await expect(page.getByText('This invitation is invalid, expired, or already used.')).toBeVisible();

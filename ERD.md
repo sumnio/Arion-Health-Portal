@@ -1,5 +1,9 @@
 # Arion Health Portal - Revised ERD
 
+## v1.2.9 identity reuse and invitation concurrency
+
+No entity or relationship is added. Returning-Patient search resolves the existing Patient and new appointments keep referencing that same `Patient.id`. Duplicate review never merges Patient nodes. A unique partial `Patient.portal_email` index protects unclaimed email identity, while `AuthAccount.email` remains unique for active credentials. Transactional invitation replacement leaves at most one current unused invitation and preserves the existing Patient-to-PortalInvitation and Patient-to-UserProfile relationships.
+
 ## v1.2.8 relationship addition
 
 `Patient (1) → (many historical, at most one current) PortalInvitation` and, only after a successful OTP-backed claim, `Patient (1) → (1) UserProfile → (1) AuthAccount`. Claiming updates the existing Patient; it never creates a replacement Patient or moves appointment/clinical ownership.

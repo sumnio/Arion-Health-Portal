@@ -120,6 +120,18 @@ export function createRateLimiters({
       limiterType: 'email_verification_resend',
       store: storeFactory('email_verification_resend'),
     }),
+    portalInvitationRateLimiter: limiter({
+      windowMs: verificationResendWindowMs,
+      max: verificationResendMax,
+      limiterType: 'portal_invitation_send',
+      store: storeFactory('portal_invitation_send'),
+    }),
+    portalClaimCodeRateLimiter: limiter({
+      windowMs: verificationResendWindowMs,
+      max: verificationResendMax,
+      limiterType: 'portal_claim_code_send',
+      store: storeFactory('portal_claim_code_send'),
+    }),
     forgotPasswordRateLimiter: limiter({
       windowMs: forgotPasswordWindowMs,
       max: forgotPasswordMax,

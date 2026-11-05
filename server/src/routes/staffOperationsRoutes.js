@@ -17,10 +17,11 @@ export function createStaffOperationsRouter({ authModule, staffOperationsModule,
   router.get('/appointments/history', controller.appointmentHistory);
   router.get('/doctors', controller.doctors);
   router.get('/patients', controller.patients);
+  router.post('/patients/walk-in/duplicate-check', controller.walkInDuplicateReview);
   router.get('/patients/:patientId', controller.patient);
   router.post('/patients/walk-in', controller.registerWalkIn);
   router.post('/patients/:patientId/walk-in-appointments', controller.createWalkInAppointment);
-  router.post('/patients/:patientId/portal-invitation', rateLimiters.verificationResendRateLimiter, controller.resendPortalInvitation);
+  router.post('/patients/:patientId/portal-invitation', rateLimiters.portalInvitationRateLimiter, controller.resendPortalInvitation);
   router.get('/patients/:patientId/record-summary', controller.recordSummary);
   router.patch('/appointments/:appointmentId/check-in', controller.checkIn);
   router.patch('/appointments/:appointmentId/priority', controller.priority);

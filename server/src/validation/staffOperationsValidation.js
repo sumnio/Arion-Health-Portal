@@ -5,7 +5,7 @@ import { validateObjectId } from './appointmentValidation.js';
 import { boundedText, INPUT_LIMITS, queryInteger, queryText, rejectUnknownFields, validateQueryKeys } from './inputValidation.js';
 import { validatePhilippineMobile } from './phoneValidation.js';
 
-const patientFields = new Set(['full_name', 'email', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies']);
+const patientFields = new Set(['full_name', 'email', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'duplicate_confirmation']);
 const appointmentFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason', 'priority']);
 export const STAFF_HISTORY_RANGES = Object.freeze(['today', 'last_7_days', 'last_30_days', 'this_month', 'custom']);
 export const STAFF_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 'no_show']);
@@ -29,6 +29,7 @@ function validDateOnly(value, field) {
 
 export function validateWalkInPatient(body = {}, now = new Date()) {
   bodyObject(body); rejectUnknown(body, patientFields);
+  if (body.duplicate_confirmation != null && typeof body.duplicate_confirmation !== 'boolean') throw httpError(400, 'VALIDATION_ERROR', 'duplicate_confirmation must be true or false.');
   const dob = validDateOnly(body.dob, 'dob');
   if (dob > now) throw httpError(400, 'VALIDATION_ERROR', 'dob cannot be in the future.');
   const contact = validatePhilippineMobile(body.contact_number, 'contact_number');
@@ -37,13 +38,14 @@ export function validateWalkInPatient(body = {}, now = new Date()) {
   if (body.allergies != null && !Array.isArray(body.allergies)) throw httpError(400, 'VALIDATION_ERROR', 'allergies must be an array when provided.');
   if ((body.allergies?.length ?? 0) > INPUT_LIMITS.allergies) throw httpError(400, 'VALIDATION_ERROR', `allergies must contain at most ${INPUT_LIMITS.allergies} items.`);
   return {
-    user_profile_id: null, full_name: text(body.full_name, 'full_name', false, INPUT_LIMITS.name), contact_number: contact,
+    user_profile_id: null, full_name: text(body.full_name, 'full_name', false, INPUT_LIMITS.name).replace(/\s+/g, ' '), contact_number: contact,
     portal_email: body.email == null || String(body.email).trim() === '' ? null : (() => { const value = String(body.email).trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || value.length > 254) throw httpError(400, 'INVALID_EMAIL', 'email must be a valid email address.'); return value; })(),
     dob, sex, address: text(body.address, 'address', true, INPUT_LIMITS.address),
     emergency_contact_name: text(body.emergency_contact_name, 'emergency_contact_name', true, INPUT_LIMITS.name),
     emergency_contact_number: emergencyNumber,
     emergency_contact_relationship: text(body.emergency_contact_relationship, 'emergency_contact_relationship', true, INPUT_LIMITS.name),
     allergies: (body.allergies ?? []).map((item, index) => boundedText(item, `allergies[${index}]`, INPUT_LIMITS.shortText)),
+    duplicate_confirmation: body.duplicate_confirmation === true,
   };
 }
 

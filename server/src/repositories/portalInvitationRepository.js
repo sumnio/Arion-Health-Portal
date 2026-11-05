@@ -5,14 +5,22 @@ export const portalInvitationRepository = {
   findPatient(id) { return Patient.findById(id).lean(); },
   findAccountByEmail(email) { return AuthAccount.findOne({ email }).select('_id user_profile_id').lean(); },
   async replaceInvitation(patientId, email, tokenHash, expiresAt, now) {
-    await PortalInvitation.updateMany({ patient_id: patientId, consumed_at: null, invalidated_at: null }, { $set: { invalidated_at: now } });
-    const invitation = await PortalInvitation.create({ patient_id: patientId, email, token_hash: tokenHash, expires_at: expiresAt });
-    const patientUpdate = await Patient.updateOne({ _id: patientId, user_profile_id: null }, { $set: { portal_email: email, portal_invitation_expires_at: expiresAt } });
-    if (patientUpdate.modifiedCount !== 1) {
-      await PortalInvitation.updateOne({ _id: invitation._id }, { $set: { invalidated_at: now } });
-      throw Object.assign(new Error('Portal invitation patient state changed.'), { code: 'PORTAL_PATIENT_CHANGED' });
+    const session = await mongoose.startSession();
+    let result;
+    try {
+      await session.withTransaction(async () => {
+        const patient = await Patient.findOne({ _id: patientId, user_profile_id: null }).session(session).lean();
+        if (!patient) throw Object.assign(new Error('Portal invitation patient state changed.'), { code: 'PORTAL_PATIENT_CHANGED' });
+        await PortalInvitation.updateMany({ patient_id: patientId, consumed_at: null, invalidated_at: null }, { $set: { invalidated_at: now } }, { session });
+        const [invitation] = await PortalInvitation.create([{ patient_id: patientId, email, token_hash: tokenHash, expires_at: expiresAt }], { session });
+        const patientUpdate = await Patient.updateOne({ _id: patientId, user_profile_id: null }, { $set: { portal_email: email, portal_invitation_expires_at: expiresAt } }, { session });
+        if (patientUpdate.modifiedCount !== 1) throw Object.assign(new Error('Portal invitation patient state changed.'), { code: 'PORTAL_PATIENT_CHANGED' });
+        result = invitation.toObject();
+      });
+      return result;
+    } finally {
+      await session.endSession();
     }
-    return invitation.toObject();
   },
   findByTokenHash(hash) { return PortalInvitation.findOne({ token_hash: hash }).select('+token_hash +otp_code_hash +otp_session_hash +claim_session_hash').lean(); },
   async invalidateDelivery(id, patientId, now) {

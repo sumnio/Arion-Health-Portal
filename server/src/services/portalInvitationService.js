@@ -39,6 +39,7 @@ export function createPortalInvitationService({ repository, tokens, passwords, e
       try { invitation = await repository.replaceInvitation(patientId, emailAddress, tokens.hashPortalInvitationToken(token), new Date(current.getTime() + INVITATION_TTL_MS), current); }
       catch (error) {
         if (error?.code === 'PORTAL_PATIENT_CHANGED') throw httpError(409, 'INVITATION_CHANGED', 'This Patient can no longer receive a portal invitation.');
+        if (error?.code === 11000) throw httpError(409, 'EMAIL_IN_USE', 'This email is already connected to another Patient.');
         throw error;
       }
       try { await email.sendPortalInvitationEmail({ to: emailAddress, token }); }

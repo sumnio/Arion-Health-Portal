@@ -15,6 +15,10 @@
 .staff-walkin button { background:#165ec0; color:white; padding:12px 18px; border-radius:6px; cursor:pointer; font-size:14px; min-height:44px; }
 .staff-walkin button:disabled { opacity:.5; cursor:default; }
 .staff-walkin .walkin-error { color:#a33434; font-size:14px; }
+.staff-walkin .duplicate-review { margin:18px 0; padding:18px; border:1px solid #e4b95d; border-radius:7px; background:#fff9e9; }
+.staff-walkin .duplicate-review h3 { margin-top:0; }
+.staff-walkin .duplicate-review .walkin-results { background:white; padding:0 12px; border-radius:6px; }
+.staff-walkin .secondary-action { background:white; color:#165ec0; border:1px solid #165ec0; }
 .staff-walkin .walkin-slot-note { grid-column:1 / -1; margin-top:0; font-size:12px; }
 .staff-walkin [aria-invalid=true] { border-color:#a33434; }
 .staff-walkin .walkin-results, .staff-walkin .walkin-queue { list-style:none; padding:0; }

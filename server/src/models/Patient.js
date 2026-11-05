@@ -33,7 +33,14 @@ patientSchema.index(
   },
 );
 patientSchema.index({ contact_number: 1 }, { name: 'patient_contact_lookup' });
-patientSchema.index({ portal_email: 1 }, { name: 'patient_portal_email_lookup' });
+patientSchema.index(
+  { portal_email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { portal_email: { $type: 'string' } },
+    name: 'unique_patient_portal_email',
+  },
+);
 patientSchema.virtual('pwd_verification', {
   ref: 'PwdVerification',
   localField: '_id',
