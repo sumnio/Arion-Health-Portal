@@ -46,3 +46,22 @@ export function portalClaimCodeTemplate({ code, expiresMinutes = 10 }) {
     html: `<p>Arion Health Portal</p><p>Your verification code is <strong>${safeCode}</strong>.</p><p>This code expires in ${expiresMinutes} minutes.</p><p>Do not share this code.</p>`,
   });
 }
+
+export function appointmentRescheduledTemplate({ appointmentUrl, appointmentDate, appointmentTime, doctorName = null }) {
+  const safeUrl = escapeHtml(appointmentUrl);
+  const safeDate = escapeHtml(appointmentDate);
+  const safeTime = escapeHtml(appointmentTime);
+  const safeDoctor = doctorName ? escapeHtml(doctorName) : null;
+  const schedule = `${appointmentDate} at ${appointmentTime}${doctorName ? ` with ${doctorName}` : ''}`;
+  return Object.freeze({
+    type: 'appointment_rescheduled',
+    subject: 'Your Arion appointment was rescheduled',
+    text: [
+      'Arion Health Portal', '',
+      'Your appointment schedule has been updated. Sign in to Arion Health Portal to review the latest appointment details.',
+      `Updated schedule: ${schedule}`,
+      `View Updated Appointment: ${appointmentUrl}`,
+    ].join('\n'),
+    html: `<p>Arion Health Portal</p><p>Your appointment schedule has been updated. Sign in to Arion Health Portal to review the latest appointment details.</p><p><strong>Updated schedule:</strong> ${safeDate} at ${safeTime}${safeDoctor ? ` with ${safeDoctor}` : ''}</p><p><a href="${safeUrl}">View Updated Appointment</a></p>`,
+  });
+}

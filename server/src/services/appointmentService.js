@@ -57,6 +57,7 @@ export function createAppointmentService({
   bookingAvailabilityService,
   notificationTriggers,
   smsReminders,
+  appointmentEmails,
   now = () => new Date(),
 }) {
   async function ownPatient(userProfileId) {
@@ -264,7 +265,19 @@ export function createAppointmentService({
           patientId: updated.patient_id?._id ?? updated.patient_id,
           appointmentAt: updated.appointment_at,
         });
-        return presentAppointment(updated, false, userProfileId);
+        let emailNotification = 'skipped';
+        try {
+          const result = await appointmentEmails?.appointmentRescheduled?.({
+            appointmentId: updated._id ?? updated.id,
+            patientId: updated.patient_id?._id ?? updated.patient_id,
+            appointmentAt: updated.appointment_at,
+            doctorName: updated.doctor_id?.user_profile_id?.display_name ?? null,
+          });
+          emailNotification = result?.status ?? 'skipped';
+        } catch {
+          emailNotification = 'failed';
+        }
+        return { ...presentAppointment(updated, false, userProfileId), email_notification: emailNotification };
       } catch (error) {
         if (duplicateKey(error)) {
           throw httpError(409, 'APPOINTMENT_SLOT_CONFLICT', 'That doctor and time slot is no longer available.');

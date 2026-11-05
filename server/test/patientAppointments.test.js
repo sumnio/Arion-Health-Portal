@@ -21,7 +21,7 @@ const ids = {
   otherAppointment: '100000000000000000000005',
 };
 
-function createContext({ currentTime = NOW, notificationTriggers, smsReminders } = {}) {
+function createContext({ currentTime = NOW, notificationTriggers, smsReminders, appointmentEmails } = {}) {
   const recordedAppointments = new Set();
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
@@ -153,6 +153,7 @@ function createContext({ currentTime = NOW, notificationTriggers, smsReminders }
     bookingAvailabilityService,
     notificationTriggers,
     smsReminders,
+    appointmentEmails,
     now: () => new Date(currentTime),
   });
   const app = createApp(
@@ -757,6 +758,54 @@ test('Patient reschedules an eligible pending appointment while preserving ident
   });
 });
 
+test('successful Patient reschedule sends one operational email after the atomic update', async () => {
+  const calls = [];
+  const context = createContext({
+    appointmentEmails: {
+      async appointmentRescheduled(value) {
+        calls.push(structuredClone(value));
+        return { status: 'sent' };
+      },
+    },
+  });
+  await withServer(context.app, async (url) => {
+    const first = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule });
+    assert.equal(first.status, 200);
+    assert.equal((await first.json()).appointment.email_notification, 'sent');
+    const duplicate = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule });
+    assert.equal(duplicate.status, 409);
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].appointmentId, ids.pending);
+  assert.equal(calls[0].patientId, ids.patient);
+  assert.equal(new Date(calls[0].appointmentAt).toISOString(), validReschedule.appointment_at);
+  assert.equal(calls[0].doctorName, 'Dr. Maria Santos');
+});
+
+test('email failure is a safe partial success and never rolls back the reschedule', async () => {
+  const context = createContext({
+    appointmentEmails: { async appointmentRescheduled() { throw new Error('private provider failure'); } },
+  });
+  await withServer(context.app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.appointment.email_notification, 'failed');
+    assert.equal(JSON.stringify(body).includes('private provider failure'), false);
+    assert.equal(context.appointments.get(ids.pending).appointment_at.toISOString(), validReschedule.appointment_at);
+  });
+});
+
+test('Patient without an email notifier still reschedules normally without a false warning', async () => {
+  const context = createContext();
+  await withServer(context.app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.appointment.email_notification, 'skipped');
+  });
+});
+
 test('Patient rescheduling resets an eligible unchecked confirmed appointment to pending', async () => {
   const { app, cookie, appointments } = createContext();
   appointments.get(ids.pending).status = 'confirmed';
@@ -905,7 +954,15 @@ test('stale original appointment time fails atomic rescheduling safely', async (
 });
 
 test('concurrent reschedules allow only one stale-state transition', async () => {
-  const { app, cookie, appointments, appointmentRepository } = createContext();
+  const emailCalls = [];
+  const { app, cookie, appointments, appointmentRepository } = createContext({
+    appointmentEmails: {
+      async appointmentRescheduled(value) {
+        emailCalls.push(structuredClone(value));
+        return { status: 'sent' };
+      },
+    },
+  });
   let reached = 0;
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
@@ -921,6 +978,7 @@ test('concurrent reschedules allow only one stale-state transition', async () =>
     ]);
     assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
     assert.ok(['2026-09-28T10:00:00.000Z', '2026-09-28T10:30:00.000Z'].includes(appointments.get(ids.pending).appointment_at.toISOString()));
+    assert.equal(emailCalls.length, 1);
   });
 });
 

@@ -1,5 +1,13 @@
 # Arion Health Portal MVP Handoff
 
+## v1.2.10 appointment reschedule email link
+
+A successful eligible Patient reschedule now sends one privacy-safe email to the Patient's linked portal-account email. It shows only the updated date/time, the Doctor's display name when available, and a **View Updated Appointment** link created from `APP_BASE_URL`. The protected link requires normal login and Patient ownership; it contains no authentication token or clinical/private Patient information.
+
+Email happens only after the atomic reschedule succeeds. Failed, stale, repeated, unauthorized, and concurrent losing requests send nothing. Missing email/account, disabled delivery, or provider failure does not undo the reschedule. The Patient sees a safe partial-success message if delivery fails. Existing in-app notification fan-out and SMS reminder invalidation, versioning, and replanning remain unchanged. Staff currently has no approved reschedule route/UI, and this milestone does not add one. No deployment was performed.
+
+Final local validation records **651/651 backend tests**, **221/221 frontend tests**, and **104/104 Playwright browser journeys** with fake email, fake/disabled SMS, external AI disabled, and the dedicated E2E database. The Production frontend build passed with the existing non-blocking large-chunk warning. Frontend and backend dependency audits report zero known vulnerabilities, and whitespace validation passed.
+
 ## v1.2.9 returning Patient and Portal Access completion
 
 Staff now searches returning Patients by full name, canonical phone, Patient invitation email, or linked account email. Search results show only full name, DOB, masked phone/email, Portal Access status, and optional last visit. Selecting a result reuses the same Patient record for the next walk-in appointment, preserving all prior appointments, clinical records, prescriptions, certificates, PWD verification, notifications, and account linkage.

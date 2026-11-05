@@ -131,11 +131,12 @@ test('Patient reschedule visibility enforces Patient origin, state, record, and 
 test('Patient reschedule submits only the new appointment time', async () => {
   const calls = [];
   const service = createPatientApiService({
-    async rescheduleAppointment(id, payload) { calls.push({ id, payload }); return { ...appointment, appointment_at: payload.appointment_at }; },
+    async rescheduleAppointment(id, payload) { calls.push({ id, payload }); return { ...appointment, appointment_at: payload.appointment_at, email_notification: 'failed' }; },
   });
   const updated = await service.rescheduleAppointment('a1', '2026-09-27', '10:30');
   assert.deepEqual(calls, [{ id: 'a1', payload: { appointment_at: '2026-09-27T10:30:00+08:00' } }]);
   assert.equal(updated.id, 'a1');
+  assert.equal(updated.email_notification, 'failed');
 });
 
 test('Patient reschedule form keeps Doctor, visit type, and reason read-only while reusing booking controls', async () => {
@@ -147,6 +148,13 @@ test('Patient reschedule form keeps Doctor, visit type, and reason read-only whi
   assert.doesNotMatch(source, /name="(?:doctor|visit_type|reason)"/);
   assert.match(source, /disabled=\{busy \|\| loading\}/);
   assert.match(source, /refreshDate/);
+});
+
+test('Patient reschedule UI treats email delivery failure as a safe partial success', async () => {
+  const source = await readFile(new URL('../src/pages/patient/PatientAppointmentDetail.jsx', import.meta.url), 'utf8');
+  assert.match(source, /email_notification === 'failed'/);
+  assert.match(source, /Appointment rescheduled successfully, but the email notification could not be sent\./);
+  assert.doesNotMatch(source, /Resend|provider|API key/i);
 });
 
 test('every Patient appointment tab paginates at five items', async () => {

@@ -200,6 +200,8 @@ export function createApp(
       bookingAvailabilityService: schedulingModule.bookingAvailabilityService,
       notificationTriggers,
       smsReminders: smsModule.smsReminderService,
+      email: authModule.emailService,
+      clinicTimeZone,
     });
   const doctorSignatureModule = dependencies.doctorSignatureModule ?? createDoctorSignatureModule({ logger: securityLogger });
   const clinicalModule = dependencies.clinicalModule ?? createClinicalModule({

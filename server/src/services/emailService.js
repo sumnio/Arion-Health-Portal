@@ -1,4 +1,4 @@
-import { passwordResetTemplate, portalClaimCodeTemplate, portalInvitationTemplate, registrationVerificationTemplate } from './emailTemplates.js';
+import { appointmentRescheduledTemplate, passwordResetTemplate, portalClaimCodeTemplate, portalInvitationTemplate, registrationVerificationTemplate } from './emailTemplates.js';
 
 export class EmailDeliveryError extends Error {
   constructor() {
@@ -18,6 +18,10 @@ function portalClaimUrl(appBaseUrl, token) {
   const url = new URL('/claim-account', appBaseUrl);
   url.searchParams.set('token', token);
   return url.toString();
+}
+
+function appointmentUrl(appBaseUrl, appointmentId) {
+  return new URL(`/patient/appointments/${encodeURIComponent(appointmentId)}`, appBaseUrl).toString();
 }
 
 export function createEmailService({ provider, appBaseUrl }) {
@@ -41,6 +45,14 @@ export function createEmailService({ provider, appBaseUrl }) {
     },
     sendPortalClaimCodeEmail({ to, code, expiresMinutes = 10 }) {
       return deliver(to, portalClaimCodeTemplate({ code, expiresMinutes }));
+    },
+    sendAppointmentRescheduledEmail({ to, appointmentId, appointmentDate, appointmentTime, doctorName = null }) {
+      return deliver(to, appointmentRescheduledTemplate({
+        appointmentUrl: appointmentUrl(appBaseUrl, appointmentId),
+        appointmentDate,
+        appointmentTime,
+        doctorName,
+      }));
     },
   });
 }

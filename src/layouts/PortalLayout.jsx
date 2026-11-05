@@ -24,7 +24,7 @@ export default function PortalLayout({ role }) {
   }
   async function signOut() {
     try { await logout(); }
-    finally { navigate('/login', { replace: true }); }
+    finally { navigate('/login', { replace: true, state: null }); }
   }
   return <NotificationProvider accountKey={`${profile.user_profile_id}:${role}`}><div className={'portal-shell theme-' + role}>
     <a className="skip-link" href="#main-content">Skip to content</a>

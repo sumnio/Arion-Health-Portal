@@ -1,4 +1,4 @@
-import { Appointment, Doctor, MedicalRecord } from '../models/index.js';
+import { Appointment, AuthAccount, Doctor, MedicalRecord, Patient } from '../models/index.js';
 
 const doctorDisplayPopulation = {
   path: 'doctor_id',
@@ -54,6 +54,18 @@ export const appointmentRepository = {
 
   async findById(appointmentId) {
     return Appointment.findById(appointmentId).lean();
+  },
+
+  async findRescheduleEmailRecipient(patientId) {
+    const patient = await Patient.findById(patientId).select('user_profile_id portal_email').lean();
+    if (!patient) return null;
+    const account = patient.user_profile_id
+      ? await AuthAccount.findOne({ user_profile_id: patient.user_profile_id }).select('email').lean()
+      : null;
+    return {
+      email: account?.email ?? patient.portal_email ?? null,
+      has_portal_account: Boolean(account),
+    };
   },
 
   async medicalRecordExists(appointmentId) {

@@ -1,5 +1,15 @@
 # Arion Health Portal
 
+## v1.2.10 appointment reschedule email link
+
+After an eligible Patient successfully reschedules an appointment, Arion sends one privacy-safe operational email to the email address on that Patient's portal account. The email contains only the updated clinic date and time, the Doctor's display name when available, and a **View Updated Appointment** link built from the trusted `APP_BASE_URL`. It contains no reason for visit, diagnosis, notes, prescription, supporting document, certificate, medical record, Patient identity details, or login token.
+
+The link opens `/patient/appointments/:appointmentId` and uses the existing protected-route behavior. A signed-out user must log in and is returned to that appointment only if the authenticated Patient owns it. The link is not a magic-login link and does not weaken appointment ownership or role checks.
+
+Email is sent only after the guarded reschedule update succeeds. Failed, stale, repeated, unauthorized, or rolled-back attempts send nothing. The atomic stale-state guard ensures concurrent requests produce at most one successful transition and one email. A missing recipient, an unlinked Patient, disabled email, or provider failure never rolls back the appointment. The API reports a small delivery status so the Patient UI can show a safe partial-success message without exposing provider details. Existing in-app notifications and SMS reminder invalidation/versioning continue unchanged.
+
+The current product has no Staff reschedule route or Staff reschedule UI. v1.2.10 does not invent that permission; the email service is reusable if an approved Staff reschedule workflow is added later. No schema, public route, dependency, environment, or deployment change was introduced.
+
 ## v1.2.9 returning Patient reuse, duplicate review, and invitation management
 
 Staff Patient search is server-side and matches full name, canonical Philippine mobile number, normalized Patient invitation email, and linked AuthAccount email. Search responses are privacy-minimized to Patient identity, DOB, masked contact/email, Portal Access status, and optional last-visit time; they never include clinical records, diagnoses, prescriptions, certificates, PWD documents, supporting documents, or private audit data. Staff selects a returning Patient and creates the appointment under the existing `Patient.id`, preserving every existing relationship.

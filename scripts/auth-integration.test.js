@@ -231,6 +231,13 @@ test('protected route decisions distinguish guests, wrong roles, inactive accoun
   assert.equal(getProtectedRouteDecision({ role: 'patient', status: 'active' }, 'patient'), 'allow');
 });
 
+test('explicit logout is distinguished from an expired or missing session', () => {
+  const context = readFileSync(new URL('../src/auth/AuthContext.jsx', import.meta.url), 'utf8');
+  const guard = readFileSync(new URL('../src/auth/RouteGuards.jsx', import.meta.url), 'utf8');
+  assert.match(context, /dispatch\(\{ type: 'guest', explicitLogout: true \}\)/);
+  assert.match(guard, /explicitLogout \? null : \{ from: location\.pathname \}/);
+});
+
 test('frontend auth code does not store tokens or retain the mock role selector', () => {
   const authFiles = [
     '../src/services/apiClient.js', '../src/services/authService.js', '../src/auth/AuthContext.jsx',
@@ -249,4 +256,17 @@ test('router wraps every protected role group in the real role guard', () => {
   const source = readFileSync(new URL('../src/app/AppRouter.jsx', import.meta.url), 'utf8');
   assert.match(source, /ProtectedRoute role=\{role\}/);
   assert.match(source, /GuestOnlyRoute/);
+});
+
+test('login return paths stay inside the authenticated role before navigation', () => {
+  const guard = readFileSync(new URL('../src/auth/RouteGuards.jsx', import.meta.url), 'utf8');
+  const login = readFileSync(new URL('../src/pages/public/LoginPage.jsx', import.meta.url), 'utf8');
+  for (const source of [guard, login]) {
+    assert.match(source, /location\.state\?\.from/);
+    assert.match(source, /requestedPath\?\.startsWith/);
+    assert.match(source, /user\.role/);
+    assert.match(source, /getRoleDashboard\(user\.role\)/);
+  }
+  const portalLayout = readFileSync(new URL('../src/layouts/PortalLayout.jsx', import.meta.url), 'utf8');
+  assert.match(portalLayout, /navigate\('\/login', \{ replace: true, state: null \}\)/);
 });

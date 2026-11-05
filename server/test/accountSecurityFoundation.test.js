@@ -63,7 +63,7 @@ function foundation({ randomInteger, clock } = {}) {
   return { repository, tokens, service: createAccountSecurityService({ repository, tokens, clock }) };
 }
 
-test('trusted email service builds fixed registration and reset templates with a fake provider', async () => {
+test('trusted email service builds fixed registration, reset, and reschedule templates with a fake provider', async () => {
   const capture = [];
   const { emailService, provider } = createEmailModule(
     { emailProvider: 'fake', appBaseUrl: 'https://portal.example.test' },
@@ -71,13 +71,24 @@ test('trusted email service builds fixed registration and reset templates with a
   );
   await emailService.sendRegistrationVerificationEmail({ to: 'patient@example.test', code: '012345' });
   await emailService.sendPasswordResetEmail({ to: 'patient@example.test', token: 'private-token' });
+  await emailService.sendAppointmentRescheduledEmail({
+    to: 'patient@example.test', appointmentId: 'appointment-1',
+    appointmentDate: 'November 12, 2026', appointmentTime: '10:30 AM',
+    doctorName: 'Dr. Maria Santos', hasPortalAccount: true,
+  });
   assert.equal(provider.name, 'fake');
-  assert.equal(capture.length, 2);
+  assert.equal(capture.length, 3);
   assert.equal(capture[0].type, 'registration_verification');
   assert.equal(capture[0].subject, 'Verify your Arion Health Portal account');
   assert.match(capture[0].text, /012345/);
   assert.equal(capture[1].type, 'password_reset');
   assert.match(capture[1].text, /https:\/\/portal\.example\.test\/reset-password\?token=private-token/);
+  assert.equal(capture[2].type, 'appointment_rescheduled');
+  assert.equal(capture[2].subject, 'Your Arion appointment was rescheduled');
+  assert.match(capture[2].text, /November 12, 2026 at 10:30 AM with Dr\. Maria Santos/);
+  assert.match(capture[2].text, /https:\/\/portal\.example\.test\/patient\/appointments\/appointment-1/);
+  assert.doesNotMatch(capture[2].text.toLowerCase(), /diagnosis|prescription|certificate|pwd|supporting document|reason for visit|medical record/);
+  assert.doesNotMatch(capture[2].text, /token=|jwt|session/i);
 });
 
 test('Resend integration is isolated and provider failures become a controlled error', async () => {

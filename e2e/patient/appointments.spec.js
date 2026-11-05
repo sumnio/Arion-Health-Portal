@@ -1,11 +1,21 @@
 import { test, expect } from '../fixtures/test.js';
-import { loginAsPatient } from '../helpers/auth.js';
+import { loginAsPatient, logoutThroughUi } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
 import { DEFAULT_E2E_API_URL, loadE2eEnvironment } from '../../server/scripts/e2eEnvironment.js';
 import { formatBookingDate, formatSlot } from '../../src/services/dateTimeService.js';
 
 loadE2eEnvironment();
 const apiURL = process.env.E2E_API_URL || DEFAULT_E2E_API_URL;
+const captureKey = process.env.E2E_EMAIL_CAPTURE_KEY || 'arion-e2e-email-capture-only';
+
+async function capturedRescheduleEmail(request, recipient) {
+  const response = await request.get(`${apiURL}/api/e2e/email-capture/latest`, {
+    headers: { 'x-e2e-capture-key': captureKey },
+    params: { recipient, type: 'appointment_rescheduled' },
+  });
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}
 
 async function cancelViaBrowserFetch(page, appointmentId) {
   return page.evaluate(async ({ apiURL: origin, appointmentId: id }) => {
@@ -35,7 +45,7 @@ test('Patient cancels an eligible appointment and cancellation persists', async 
   assertBrowserClean();
 });
 
-test('Patient reschedules an eligible appointment in place and sees pending status', async ({ page, patientScenario, seededPatient }) => {
+test('Patient reschedules an eligible appointment and opens the privacy-safe email link', async ({ page, request, patientScenario, seededPatient }) => {
   const assertBrowserClean = observeBrowser(page);
   const doctor = await patientScenario.createDoctor();
   const slot = await patientScenario.createBookableSlot({ doctor, startTime: '10:00', endTime: '11:00' });
@@ -55,8 +65,48 @@ test('Patient reschedules an eligible appointment in place and sees pending stat
   await expect(page.getByText('Pending', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/10:30 AM/).first()).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/patient/appointments/${appointment.appointmentId}$`));
-  await page.reload();
+
+  const delivery = await capturedRescheduleEmail(request, seededPatient.email);
+  expect(delivery.subject).toBe('Your Arion appointment was rescheduled');
+  expect(delivery.text).toContain('10:30 AM');
+  expect(delivery.text).toContain(doctor.display_name);
+  expect(delivery.text).not.toContain('Routine health check');
+  expect(delivery.text).not.toMatch(/token=|diagnos|prescription|medical record/i);
+  expect(delivery.appointment_url).toMatch(new RegExp(`/patient/appointments/${appointment.appointmentId}$`));
+
+  await logoutThroughUi(page);
+  await page.goto(delivery.appointment_url);
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill(seededPatient.email);
+  await page.getByRole('textbox', { name: 'Password', exact: true }).fill(seededPatient.password);
+  await page.getByRole('button', { name: 'Login' }).click();
+  await expect(page).toHaveURL(new RegExp(`/patient/appointments/${appointment.appointmentId}$`));
   await expect(page.getByText(/10:30 AM/).first()).toBeVisible();
+  assertBrowserClean();
+});
+
+test('Patient sees a safe partial-success message when the reschedule email provider fails', async ({ page, request, patientScenario, seededPatient }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const doctor = await patientScenario.createDoctor();
+  const slot = await patientScenario.createBookableSlot({ doctor, startTime: '13:00', endTime: '14:00' });
+  const appointment = await patientScenario.createAppointment({ patient: seededPatient, doctor, slot, status: 'confirmed' });
+  const failureSetup = await request.post(`${apiURL}/api/e2e/email-capture/fail-next`, {
+    headers: { 'x-e2e-capture-key': captureKey },
+    params: { type: 'appointment_rescheduled' },
+  });
+  expect(failureSetup.status()).toBe(204);
+
+  await loginAsPatient(page, seededPatient);
+  await page.goto(`/patient/appointments/${appointment.appointmentId}`);
+  await page.getByRole('button', { name: 'Reschedule Appointment' }).click();
+  await page.getByRole('button', { name: formatBookingDate(slot.date) }).click();
+  await page.getByRole('radio', { name: formatSlot('13:30') }).check();
+  await page.getByRole('button', { name: 'Confirm New Schedule' }).click();
+
+  await expect(page.getByRole('status')).toContainText('Appointment rescheduled successfully, but the email notification could not be sent.');
+  await expect(page.getByText(/1:30 PM/).first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(/1:30 PM/).first()).toBeVisible();
   assertBrowserClean();
 });
 
