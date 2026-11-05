@@ -920,3 +920,10 @@ Indexes are unique `patient_id`, sparse unique legacy/front/back storage referen
 Rejected resubmission updates the same Patient-owned record from Rejected to Pending only through an atomic status filter. It resets the current review fields and replaces both private images after safe upload, but preserves the append-only `review_history`. Superseded private binaries are deleted only after replacement metadata succeeds. Verified and Pending records cannot be reset by the Patient.
 
 `Patient.is_pwd` remains a legacy compatibility field but is not an authority. No migration converts legacy `true` values into PwdVerification records. Only a related PwdVerification with `status=verified` can affect PWD queue/analytics classification.
+# v1.2.11 follow-up recommendation fields and link
+
+`MedicalRecord` adds immutable `follow_up_required` (boolean), `follow_up_recommended_date` (nullable date-only value stored at UTC midnight), and `follow_up_reason` (nullable bounded clinical text, maximum 500 characters). When required is true, date and reason are required, and the date cannot be before the linked consultation's Asia/Manila clinic date. Existing `follow_up` remains readable for legacy records.
+
+`Appointment` adds nullable `source_medical_record_id -> MedicalRecord._id`. A linked Appointment must use the Medical Record's Patient and Doctor, `visit_type = follow_up`, and the fixed operational reason `Follow-up consultation`. A partial unique index permits only one `pending` or `confirmed` linked Appointment per Medical Record; terminal appointments do not prevent legitimate rebooking. The Appointment contains no copied follow-up reason.
+
+The recommendation and actual Appointment are deliberately separate: scheduling and rescheduling change only the Appointment. MedicalRecord has no update/delete route. Patient/Staff booking continues to use published availability, blocked-time and slot-conflict checks, and the existing 14-day horizon.

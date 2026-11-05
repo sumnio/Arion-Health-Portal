@@ -53,6 +53,11 @@ const appointmentSchema = new mongoose.Schema(
       ref: 'UserProfile',
       default: null,
     },
+    source_medical_record_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'MedicalRecord',
+      default: null,
+    },
   },
   modelOptions,
 );
@@ -63,6 +68,17 @@ appointmentSchema.index(
     unique: true,
     partialFilterExpression: { status: { $in: SLOT_BLOCKING_STATUSES } },
     name: 'unique_blocking_doctor_slot',
+  },
+);
+appointmentSchema.index(
+  { source_medical_record_id: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      source_medical_record_id: { $type: 'objectId' },
+      status: { $in: ['pending', 'confirmed'] },
+    },
+    name: 'unique_active_follow_up_per_record',
   },
 );
 appointmentSchema.index(

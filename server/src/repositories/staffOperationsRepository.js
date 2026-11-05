@@ -115,6 +115,27 @@ export const staffOperationsRepository = {
   },
   async doctorExists(id) { return Boolean(await Doctor.exists({ _id: id })); },
   async createAppointment(data) { return (await Appointment.create(data)).toObject(); },
+  async findFollowUpRecordForPatient(recordId, patientId) {
+    return MedicalRecord.findOne({ _id: recordId, patient_id: patientId })
+      .select('patient_id doctor_id follow_up_required follow_up_recommended_date')
+      .lean();
+  },
+  async findActiveLinkedFollowUp(recordId) {
+    return Appointment.findOne({ source_medical_record_id: recordId, status: { $in: ['pending', 'confirmed'] } }).lean();
+  },
+  async listOperationalFollowUps(patientId) {
+    return MedicalRecord.find({ patient_id: patientId, follow_up_required: true })
+      .select('doctor_id follow_up_required follow_up_recommended_date created_at')
+      .sort({ follow_up_recommended_date: 1, _id: 1 })
+      .populate(doctorPopulation)
+      .lean();
+  },
+  async findLatestLinkedFollowUp(recordId) {
+    return Appointment.findOne({ source_medical_record_id: recordId })
+      .select('appointment_at status doctor_id visit_type source_medical_record_id')
+      .sort({ created_at: -1, _id: -1 })
+      .lean();
+  },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },
   async confirmArrivalEligible(id, timestamp, start, end, expectedAppointmentAt) {
     return Appointment.findOneAndUpdate(

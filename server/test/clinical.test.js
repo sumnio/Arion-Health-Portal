@@ -167,6 +167,42 @@ test('Doctor creates an assigned MedicalRecord and linked Prescription', async (
   const context = createContext(); await withServer(context.app, async (base) => { const { response, body } = await createRecord(context, base); assert.equal(response.status, 201); assert.equal(body.medical_record.diagnosis, recordBody.diagnosis); assert.equal(body.medical_record.prescriptions[0].medicine, 'Paracetamol'); assert.equal(context.records.size, 1); assert.equal(context.prescriptions.size, 1); });
 });
 
+test('Doctor saves an immutable structured follow-up recommendation visible to the owning Patient', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const body = {
+      ...recordBody,
+      follow_up_required: true,
+      follow_up_recommended_date: '2026-09-26',
+      follow_up_reason: 'Reassessment after treatment.',
+    };
+    const created = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body });
+    assert.equal(created.status, 201);
+    const record = (await created.json()).medical_record;
+    assert.equal(record.follow_up_required, true);
+    assert.equal(record.follow_up_recommended_date, '2026-09-26');
+    assert.equal(record.follow_up_reason, 'Reassessment after treatment.');
+    const patientRead = await request(base, `/api/patient/records/${record.id}`, { cookie: context.cookie(ids.patientProfile) });
+    assert.equal(patientRead.status, 200);
+    assert.equal((await patientRead.json()).medical_record.follow_up_reason, 'Reassessment after treatment.');
+    assert.equal((await request(base, `/api/doctor/records/${record.id}`, { method: 'PATCH', cookie: context.cookie(ids.doctorProfile), body: { follow_up_reason: 'Changed' } })).status, 404);
+  });
+});
+
+test('follow-up recommendation requires a reason and a date on or after the consultation date', async () => {
+  for (const body of [
+    { ...recordBody, follow_up_required: true, follow_up_reason: 'Review' },
+    { ...recordBody, follow_up_required: true, follow_up_recommended_date: '2026-09-26' },
+    { ...recordBody, follow_up_required: true, follow_up_recommended_date: '2026-09-24', follow_up_reason: 'Review' },
+  ]) {
+    const context = createContext();
+    await withServer(context.app, async (base) => {
+      const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body });
+      assert.equal(response.status, 400);
+    });
+  }
+});
+
 test('record creation derives Patient and Doctor and rejects client ownership fields', async () => {
   const context = createContext(); await withServer(context.app, async (base) => { const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: { ...recordBody, patient_id: ids.otherPatient } }); assert.equal(response.status, 400); assert.equal((await response.json()).error.code, 'UNSUPPORTED_FIELD'); });
 });

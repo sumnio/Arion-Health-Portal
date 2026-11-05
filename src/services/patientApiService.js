@@ -207,6 +207,7 @@ export function createPatientApiService(repository = patientApiRepository) {
         appointment_at: appointmentAt,
         visit_type: values.service,
         reason: formatPatientVisitReason(values.reason, values.otherReason),
+        ...(values.sourceMedicalRecordId ? { source_medical_record_id: values.sourceMedicalRecordId } : {}),
       }));
     },
     async getAppointments() { return (await repository.getAppointments()).map(normalizeAppointment); },

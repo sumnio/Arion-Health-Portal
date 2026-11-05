@@ -141,7 +141,28 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
       const patient = await repository.findPatientById(patientId);
       if (!patient) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
       const appointments = (await repository.listAppointmentsForPatient(patientId)).map((item) => patientAppointmentView(item, patient, clinic.timeZone)).sort((left, right) => new Date(right.appointment_at) - new Date(left.appointment_at));
-      return { patient: patientView(patient, clinicDate(now(), clinic.timeZone)), appointments };
+      const followUps = repository.listOperationalFollowUps
+        ? await Promise.all((await repository.listOperationalFollowUps(patientId)).map(async (record) => ({
+          medical_record_id: id(record),
+          recommended_date: dateOnly(record.follow_up_recommended_date),
+          doctor: doctorView(record.doctor_id),
+          appointment: repository.findLatestLinkedFollowUp
+            ? await repository.findLatestLinkedFollowUp(id(record))
+            : null,
+        })))
+        : [];
+      return {
+        patient: patientView(patient, clinicDate(now(), clinic.timeZone)),
+        appointments,
+        follow_up_recommendations: followUps.map((item) => ({
+          ...item,
+          appointment: item.appointment ? {
+            id: id(item.appointment),
+            appointment_at: iso(item.appointment.appointment_at),
+            status: item.appointment.status,
+          } : null,
+        })),
+      };
     },
     async searchPatients(search = '') {
       const patients = await repository.searchPatients(search);
@@ -183,6 +204,16 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
       const input = validateWalkInAppointment(body, current, clinic.timeZone);
       if (!(await repository.findPatientById(patientId))) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
       if (!(await repository.doctorExists(input.doctor_id))) throw httpError(404, 'DOCTOR_NOT_FOUND', 'Doctor was not found.');
+      if (input.source_medical_record_id) {
+        const record = await repository.findFollowUpRecordForPatient(input.source_medical_record_id, patientId);
+        if (!record || record.follow_up_required !== true) throw httpError(404, 'FOLLOW_UP_RECOMMENDATION_NOT_FOUND', 'The follow-up recommendation was not found.');
+        if (id(record.doctor_id) !== id(input.doctor_id) || input.visit_type !== 'follow_up' || input.reason !== 'Follow-up consultation') {
+          throw httpError(409, 'FOLLOW_UP_CONTEXT_MISMATCH', 'This appointment must use the recommended Doctor and follow-up visit type.');
+        }
+        const actualDate = appointmentLocalParts(input.appointment_at, clinic.timeZone).date;
+        if (actualDate < dateOnly(record.follow_up_recommended_date)) throw httpError(409, 'FOLLOW_UP_BEFORE_RECOMMENDED_DATE', 'Choose a slot on or after the recommended follow-up date.');
+        if (await repository.findActiveLinkedFollowUp(input.source_medical_record_id)) throw httpError(409, 'FOLLOW_UP_ALREADY_SCHEDULED', 'This follow-up recommendation already has an active appointment.');
+      }
       if (!bookingAvailabilityService) throw new Error('Staff booking availability service is not configured.');
       await bookingAvailabilityService.assertBookable(input.doctor_id, input.appointment_at);
       try {
@@ -197,7 +228,7 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
           try { const issued = await portalInvitations.issue(patientId, patient.portal_email); portal_invitation = { status: 'sent', masked_email: issued.masked_email }; }
           catch { portal_invitation = { status: 'failed', message: 'Patient registered successfully, but the portal invitation could not be sent.' }; }
         } else if (patient?.user_profile_id) portal_invitation = { status: 'active' };
-        return { id: id(created), patient_id: id(created.patient_id), doctor_id: id(created.doctor_id), appointment_at: iso(created.appointment_at), visit_type: created.visit_type, reason: created.reason, priority: created.priority, status: created.status, check_in_at: null, portal_invitation };
+        return { id: id(created), patient_id: id(created.patient_id), doctor_id: id(created.doctor_id), appointment_at: iso(created.appointment_at), visit_type: created.visit_type, reason: created.reason, priority: created.priority, status: created.status, check_in_at: null, source_medical_record_id: id(created.source_medical_record_id), portal_invitation };
       } catch (error) {
         if (duplicateKey(error)) throw httpError(409, 'APPOINTMENT_SLOT_CONFLICT', 'That Doctor and time slot is no longer available.');
         throw error;

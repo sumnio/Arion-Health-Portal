@@ -80,10 +80,17 @@ function prescriptionView(item) {
 
 async function presentRecord(repository, record, suppliedPrescriptions) {
   const prescriptions = suppliedPrescriptions ?? await repository.listPrescriptions(id(record));
+  const linkedFollowUp = repository.findLatestLinkedFollowUp
+    ? await repository.findLatestLinkedFollowUp(id(record))
+    : null;
   return {
     id: id(record), patient: patientView(record.patient_id), doctor: doctorView(record.doctor_id),
     appointment: appointmentView(record.appointment_id), encounter_at: iso(record.encounter_at),
     diagnosis: record.diagnosis, notes: record.notes ?? null, follow_up: record.follow_up ?? null,
+    follow_up_required: record.follow_up_required === true,
+    follow_up_recommended_date: date(record.follow_up_recommended_date),
+    follow_up_reason: record.follow_up_reason ?? null,
+    follow_up_appointment: appointmentView(linkedFollowUp),
     prescriptions: prescriptions.map(prescriptionView), created_at: iso(record.created_at), updated_at: iso(record.updated_at),
   };
 }
@@ -220,12 +227,21 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       if (!appointment) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
       if (id(appointment.doctor_id) !== id(doctor)) throw httpError(403, 'FORBIDDEN', 'This appointment is assigned to another Doctor.');
       if (appointment.status !== 'confirmed') throw httpError(409, 'APPOINTMENT_NOT_ELIGIBLE', 'Only a confirmed appointment can receive a medical record.');
+      const consultationDate = clinicDate(new Date(appointment.appointment_at), clinic.timeZone ?? 'Asia/Manila');
+      if (input.follow_up_required && input.follow_up_recommended_date < consultationDate) {
+        throw httpError(400, 'FOLLOW_UP_DATE_BEFORE_CONSULTATION', 'The recommended follow-up date cannot be before the consultation date.');
+      }
       if (await repository.findRecordByAppointmentId(appointmentId)) throw httpError(409, 'MEDICAL_RECORD_EXISTS', 'This appointment already has a medical record.');
       try {
         const created = await repository.createRecordWithPrescriptions({
           patient_id: appointment.patient_id, doctor_id: doctor._id ?? doctor.id,
           appointment_id: appointment._id ?? appointment.id, encounter_at: now(),
           diagnosis: input.diagnosis, notes: input.notes, follow_up: input.follow_up,
+          follow_up_required: input.follow_up_required,
+          follow_up_recommended_date: input.follow_up_recommended_date
+            ? dateOnlyToUtc(input.follow_up_recommended_date)
+            : null,
+          follow_up_reason: input.follow_up_reason,
         }, input.prescriptions);
         created.record.patient_id = await repository.findPatientById(id(appointment.patient_id));
         created.record.doctor_id = doctor;

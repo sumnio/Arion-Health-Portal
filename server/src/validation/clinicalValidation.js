@@ -5,7 +5,10 @@ import { boundedText, INPUT_LIMITS, queryInteger, queryText, rejectUnknownFields
 import { isValidDateOnly } from '../utils/schedulingTime.js';
 import { CERTIFICATE_LIMITS, CERTIFICATE_PURPOSES } from '../services/certificateContent.js';
 
-const recordFields = new Set(['diagnosis', 'notes', 'follow_up', 'prescriptions']);
+const recordFields = new Set([
+  'diagnosis', 'notes', 'follow_up', 'prescriptions',
+  'follow_up_required', 'follow_up_recommended_date', 'follow_up_reason',
+]);
 const certificateFields = new Set(['purpose', 'custom_purpose', 'diagnosis_summary', 'recommendation', 'valid_until']);
 export const DOCTOR_HISTORY_RANGES = Object.freeze(['today', 'last_7_days', 'last_30_days', 'this_month', 'custom']);
 export const DOCTOR_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 'no_show']);
@@ -35,10 +38,28 @@ export function validateMedicalRecordCreate(body = {}) {
   if ((body.prescriptions?.length ?? 0) > INPUT_LIMITS.prescriptions) {
     throw httpError(400, 'VALIDATION_ERROR', `prescriptions must contain at most ${INPUT_LIMITS.prescriptions} items.`);
   }
+  const followUpRequired = body.follow_up_required ?? false;
+  if (typeof followUpRequired !== 'boolean') {
+    throw httpError(400, 'VALIDATION_ERROR', 'follow_up_required must be true or false.');
+  }
+  let followUpRecommendedDate = null;
+  let followUpReason = null;
+  if (followUpRequired) {
+    if (!isValidDateOnly(body.follow_up_recommended_date)) {
+      throw httpError(400, 'VALIDATION_ERROR', 'follow_up_recommended_date must use a valid YYYY-MM-DD date.');
+    }
+    followUpRecommendedDate = body.follow_up_recommended_date;
+    followUpReason = boundedText(body.follow_up_reason, 'follow_up_reason', 500);
+  } else if (body.follow_up_recommended_date || body.follow_up_reason) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Follow-up date and reason are accepted only when follow_up_required is true.');
+  }
   return {
     diagnosis: boundedText(body.diagnosis, 'diagnosis', 2000),
     notes: boundedText(body.notes, 'notes', INPUT_LIMITS.narrative, { optional: true }),
     follow_up: boundedText(body.follow_up, 'follow_up', 2000, { optional: true }),
+    follow_up_required: followUpRequired,
+    follow_up_recommended_date: followUpRecommendedDate,
+    follow_up_reason: followUpReason,
     prescriptions: (body.prescriptions ?? []).map((item, index) => {
       rejectUnknown(item, new Set(['medicine', 'dosage', 'instructions']));
       return {

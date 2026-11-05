@@ -986,3 +986,11 @@ The final Arion workflow remains: Patient private upload → Pending → active 
 New Patient submissions no longer collect a separately typed PWD ID number. They require two private images—front and back—in JPG/JPEG or PNG format, up to 5 MB each. The Patient UI states that the printed ID name must match the Patient profile name. Staff sees the authoritative profile name beside both private images and is instructed to compare them before using the direct Verify action. This is a human review only; no confirmation checkbox, OCR, or AI was added. Existing one-file legacy submissions remain reviewable for compatibility.
 
 The Staff Patients tab displays the live Pending count as `PWD Verification (n)`. Each committed submission or resubmission sends active Staff a generic notification that a PWD request is ready, without Patient identity or document details. Verify/Reject, rejection resubmission, queue priority, privacy, RBAC, and append-only review history remain unchanged.
+# v1.2.11 Doctor follow-up recommendation and scheduling
+
+- A Medical Record stores the Doctor's immutable clinical recommendation using `follow_up_required`, `follow_up_recommended_date`, and `follow_up_reason`.
+- An Appointment is the separate actual schedule. Patient or Staff must choose a published, unblocked, conflict-free slot for the same Doctor within the existing 14-day horizon; no appointment is created automatically.
+- A linked follow-up Appointment uses `visit_type = follow_up` and `source_medical_record_id`. Its actual date may be later than the recommended date, and cancellation or rescheduling never changes the Medical Record.
+- Doctor remains read-only for scheduling. Staff sees only operational Doctor/date/scheduled state and never receives the clinical follow-up reason. Patient sees their own recommendation and may self-book it.
+- One pending or confirmed Appointment is allowed per recommendation. A terminal linked Appointment permits normal rebooking rules.
+- Follow-up reasons are excluded from Staff operational views, notifications, email, SMS, Assistant provider data, and logs. v1.2.11 is local only and is not deployed.

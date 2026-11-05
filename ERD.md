@@ -869,3 +869,13 @@ Patient 1 ─── 0..1 PwdVerification 1 ─── 2 current private GridFS im
 Only an authenticated active Staff reviewer can traverse from a Pending verification to the private front and back ID images. New submissions contain no separately typed PWD ID number. Staff is instructed to compare the printed ID name with the Patient profile name before the direct Verify action; Verify or Reject then atomically changes the current state and appends one decision to the embedded audit history. Rejected resubmission keeps the same PwdVerification relationship and history while safely replacing both current images. The Patient can read only status, safe timestamps, and their own rejection reason; Doctor and Admin have no traversal path to verification content.
 
 A successful submission creates a privacy-safe notification for active Staff, and a successful review creates a privacy-safe Notification for the owning Patient. Neither notification attaches the ID, file, rejection reason, or document metadata. Queue classification continues to read only `status=verified`. No relationship is added to AI/OCR, an external verifier, a public file location, MedicalRecord, Prescription, MedicalCertificate, or SupportingDocument.
+# v1.2.11 follow-up recommendation relationship
+
+```text
+MedicalRecord 1 ─── 0..many terminal/rebooked Appointment
+                      via Appointment.source_medical_record_id
+```
+
+The MedicalRecord is the Doctor's immutable clinical recommendation. The linked Appointment is the actual operational schedule and may occur later than the recommended date when that is the nearest valid slot. At most one linked Appointment may be active (`pending` or `confirmed`) at a time. Cancellation, no-show, completion, and rescheduling do not rewrite the MedicalRecord.
+
+Patient access follows ownership of both the MedicalRecord and Appointment. Staff may traverse only the operational recommendation projection (record ID, recommended date, same Doctor, scheduled state) and cannot traverse `follow_up_reason`. Doctor may create and read the recommendation but gains no Appointment scheduling mutation relationship. Admin and unauthenticated callers gain no clinical traversal.

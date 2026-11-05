@@ -373,3 +373,10 @@ Do not add OCR, AI legitimacy decisions, portal scraping, browser automation, re
 New submissions use exactly `front_document` and `back_document` multipart image fields. Both must be JPG/JPEG or PNG and no larger than 5 MB each; PDFs, typed `pwd_id_number`, extra fields, missing sides, mismatched extensions/MIME signatures, and additional files are rejected. Existing one-file records remain readable through the legacy Staff review path only. Rejected resubmission atomically replaces both images after successful private storage while preserving review history.
 
 The Patient is instructed that the printed ID name must match the profile name. Staff sees that profile name next to the two images and is instructed to compare them before using the direct bodyless Verify action. There is no separate confirmation checkbox and no automated OCR/AI verification. A successful submission or resubmission sends all active Staff a fixed privacy-safe `pwd_verification_submitted` notification. Staff Patients shows `PWD Verification (n)` using the Pending-list total and refreshes it after review. No deployment was performed.
+# v1.2.11 follow-up recommendation integration
+
+The assigned Doctor can record whether follow-up is required while creating the immutable Medical Record. A required follow-up includes a clinic-date recommendation and a bounded clinical reason. The date cannot precede the consultation date.
+
+Patient and Staff scheduling reuse the existing Doctor availability, conflict, and 14-day booking rules. The Patient or Staff selects the actual slot; the system never books automatically or invents a next-day date. The Appointment links back through `source_medical_record_id`, while the original recommendation remains unchanged after booking, cancellation, or rescheduling. Doctor receives no scheduling mutation permission, and Staff receives no clinical reason.
+
+Recommendations beyond the 14-day horizon remain visible but cannot yet be scheduled. Doctor-unavailability automatic rescheduling is intentionally deferred to v1.2.12. No deployment was performed.

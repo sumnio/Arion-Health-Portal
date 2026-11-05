@@ -22,6 +22,9 @@ const medicalRecordSchema = new mongoose.Schema(
     diagnosis: { type: String, required: true, trim: true },
     notes: { type: String, default: null, trim: true },
     follow_up: { type: String, default: null, trim: true },
+    follow_up_required: { type: Boolean, required: true, default: false },
+    follow_up_recommended_date: { type: Date, default: null },
+    follow_up_reason: { type: String, default: null, trim: true, maxlength: 500 },
   },
   modelOptions,
 );

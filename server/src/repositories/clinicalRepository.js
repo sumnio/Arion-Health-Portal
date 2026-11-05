@@ -134,6 +134,12 @@ export const clinicalRepository = {
   async listPrescriptions(recordId) {
     return Prescription.find({ medical_record_id: recordId }).sort({ created_at: 1 }).lean();
   },
+  async findLatestLinkedFollowUp(recordId) {
+    return Appointment.findOne({ source_medical_record_id: recordId })
+      .select('appointment_at status visit_type reason check_in_at source_medical_record_id')
+      .sort({ created_at: -1, _id: -1 })
+      .lean();
+  },
 
   async createCertificate(data) { return (await MedicalCertificate.create(data)).toObject(); },
   async listIssuedCertificatesForPatient(patientId, { view, boundary, page, limit }) {

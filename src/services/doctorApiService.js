@@ -130,6 +130,9 @@ export function createDoctorApiService(repository = doctorApiRepository) {
     async createMedicalRecord(appointmentId, values) {
       return normalizeRecord(await repository.createMedicalRecord(appointmentId, {
         diagnosis: values.diagnosis.trim(), notes: values.notes?.trim() || null, follow_up: values.follow_up?.trim() || null,
+        follow_up_required: values.follow_up_required === true,
+        follow_up_recommended_date: values.follow_up_required ? values.follow_up_recommended_date : null,
+        follow_up_reason: values.follow_up_required ? values.follow_up_reason.trim() : null,
         prescriptions: (values.prescriptions ?? []).map(({ medicine, dosage, instructions }) => ({ medicine: medicine.trim(), dosage: dosage.trim(), instructions: instructions?.trim() || null })),
       }));
     },

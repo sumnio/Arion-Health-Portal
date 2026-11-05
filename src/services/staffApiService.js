@@ -114,7 +114,7 @@ export function createStaffApiService(repository = staffApiRepository) {
       const current = new Date();
       const upcomingAppointment = [...appointments].reverse().find((item) => ['pending', 'confirmed'].includes(item.status) && new Date(item.appointment_at) > current) ?? null;
       const latestAppointment = appointments.find((item) => new Date(item.appointment_at) <= current) ?? null;
-      return { patient: normalizeStaffPatient(detail.patient), appointments, latestAppointment, upcomingAppointment };
+      return { patient: normalizeStaffPatient(detail.patient), appointments, latestAppointment, upcomingAppointment, followUpRecommendations: detail.follow_up_recommendations ?? [] };
     },
     async getPatientContext(id) { const [patient, records] = await Promise.all([repository.getPatient(id), repository.getRecordSummary(id)]); return { patient: normalizeStaffPatient(patient), records }; },
     getDoctors: () => repository.getDoctors(),
@@ -146,7 +146,7 @@ export function createStaffApiService(repository = staffApiRepository) {
     walkInPatientPayload(values, duplicateConfirmation = false) { return { ...values, email: values.email?.trim().toLowerCase() || null, contact_number: canonicalizePhilippineMobile(values.contact_number), address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: canonicalizePhilippineMobile(values.emergency_contact_number) || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean), duplicate_confirmation: duplicateConfirmation }; },
     checkWalkInDuplicates(values) { return repository.checkWalkInDuplicates(this.walkInPatientPayload(values)); },
     registerWalkIn(values, { duplicateConfirmation = false } = {}) { return repository.registerWalkIn(this.walkInPatientPayload(values, duplicateConfirmation)); },
-    createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: 'normal' }); },
+    createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: 'normal', ...(values.sourceMedicalRecordId ? { source_medical_record_id: values.sourceMedicalRecordId } : {}) }); },
     resendPortalInvitation: (patientId, email) => repository.resendPortalInvitation(patientId, email?.trim().toLowerCase()),
     confirm: (id) => repository.confirmAppointment(id), checkIn: (id) => repository.checkIn(id), updatePriority: (id, payload) => repository.updatePriority(id, payload), getPriorityHistory: (id) => repository.getPriorityHistory(id), noShow: (id) => repository.markNoShow(id), cancel: (id) => repository.cancelAppointment(id),
     async getPwdVerifications(page = 1) {

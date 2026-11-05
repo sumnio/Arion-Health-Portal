@@ -1,12 +1,12 @@
 import { APPOINTMENT_PRIORITIES, APPOINTMENT_VISIT_TYPES, PRIORITY_AUDIT_TEXT_MAX, URGENT_REASON_LABELS } from '../models/index.js';
 import { httpError } from '../utils/httpError.js';
-import { appointmentLocalParts, clinicDate, SLOT_TIME_PATTERN } from '../utils/schedulingTime.js';
+import { addDays, appointmentLocalParts, clinicDate, SLOT_TIME_PATTERN } from '../utils/schedulingTime.js';
 import { validateObjectId } from './appointmentValidation.js';
 import { boundedText, INPUT_LIMITS, queryInteger, queryText, rejectUnknownFields, validateQueryKeys } from './inputValidation.js';
 import { validatePhilippineMobile } from './phoneValidation.js';
 
 const patientFields = new Set(['full_name', 'email', 'contact_number', 'dob', 'sex', 'address', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship', 'allergies', 'duplicate_confirmation']);
-const appointmentFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason', 'priority']);
+const appointmentFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason', 'priority', 'source_medical_record_id']);
 export const STAFF_HISTORY_RANGES = Object.freeze(['today', 'last_7_days', 'last_30_days', 'this_month', 'custom']);
 export const STAFF_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 'no_show']);
 export const STAFF_HISTORY_PAGE_SIZE = 10;
@@ -58,9 +58,14 @@ export function validateWalkInAppointment(body = {}, now, timeZone) {
   const appointmentAt = new Date(body.appointment_at);
   if (Number.isNaN(appointmentAt.getTime())) throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'appointment_at must be a valid date/time.');
   const local = appointmentLocalParts(appointmentAt, timeZone);
-  if (local.date !== clinicDate(now, timeZone)) throw httpError(400, 'WALK_IN_MUST_BE_TODAY', 'Walk-in appointments must be on the current clinic day.');
+  const sourceMedicalRecordId = body.source_medical_record_id == null
+    ? null
+    : validateObjectId(body.source_medical_record_id, 'source_medical_record_id');
+  const today = clinicDate(now, timeZone);
+  if (!sourceMedicalRecordId && local.date !== today) throw httpError(400, 'WALK_IN_MUST_BE_TODAY', 'Walk-in appointments must be on the current clinic day.');
+  if (sourceMedicalRecordId && local.date > addDays(today, 14)) throw httpError(400, 'OUTSIDE_BOOKING_WINDOW', 'Follow-up appointments must be within 14 days.');
   if (appointmentAt < now || !SLOT_TIME_PATTERN.test(local.time) || appointmentAt.getUTCSeconds() !== 0 || appointmentAt.getUTCMilliseconds() !== 0) throw httpError(400, 'INVALID_APPOINTMENT_TIME', 'Walk-in appointment time must be a current or future 30-minute slot.');
-  return { doctor_id: doctorId, appointment_at: appointmentAt, visit_type: body.visit_type, reason: text(body.reason, 'reason', false, INPUT_LIMITS.reason), priority: 'normal' };
+  return { doctor_id: doctorId, appointment_at: appointmentAt, visit_type: body.visit_type, reason: text(body.reason, 'reason', false, INPUT_LIMITS.reason), priority: 'normal', source_medical_record_id: sourceMedicalRecordId };
 }
 
 export function validatePriority(body = {}) {

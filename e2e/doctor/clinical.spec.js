@@ -6,6 +6,7 @@ import { DEFAULT_E2E_API_URL, loadE2eEnvironment } from '../../server/scripts/e2
 
 loadE2eEnvironment();
 const apiURL = process.env.E2E_API_URL || DEFAULT_E2E_API_URL;
+const formatBookingDateForTest = (value) => new Date(`${value}T00:00:00+08:00`).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
 async function browserApi(page, path, { method = 'GET', body } = {}) {
   return page.evaluate(async ({ origin, path: resource, method: verb, body: payload }) => {
@@ -31,6 +32,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
     check_in_at: new Date(),
     reason: 'Persistent cough',
   });
+  const followUpSlot = await patientScenario.createBookableSlot({ doctor: seededDoctor, offset: 3, startTime: '11:00', endTime: '12:00' });
   await loginAsDoctor(page, seededDoctor);
   await page.goto(`/doctor/patients/${patient.patientId}`);
   await expect(page.getByRole('heading', { name: patient.full_name })).toBeVisible();
@@ -41,7 +43,9 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
 
   await page.getByLabel('Diagnosis *').fill('E2E acute bronchitis');
   await page.getByLabel('Doctor’s notes (optional)').fill('E2E lungs clear on examination.');
-  await page.getByLabel('Follow-up instructions (optional)').fill('Return in seven days if symptoms persist.');
+  await page.getByLabel('Follow-up required').check();
+  await page.getByLabel('Recommended date *').fill(followUpSlot.date);
+  await page.getByLabel('Follow-up reason *').fill('Reassessment after treatment.');
   await page.getByRole('button', { name: 'Add Prescription' }).click();
   await page.getByLabel('Medicine *').fill('E2E Salbutamol');
   await page.getByLabel('Dosage *').fill('2 puffs');
@@ -50,7 +54,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await expect(page.getByRole('heading', { name: 'Medical Record Saved' })).toBeVisible();
 
   const record = await MedicalRecord.findOne({ appointment_id: appointment.appointmentId }).lean();
-  expect(record).toMatchObject({ diagnosis: 'E2E acute bronchitis', doctor_id: expect.anything(), patient_id: expect.anything() });
+  expect(record).toMatchObject({ diagnosis: 'E2E acute bronchitis', doctor_id: expect.anything(), patient_id: expect.anything(), follow_up_required: true, follow_up_reason: 'Reassessment after treatment.' });
   const prescription = await Prescription.findOne({ medical_record_id: record._id }).lean();
   expect(prescription).toMatchObject({ medicine: 'E2E Salbutamol', dosage: '2 puffs' });
 
@@ -120,6 +124,20 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.reload();
   await expect(page.getByText('Completed', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark Consultation Completed' })).toHaveCount(0);
+  await logoutThroughUi(page);
+  await loginAsPatient(page, patient);
+  await page.goto(`/patient/records/${record._id}`);
+  await expect(page.getByText('Reassessment after treatment.')).toBeVisible();
+  await expect(page.getByText('Follow-up recommended — Not yet scheduled.')).toBeVisible();
+  await page.getByRole('link', { name: 'Schedule Follow-up' }).click();
+  await expect(page.getByRole('heading', { name: 'Schedule Follow-up' })).toBeVisible();
+  await page.getByRole('button', { name: formatBookingDateForTest(followUpSlot.date) }).click();
+  await page.getByRole('radio', { name: /11:00 AM/ }).check();
+  await page.getByRole('button', { name: 'Confirm Appointment' }).click();
+  await expect(page.getByRole('heading', { name: 'Appointment request created' })).toBeVisible();
+  const linked = await Appointment.findOne({ source_medical_record_id: record._id }).lean();
+  expect(linked).toMatchObject({ patient_id: expect.anything(), doctor_id: expect.anything(), visit_type: 'follow_up', status: 'pending' });
+  expect((await MedicalRecord.findById(record._id).lean()).follow_up_recommended_date.toISOString().slice(0, 10)).toBe(followUpSlot.date);
   assertBrowserClean();
 });
 

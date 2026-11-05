@@ -6,6 +6,7 @@ import {
 } from '../validation/appointmentValidation.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
 import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
+import { clinicDate } from '../utils/schedulingTime.js';
 
 const RESCHEDULE_CUTOFF_MS = 60 * 60 * 1000;
 
@@ -39,6 +40,9 @@ function presentAppointment(appointment, hasMedicalRecord = false, patientCreato
       : null,
     has_medical_record: hasMedicalRecord,
     patient_created: Boolean(patientCreatorId && String(appointment.created_by?._id ?? appointment.created_by) === String(patientCreatorId)),
+    source_medical_record_id: appointment.source_medical_record_id
+      ? String(appointment.source_medical_record_id?._id ?? appointment.source_medical_record_id)
+      : null,
   };
 }
 
@@ -96,6 +100,28 @@ export function createAppointmentService({
       );
       if (!(await repository.doctorExists(input.doctor_id))) {
         throw httpError(404, 'DOCTOR_NOT_FOUND', 'Doctor was not found.');
+      }
+      if (input.source_medical_record_id) {
+        const record = await repository.findFollowUpRecordForPatient?.(
+          input.source_medical_record_id,
+          patient._id ?? patient.id,
+        );
+        if (!record || record.follow_up_required !== true) {
+          throw httpError(404, 'FOLLOW_UP_RECOMMENDATION_NOT_FOUND', 'The follow-up recommendation was not found.');
+        }
+        if (String(record.doctor_id) !== String(input.doctor_id)
+          || input.visit_type !== 'follow_up'
+          || input.reason !== 'Follow-up consultation') {
+          throw httpError(409, 'FOLLOW_UP_CONTEXT_MISMATCH', 'This appointment must use the recommended Doctor and follow-up visit type.');
+        }
+        const actualDate = clinicDate(input.appointment_at, bookingAvailabilityService?.timeZone ?? 'Asia/Manila');
+        const recommendedDate = new Date(record.follow_up_recommended_date).toISOString().slice(0, 10);
+        if (actualDate < recommendedDate) {
+          throw httpError(409, 'FOLLOW_UP_BEFORE_RECOMMENDED_DATE', 'Choose a slot on or after the recommended follow-up date.');
+        }
+        if (await repository.findActiveLinkedFollowUp?.(input.source_medical_record_id)) {
+          throw httpError(409, 'FOLLOW_UP_ALREADY_SCHEDULED', 'This follow-up recommendation already has an active appointment.');
+        }
       }
       if (bookingAvailabilityService) {
         await bookingAvailabilityService.assertBookable(input.doctor_id, input.appointment_at);

@@ -71,6 +71,17 @@ export const appointmentRepository = {
   async medicalRecordExists(appointmentId) {
     return Boolean(await MedicalRecord.exists({ appointment_id: appointmentId }));
   },
+  async findFollowUpRecordForPatient(recordId, patientId) {
+    return MedicalRecord.findOne({ _id: recordId, patient_id: patientId })
+      .select('patient_id doctor_id follow_up_required follow_up_recommended_date follow_up_reason')
+      .lean();
+  },
+  async findActiveLinkedFollowUp(recordId) {
+    return Appointment.findOne({
+      source_medical_record_id: recordId,
+      status: { $in: ['pending', 'confirmed'] },
+    }).lean();
+  },
 
   async listRecordedAppointmentIds(appointmentIds) {
     if (!appointmentIds.length) return [];
