@@ -4,6 +4,7 @@ const CONTENT = Object.freeze({
   patient: Object.freeze({
     appointment_confirmed: ['Appointment confirmed', 'Your appointment has been confirmed.'],
     appointment_rescheduled: ['Appointment rescheduled', 'Your appointment has been rescheduled.'],
+    doctor_unavailable: ['Appointment needs rescheduling', 'Your Doctor is unavailable for this appointment. Please choose a new available schedule.'],
     appointment_cancelled: ['Appointment cancelled', 'Your appointment has been cancelled.'],
     appointment_completed: ['Consultation completed', 'Your consultation has been completed.'],
     pwd_verification_verified: ['PWD status verified', 'Your PWD status has been verified. PWD queue priority is now active on eligible visits.'],
@@ -12,6 +13,7 @@ const CONTENT = Object.freeze({
   staff: Object.freeze({
     patient_booking_created: ['New patient booking', 'A patient appointment has been booked.'],
     appointment_rescheduled: ['Appointment rescheduled', 'A patient appointment has been rescheduled.'],
+    doctor_unavailable: ['Appointment needs rescheduling', 'An appointment requires rescheduling because the Doctor is unavailable.'],
     appointment_cancelled: ['Appointment cancelled', 'A patient appointment has been cancelled.'],
     pwd_verification_submitted: ['New PWD verification request', 'A patient submitted a PWD ID for verification.'],
   }),
@@ -20,6 +22,7 @@ const CONTENT = Object.freeze({
     patient_arrived: ['Patient arrived', 'A patient has arrived for an assigned appointment.'],
     appointment_marked_urgent: ['Appointment marked urgent', 'An assigned appointment has been marked urgent.'],
     appointment_rescheduled: ['Appointment rescheduled', 'An assigned appointment has been rescheduled.'],
+    doctor_unavailable: ['Appointment needs rescheduling', 'An assigned appointment requires rescheduling.'],
     appointment_cancelled: ['Appointment cancelled', 'An assigned appointment has been cancelled.'],
   }),
 });
@@ -45,6 +48,7 @@ function contentFor(role, type, context) {
     patient: {
       appointment_confirmed: doctor ? `Your appointment with ${doctor} has been confirmed.` : fallback,
       appointment_rescheduled: doctor ? `Your appointment with ${doctor} has been rescheduled.` : fallback,
+      doctor_unavailable: fallback,
       appointment_cancelled: doctor ? `Your appointment with ${doctor} has been cancelled.` : fallback,
       appointment_completed: doctor ? `Your consultation with ${doctor} has been completed.` : fallback,
       pwd_verification_verified: fallback,
@@ -53,6 +57,7 @@ function contentFor(role, type, context) {
     staff: {
       patient_booking_created: patient && doctor ? `${patient} booked an appointment with ${doctor}.` : fallback,
       appointment_rescheduled: patient && doctor ? `${patient} rescheduled their appointment with ${doctor}.` : fallback,
+      doctor_unavailable: patient && doctor ? `${patient}'s appointment with ${doctor} requires rescheduling.` : fallback,
       appointment_cancelled: patient && doctor ? `${patient}'s appointment with ${doctor} has been cancelled.` : fallback,
       pwd_verification_submitted: fallback,
     },
@@ -61,6 +66,7 @@ function contentFor(role, type, context) {
       patient_arrived: patient ? `${patient} has arrived for their appointment.` : fallback,
       appointment_marked_urgent: patient ? `${patient}'s appointment has been marked urgent.` : fallback,
       appointment_rescheduled: patient ? `${patient}'s assigned appointment has been rescheduled.` : fallback,
+      doctor_unavailable: patient ? `${patient}'s assigned appointment requires rescheduling.` : fallback,
       appointment_cancelled: patient ? `${patient}'s assigned appointment has been cancelled.` : fallback,
     },
   };
@@ -189,6 +195,24 @@ export function createNotificationTriggerService({ repository, notificationServi
         await notifyStaff('appointment_rescheduled', appointmentId, context);
         await notifyDoctor(doctorId, 'appointment_rescheduled', appointmentId, context);
       }, 'patient', 'appointment_rescheduled', appointmentId);
+    },
+
+    async staffRescheduled({ appointmentId, patientId, doctorId }) {
+      const context = await appointmentContext(appointmentId, 'patient', 'appointment_rescheduled');
+      await run(async () => {
+        await notifyPatient(patientId, 'appointment_rescheduled', appointmentId, context);
+        await notifyStaff('appointment_rescheduled', appointmentId, context);
+        await notifyDoctor(doctorId, 'appointment_rescheduled', appointmentId, context);
+      }, 'patient', 'appointment_rescheduled', appointmentId);
+    },
+
+    async doctorUnavailable({ appointmentId, patientId, doctorId }) {
+      const context = await appointmentContext(appointmentId, 'patient', 'doctor_unavailable');
+      await run(async () => {
+        await notifyPatient(patientId, 'doctor_unavailable', appointmentId, context);
+        await notifyStaff('doctor_unavailable', appointmentId, context);
+        await notifyDoctor(doctorId, 'doctor_unavailable', appointmentId, context);
+      }, 'patient', 'doctor_unavailable', appointmentId);
     },
 
     async patientCancelled({ appointmentId, patientId, doctorId }) {

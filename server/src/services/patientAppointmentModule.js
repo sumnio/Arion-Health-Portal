@@ -13,6 +13,7 @@ export function createPatientAppointmentModule({
   email,
   clinicTimeZone = 'Asia/Manila',
   appointmentEmails,
+  rescheduleSuggestionService,
   now,
 } = {}) {
   const patientService = createPatientService({ repository: patients });
@@ -28,6 +29,7 @@ export function createPatientAppointmentModule({
     notificationTriggers,
     smsReminders,
     appointmentEmails: rescheduleEmails,
+    rescheduleSuggestionService,
     now,
   });
   return { patientService, appointmentService };

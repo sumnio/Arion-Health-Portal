@@ -148,6 +148,20 @@ test('Patient reschedule form keeps Doctor, visit type, and reason read-only whi
   assert.doesNotMatch(source, /name="(?:doctor|visit_type|reason)"/);
   assert.match(source, /disabled=\{busy \|\| loading\}/);
   assert.match(source, /refreshDate/);
+  assert.match(source, /Suggested replacements/);
+  assert.match(source, /Choose New Schedule/);
+});
+
+test('Doctor-unavailability Patient UI requires confirmation and does not expose an absence reason', async () => {
+  const [detail, form] = await Promise.all([
+    readFile(new URL('../src/pages/patient/PatientAppointmentDetail.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/components/appointments/PatientRescheduleForm.jsx', import.meta.url), 'utf8'),
+  ]);
+  assert.match(detail, /Doctor unavailable/);
+  assert.match(detail, /has not been moved automatically/);
+  assert.match(form, /Confirm New Schedule/);
+  assert.match(form, /suggested_reschedule_slots/);
+  assert.doesNotMatch(`${detail}\n${form}`, /absence_reason|blocked\.reason|doctor_unavailability_reason/);
 });
 
 test('Patient reschedule UI treats email delivery failure as a safe partial success', async () => {

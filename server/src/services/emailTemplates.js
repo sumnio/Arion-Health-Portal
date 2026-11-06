@@ -65,3 +65,13 @@ export function appointmentRescheduledTemplate({ appointmentUrl, appointmentDate
     html: `<p>Arion Health Portal</p><p>Your appointment schedule has been updated. Sign in to Arion Health Portal to review the latest appointment details.</p><p><strong>Updated schedule:</strong> ${safeDate} at ${safeTime}${safeDoctor ? ` with ${safeDoctor}` : ''}</p><p><a href="${safeUrl}">View Updated Appointment</a></p>`,
   });
 }
+
+export function appointmentNeedsRescheduleTemplate({ appointmentUrl }) {
+  const safeUrl = escapeHtml(appointmentUrl);
+  return Object.freeze({
+    type: 'appointment_needs_reschedule',
+    subject: 'Your Arion appointment needs rescheduling',
+    text: ['Arion Health Portal', '', 'Your Doctor is unavailable for your current appointment schedule. Sign in to Arion Health Portal to choose an available replacement schedule.', `View Appointment: ${appointmentUrl}`].join('\n'),
+    html: `<p>Arion Health Portal</p><p>Your Doctor is unavailable for your current appointment schedule. Sign in to Arion Health Portal to choose an available replacement schedule.</p><p><a href="${safeUrl}">View Appointment</a></p>`,
+  });
+}

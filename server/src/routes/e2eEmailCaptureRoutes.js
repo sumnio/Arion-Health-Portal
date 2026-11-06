@@ -26,6 +26,7 @@ export function createE2eEmailCaptureRouter({ provider, captureKey }) {
       'portal_invitation',
       'portal_claim_verification',
       'appointment_rescheduled',
+      'appointment_needs_reschedule',
     ]);
     const type = supportedTypes.has(request.query.type)
       ? request.query.type
@@ -45,7 +46,7 @@ export function createE2eEmailCaptureRouter({ provider, captureKey }) {
       response.set('Cache-Control', 'no-store');
       return response.json({ claim_url: claimUrl });
     }
-    if (type === 'appointment_rescheduled') {
+    if (type === 'appointment_rescheduled' || type === 'appointment_needs_reschedule') {
       const appointmentUrl = delivery?.text?.match(/https?:\/\/[^\s]+\/patient\/appointments\/[A-Za-z0-9]+/)?.[0]
         ?? delivery?.text?.match(/https?:\/\/[^\s]+\/login/)?.[0];
       if (!appointmentUrl) return response.status(404).json({ error: { code: 'NOT_FOUND', message: 'No test delivery was captured.' } });

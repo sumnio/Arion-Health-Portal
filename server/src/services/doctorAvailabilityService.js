@@ -120,9 +120,6 @@ export function createDoctorAvailabilityService({ repository, clinic, now = () =
     async createBlockedForDoctor(doctorId, body) {
       const target = targetId(await activeDoctor(doctorId));
       const values = validateBlockedCreate(body);
-      if (await repository.hasActiveAppointmentOverlap(target, values.start_at, values.end_at)) {
-        throw httpError(409, 'BLOCK_OVERLAPS_APPOINTMENT', 'Blocked time overlaps an existing active appointment.');
-      }
       return blockedView(await repository.createBlocked({ doctor_id: target, ...values }));
     },
     async deleteBlockedForDoctor(doctorId, blockedId) {

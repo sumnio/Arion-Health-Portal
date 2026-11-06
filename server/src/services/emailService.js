@@ -1,4 +1,4 @@
-import { appointmentRescheduledTemplate, passwordResetTemplate, portalClaimCodeTemplate, portalInvitationTemplate, registrationVerificationTemplate } from './emailTemplates.js';
+import { appointmentNeedsRescheduleTemplate, appointmentRescheduledTemplate, passwordResetTemplate, portalClaimCodeTemplate, portalInvitationTemplate, registrationVerificationTemplate } from './emailTemplates.js';
 
 export class EmailDeliveryError extends Error {
   constructor() {
@@ -53,6 +53,9 @@ export function createEmailService({ provider, appBaseUrl }) {
         appointmentTime,
         doctorName,
       }));
+    },
+    sendAppointmentNeedsRescheduleEmail({ to, appointmentId }) {
+      return deliver(to, appointmentNeedsRescheduleTemplate({ appointmentUrl: appointmentUrl(appBaseUrl, appointmentId) }));
     },
   });
 }

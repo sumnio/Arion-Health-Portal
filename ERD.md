@@ -879,3 +879,17 @@ MedicalRecord 1 ─── 0..many terminal/rebooked Appointment
 The MedicalRecord is the Doctor's immutable clinical recommendation. The linked Appointment is the actual operational schedule and may occur later than the recommended date when that is the nearest valid slot. At most one linked Appointment may be active (`pending` or `confirmed`) at a time. Cancellation, no-show, completion, and rescheduling do not rewrite the MedicalRecord.
 
 Patient access follows ownership of both the MedicalRecord and Appointment. Staff may traverse only the operational recommendation projection (record ID, recommended date, same Doctor, scheduled state) and cannot traverse `follow_up_reason`. Doctor may create and read the recommendation but gains no Appointment scheduling mutation relationship. Admin and unauthenticated callers gain no clinical traversal.
+
+# v1.2.12 Doctor-unavailability relationship impact
+
+```text
+Doctor 1 ─── 0..many DoctorBlockedTime
+                    │
+                    └── flags 0..many active Appointment
+                                      │
+                                      └── optional source MedicalRecord remains unchanged
+```
+
+`Appointment.doctor_unavailability_block_ids` records the active operational blocks that caused the unresolved flag. This does not create a new Appointment status or ownership path. A blocked period may flag several Appointments, and an Appointment may reference more than one overlapping block. Confirmation updates the same Appointment and clears its block references; it does not create a replacement entity.
+
+Staff owns the `DoctorBlockedTime` mutation and may read the privacy-minimized affected projection. Patient access continues through `authenticated UserProfile -> own Patient -> owned Appointment` and is subject to existing self-reschedule rules. Doctor schedule access remains read-only, while Admin and unauthenticated roles gain no traversal. Doctor absence notes do not traverse to Patient, notification, email, SMS, Assistant, MedicalRecord, Prescription, Certificate, or supporting-document relationships.

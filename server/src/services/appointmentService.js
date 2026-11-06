@@ -43,6 +43,7 @@ function presentAppointment(appointment, hasMedicalRecord = false, patientCreato
     source_medical_record_id: appointment.source_medical_record_id
       ? String(appointment.source_medical_record_id?._id ?? appointment.source_medical_record_id)
       : null,
+    requires_reschedule_due_to_doctor_unavailability: appointment.requires_reschedule_due_to_doctor_unavailability === true,
   };
 }
 
@@ -62,6 +63,7 @@ export function createAppointmentService({
   notificationTriggers,
   smsReminders,
   appointmentEmails,
+  rescheduleSuggestionService,
   now = () => new Date(),
 }) {
   async function ownPatient(userProfileId) {
@@ -189,7 +191,11 @@ export function createAppointmentService({
       if (!appointment) {
         throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
       }
-      return presentAppointment(appointment, await hasMedicalRecord(appointmentId), userProfileId);
+      const result = presentAppointment(appointment, await hasMedicalRecord(appointmentId), userProfileId);
+      if (result.requires_reschedule_due_to_doctor_unavailability && !result.has_medical_record && !result.check_in_at) {
+        result.suggested_reschedule_slots = await rescheduleSuggestionService?.suggest(result.doctor.id, result.appointment_at) ?? [];
+      }
+      return result;
     },
 
     async cancelForPatient(userProfileId, appointmentId) {
@@ -308,6 +314,29 @@ export function createAppointmentService({
         if (duplicateKey(error)) {
           throw httpError(409, 'APPOINTMENT_SLOT_CONFLICT', 'That doctor and time slot is no longer available.');
         }
+        throw error;
+      }
+    },
+
+    async rescheduleForStaff(appointmentId, validatedInput) {
+      const existing = await repository.findById(appointmentId);
+      if (!existing || !existing.requires_reschedule_due_to_doctor_unavailability) throw httpError(409, 'APPOINTMENT_NOT_AFFECTED', 'This appointment does not require Doctor-unavailability rescheduling.');
+      if (!['pending', 'confirmed'].includes(existing.status) || existing.check_in_at || await hasMedicalRecord(appointmentId)) throw httpError(409, 'RESCHEDULE_NOT_ALLOWED', 'This appointment is locked and requires manual Staff review.');
+      const originalTime = new Date(existing.appointment_at);
+      if (validatedInput.appointment_at.getTime() === originalTime.getTime()) throw httpError(409, 'RESCHEDULE_NO_CHANGE', 'Choose a different appointment time.');
+      const doctorId = existing.doctor_id?._id ?? existing.doctor_id;
+      await bookingAvailabilityService.assertBookable(doctorId, validatedInput.appointment_at);
+      try {
+        const updated = await repository.rescheduleAffectedForStaff({ appointmentId, doctorId, expectedAppointmentAt: originalTime, appointmentAt: validatedInput.appointment_at });
+        if (!updated) throw httpError(409, 'RESCHEDULE_CONFLICT', 'This appointment changed before rescheduling could finish.');
+        const payload = { appointmentId: updated._id, patientId: updated.patient_id, doctorId: updated.doctor_id?._id ?? updated.doctor_id };
+        await invokeNotificationTrigger(notificationTriggers, 'staffRescheduled', payload);
+        await invokeSmsReminderWorkflow(smsReminders, 'appointmentRescheduled', { appointmentId: updated._id, patientId: updated.patient_id, appointmentAt: updated.appointment_at });
+        let emailNotification = 'skipped';
+        try { emailNotification = (await appointmentEmails?.appointmentRescheduled?.({ appointmentId: updated._id, patientId: updated.patient_id, appointmentAt: updated.appointment_at, doctorName: updated.doctor_id?.user_profile_id?.display_name ?? null }))?.status ?? 'skipped'; } catch { emailNotification = 'failed'; }
+        return { ...presentAppointment(updated), email_notification: emailNotification };
+      } catch (error) {
+        if (duplicateKey(error)) throw httpError(409, 'APPOINTMENT_SLOT_CONFLICT', 'That doctor and time slot is no longer available.');
         throw error;
       }
     },

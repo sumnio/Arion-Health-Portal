@@ -994,3 +994,16 @@ The Staff Patients tab displays the live Pending count as `PWD Verification (n)`
 - Doctor remains read-only for scheduling. Staff sees only operational Doctor/date/scheduled state and never receives the clinical follow-up reason. Patient sees their own recommendation and may self-book it.
 - One pending or confirmed Appointment is allowed per recommendation. A terminal linked Appointment permits normal rebooking rules.
 - Follow-up reasons are excluded from Staff operational views, notifications, email, SMS, Assistant provider data, and logs. v1.2.11 is local only and is not deployed.
+
+# v1.2.12 Doctor unavailability rescheduling assistance
+
+- Active Pending or Confirmed Appointments that overlap a Staff-created Doctor time-off block are flagged as requiring rescheduling. Completed, Cancelled, and No-show Appointments are excluded.
+- Creating time off never moves, duplicates, cancels, or completes an Appointment. Staff and an eligible owning Patient must explicitly confirm a replacement before `appointment_at` changes.
+- Up to five alternatives are calculated from the same Doctor's published, unblocked, unoccupied 30-minute slots inside the existing 14-day Asia/Manila booking horizon. Same-day later slots are preferred, followed by the nearest future date and then the time closest to the original schedule.
+- Staff sees only operational Patient, Doctor, schedule, visit-type, status, lock state, and suggestions. Doctor absence notes and clinical content are not exposed to the Patient, notifications, email, or SMS.
+- Patient self-rescheduling keeps all existing ownership, creator, one-hour cutoff, check-in, Medical Record, and terminal-state restrictions. Locked Appointments remain flagged for Staff review.
+- Final confirmation rechecks authoritative availability and performs an atomic stale-state update. One competing Patient/Staff request can succeed; stale requests or newly occupied slots fail safely.
+- Confirmed rescheduling keeps the same Appointment and preserves `source_medical_record_id`. The linked Medical Record and its recommended follow-up date/reason remain immutable.
+- Flagging sends privacy-safe in-app notifications, invalidates future SMS reminders for the unusable schedule, and may send a safe navigation-only email. Confirmed rescheduling reuses the existing versioned SMS, notification, and email workflows. Delivery failures do not roll back the saved scheduling decision.
+- Staff retains exclusive Doctor schedule mutation authority. Doctor schedule access remains read-only, Patients remain ownership-scoped, and Admin/unauthenticated roles receive no new access.
+- v1.2.12 is local only. No deployment was performed.

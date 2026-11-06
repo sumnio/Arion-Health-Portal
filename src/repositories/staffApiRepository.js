@@ -21,6 +21,7 @@ export function createStaffApiRepository(client = apiClient) {
     async deletePublishedAvailability(id, publishedId) { return request(`/api/staff/doctors/${encodeURIComponent(id)}/published-availability/${encodeURIComponent(publishedId)}`, { method: 'DELETE' }); },
     async createBlockedTime(id, payload) { return (await request(`/api/staff/doctors/${encodeURIComponent(id)}/blocked-times`, { method: 'POST', body: payload })).blocked_time; },
     async deleteBlockedTime(id, blockedId) { return request(`/api/staff/doctors/${encodeURIComponent(id)}/blocked-times/${encodeURIComponent(blockedId)}`, { method: 'DELETE' }); },
+    async rescheduleAffectedAppointment(id, appointmentAt) { return (await request(`/api/staff/appointments/${encodeURIComponent(id)}/doctor-unavailability-reschedule`, { method: 'PATCH', body: { appointment_at: appointmentAt } })).appointment; },
     async searchPatients(search = '') { return (await request(`/api/staff/patients?search=${encodeURIComponent(search)}`)).patients; },
     async getPatient(id) { return (await request(`/api/staff/patients/${encodeURIComponent(id)}`)).patient; },
     async getPatientDetails(id) { return request(`/api/staff/patients/${encodeURIComponent(id)}`); },

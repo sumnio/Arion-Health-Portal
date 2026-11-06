@@ -6,6 +6,7 @@ export const NOTIFICATION_TYPES = Object.freeze([
   'appointment_created',
   'appointment_confirmed',
   'appointment_rescheduled',
+  'doctor_unavailable',
   'appointment_cancelled',
   'appointment_completed',
   'appointment_reminder',

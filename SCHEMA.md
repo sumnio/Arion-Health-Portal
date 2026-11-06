@@ -352,6 +352,9 @@ Replaces the previous `Schedule` entity.
 | reason | text | Reason for visit |
 | priority | enum | `normal`, `urgent` |
 | created_by | identifier, FK, nullable | References `UserProfile.id`; authenticated creator account, or null only for imported/system/legacy records without a known creator |
+| requires_reschedule_due_to_doctor_unavailability | boolean | Explicit unresolved operational flag; defaults to false and does not replace `status` |
+| doctor_unavailability_block_ids | ObjectId[] | DoctorBlockedTime references currently causing the unresolved flag |
+| doctor_unavailability_flagged_at | timestamptz, nullable | Server timestamp for the latest affected-state detection |
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
@@ -373,6 +376,14 @@ Staff appointment-history reads use the supporting compound index `(status, appo
 - Staff may confirm or cancel eligible Appointments and explicitly mark eligible unattended Appointments `no_show` only at or after the scheduled start plus five minutes, using trusted server time. No-show is never automatic, and Staff may not set `completed`.
 - `Appointment.status` is the single shared status read by Doctor, Staff, and Patient views. Do not add role-specific completion fields.
 - A completed Appointment is no longer part of the active waiting queue. Queue priority and check-in ordering remain unchanged.
+
+### Doctor-unavailability rescheduling rules (v1.2.12)
+
+- A Staff-created `DoctorBlockedTime` flags overlapping `pending` and `confirmed` Appointments without changing their normal status or schedule. Terminal Appointments are excluded.
+- The block-reference array supports overlapping time-off records. Removing one block clears only that reference; the flag clears only when no related block remains or a replacement is confirmed.
+- Patient or Staff confirmation clears the flag fields while atomically changing the existing Appointment's `appointment_at`. The final write requires the expected original instant, active and unchecked state, and authoritative availability.
+- The compound index `(doctor_id, requires_reschedule_due_to_doctor_unavailability, appointment_at)` supports the Staff affected list.
+- `source_medical_record_id`, visit context, creator, Patient, Doctor, priority, and the immutable Medical Record recommendation are not changed by this workflow.
 
 ### Queue priority
 

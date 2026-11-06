@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { formatBookingDate, formatSlot } from '../../services/dateTimeService.js';
+import { bookingWindow, clinicDateTimeParts, formatBookingDate, formatSlot } from '../../services/dateTimeService.js';
 import { staffApiErrorMessage, staffApiService, staffPublicationWindow, staffWeekDays } from '../../services/staffApiService.js';
 import '../../styles/staff-doctors.css';
 
@@ -19,9 +19,29 @@ function clinicClockParts(value) {
   };
 }
 
+function AffectedAppointment({ item, busy, onRescheduled }) {
+  const window = bookingWindow();
+  const [selected, setSelected] = useState(item.suggested_slots?.[0]?.appointment_at ?? '');
+  const [otherDate, setOtherDate] = useState('');
+  const [otherSlots, setOtherSlots] = useState([]);
+  const [error, setError] = useState('');
+  const original = clinicDateTimeParts(item.appointment_at);
+  async function loadOther(date) {
+    setOtherDate(date); setSelected(''); setError('');
+    try { setOtherSlots(await staffApiService.getAvailableSlots(item.doctor.id, date)); }
+    catch (reason) { setOtherSlots([]); setError(staffApiErrorMessage(reason, 'Unable to load replacement slots.')); }
+  }
+  async function confirm() {
+    if (!selected) { setError('Choose an available replacement slot.'); return; }
+    try { await staffApiService.rescheduleAffectedAppointment(item.id, selected); await onRescheduled(); }
+    catch (reason) { setError(staffApiErrorMessage(reason, 'That replacement is no longer available. Choose another slot.')); await loadOther(otherDate || item.suggested_slots?.[0]?.date || window.start); }
+  }
+  return <li className="affected-appointment"><div><strong>{item.patient.full_name}</strong><p>Original schedule: {formatBookingDate(original.date)} · {formatSlot(original.time)}</p><p>{item.visit_type.replaceAll('_', ' ')} · {item.status}</p>{item.locked && <p role="note">This appointment is operationally locked and needs manual review.</p>}</div>{!item.locked && <div><fieldset><legend>Suggested replacement slots</legend>{item.suggested_slots.length ? item.suggested_slots.map((slot) => <label key={slot.appointment_at}><input type="radio" name={`replacement-${item.id}`} checked={selected === slot.appointment_at} onChange={() => { setSelected(slot.appointment_at); setError(''); }} /> {formatBookingDate(slot.date)} · {formatSlot(slot.start_time)}</label>) : <p>No valid replacement is currently available.</p>}</fieldset><details><summary>Choose another available slot</summary><label>Date<input type="date" min={window.start} max={window.end} value={otherDate} onChange={(event) => loadOther(event.target.value)} /></label>{otherSlots.filter((slot) => slot.available).map((slot) => <label key={slot.appointment_at}><input type="radio" name={`replacement-${item.id}`} checked={selected === slot.appointment_at} onChange={() => setSelected(slot.appointment_at)} /> {formatSlot(slot.time)}</label>)}</details>{error && <p role="alert" className="schedule-error">{error}</p>}<div className="row-actions"><button disabled={busy || !selected} onClick={confirm}>Reschedule</button><button className="secondary-button" onClick={() => { setSelected(''); setError('Appointment left pending for later Staff action.'); }}>Leave Pending</button></div></div>}</li>;
+}
+
 export default function StaffDoctorSchedule() {
   const { id } = useParams(); const window = staffPublicationWindow();
-  const [state, setState] = useState({ loading: true, doctor: null, schedule: { recurring_availability: [], published_availability: [], blocked_times: [] }, error: '' });
+  const [state, setState] = useState({ loading: true, doctor: null, schedule: { recurring_availability: [], published_availability: [], blocked_times: [], affected_appointments: [] }, error: '' });
   const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [actionError, setActionError] = useState('');
   const [rangeDrafts, setRangeDrafts] = useState(() => Object.fromEntries(staffWeekDays.map((_, day) => [day, { ...blankRange }])));
   const [editing, setEditing] = useState(null);
@@ -68,5 +88,6 @@ export default function StaffDoctorSchedule() {
       <div className="compact-form"><label>Date<input type="date" value={blocked.date} onChange={event => setBlocked({ ...blocked, date: event.target.value })}/></label><label className="inline-check"><input type="checkbox" checked={blocked.whole_day} onChange={event => setBlocked({ ...blocked, whole_day: event.target.checked })}/> Whole day</label>{!blocked.whole_day && <><label>Start<input type="time" step="1800" value={blocked.start_time} onChange={event => setBlocked({ ...blocked, start_time: event.target.value })}/></label><label>End<input type="time" step="1800" value={blocked.end_time} onChange={event => setBlocked({ ...blocked, end_time: event.target.value })}/></label></>}<label className="reason-input">Reason<input value={blocked.reason} onChange={event => setBlocked({ ...blocked, reason: event.target.value })}/></label><button disabled={busy} onClick={() => run(() => staffApiService.createBlockedTime(id, blocked), `Time off added for ${formatBookingDate(blocked.date)}.`)}>Add Time Off</button></div>
       {state.schedule.blocked_times.length ? <ul className="schedule-records">{state.schedule.blocked_times.map(item => { const parts = blockParts(item); return <li key={item.id}><div><strong>{formatBookingDate(parts.date)}</strong><span className="schedule-time-value is-unavailable">{parts.wholeDay ? 'Whole day' : `${formatSlot(parts.start)} – ${formatSlot(parts.end)}`}</span><small>{item.reason}</small></div><button disabled={busy} className="danger-button" onClick={() => run(() => staffApiService.deleteBlockedTime(id, item.id), 'Time off removed.')}>Remove</button></li>; })}</ul> : <p>No current or future time off.</p>}
     </section>
+    <section className="staff-schedule-section"><h2>Appointments needing reschedule: {state.schedule.affected_appointments.length}</h2><p>Appointments stay on their original schedule until Staff or the Patient confirms a replacement.</p>{state.schedule.affected_appointments.length ? <ul className="schedule-records affected-appointments">{state.schedule.affected_appointments.map((item) => <AffectedAppointment key={item.id} item={item} busy={busy} onRescheduled={load} />)}</ul> : <p>No appointments currently need rescheduling.</p>}</section>
   </div>;
 }

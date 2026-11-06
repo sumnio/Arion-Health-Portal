@@ -134,7 +134,13 @@ export function createStaffApiService(repository = staffApiRepository) {
     },
     async getDoctorSchedule(id) {
       const [doctors, schedule] = await Promise.all([repository.getDoctors(), repository.getDoctorSchedule(id)]);
-      return { doctor: doctors.find(item => String(item.id) === String(id)) ?? null, schedule };
+      return {
+        doctor: doctors.find(item => String(item.id) === String(id)) ?? null,
+        schedule: {
+          ...schedule,
+          affected_appointments: (schedule.affected_appointments ?? []).map((item) => ({ ...item, suggested_slots: item.suggested_slots ?? [] })),
+        },
+      };
     },
     createDoctorAvailability: (id, payload) => repository.createDoctorAvailability(id, payload),
     updateDoctorAvailability: (id, availabilityId, payload) => repository.updateDoctorAvailability(id, availabilityId, payload),
@@ -143,6 +149,7 @@ export function createStaffApiService(repository = staffApiRepository) {
     deletePublishedAvailability: (id, publishedId) => repository.deletePublishedAvailability(id, publishedId),
     createBlockedTime: (id, values) => repository.createBlockedTime(id, staffBlockedTimePayload(values)),
     deleteBlockedTime: (id, blockedId) => repository.deleteBlockedTime(id, blockedId),
+    rescheduleAffectedAppointment: (id, appointmentAt) => repository.rescheduleAffectedAppointment(id, appointmentAt),
     walkInPatientPayload(values, duplicateConfirmation = false) { return { ...values, email: values.email?.trim().toLowerCase() || null, contact_number: canonicalizePhilippineMobile(values.contact_number), address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: canonicalizePhilippineMobile(values.emergency_contact_number) || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean), duplicate_confirmation: duplicateConfirmation }; },
     checkWalkInDuplicates(values) { return repository.checkWalkInDuplicates(this.walkInPatientPayload(values)); },
     registerWalkIn(values, { duplicateConfirmation = false } = {}) { return repository.registerWalkIn(this.walkInPatientPayload(values, duplicateConfirmation)); },

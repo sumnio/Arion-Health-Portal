@@ -22,5 +22,6 @@ export function createStaffSchedulingRouter({ authModule, schedulingModule }) {
   router.delete('/doctors/:doctorId/published-availability/:publishedId', controller.deletePublished);
   router.post('/doctors/:doctorId/blocked-times', controller.createBlocked);
   router.delete('/doctors/:doctorId/blocked-times/:blockedTimeId', controller.deleteBlocked);
+  router.patch('/appointments/:appointmentId/doctor-unavailability-reschedule', controller.rescheduleAffected);
   return router;
 }

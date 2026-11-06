@@ -58,6 +58,9 @@ const appointmentSchema = new mongoose.Schema(
       ref: 'MedicalRecord',
       default: null,
     },
+    requires_reschedule_due_to_doctor_unavailability: { type: Boolean, required: true, default: false },
+    doctor_unavailability_block_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'DoctorBlockedTime' }],
+    doctor_unavailability_flagged_at: { type: Date, default: null },
   },
   modelOptions,
 );
@@ -69,6 +72,10 @@ appointmentSchema.index(
     partialFilterExpression: { status: { $in: SLOT_BLOCKING_STATUSES } },
     name: 'unique_blocking_doctor_slot',
   },
+);
+appointmentSchema.index(
+  { doctor_id: 1, requires_reschedule_due_to_doctor_unavailability: 1, appointment_at: 1 },
+  { name: 'doctor_unavailability_reschedule_queue' },
 );
 appointmentSchema.index(
   { source_medical_record_id: 1 },

@@ -380,3 +380,15 @@ The assigned Doctor can record whether follow-up is required while creating the 
 Patient and Staff scheduling reuse the existing Doctor availability, conflict, and 14-day booking rules. The Patient or Staff selects the actual slot; the system never books automatically or invents a next-day date. The Appointment links back through `source_medical_record_id`, while the original recommendation remains unchanged after booking, cancellation, or rescheduling. Doctor receives no scheduling mutation permission, and Staff receives no clinical reason.
 
 Recommendations beyond the 14-day horizon remain visible but cannot yet be scheduled. Doctor-unavailability automatic rescheduling is intentionally deferred to v1.2.12. No deployment was performed.
+
+# v1.2.12 handoff — Doctor unavailability rescheduling assistance
+
+Staff may add a bounded whole-day or partial-day Doctor time-off block from the existing schedule page. The backend finds overlapping active Appointments in one batch, adds an explicit Doctor-unavailability flag and block reference, and leaves their original date, status, Patient, Doctor, visit context, and follow-up link unchanged. Terminal Appointments are ignored. Removing the last related block clears an unresolved flag; no Appointment is moved automatically.
+
+The Staff schedule shows the affected count, operational details, up to five ranked replacements, another-date slot lookup, a confirmed Reschedule action, and Leave Pending. The owning Patient sees a generic Doctor-unavailable warning and suggestions only when existing Patient self-reschedule rules permit it. Checked-in or recorded Appointments remain locked and visible for manual Staff handling rather than bypassing lifecycle controls.
+
+Suggestions reuse published availability, Doctor blocks, occupancy, 30-minute slot rules, the 14-day booking horizon, and Asia/Manila time. Final Patient or Staff confirmation revalidates availability and uses an atomic expected-original-time update, so a competing confirmation or stale occupied slot fails safely. The existing Appointment is updated; `source_medical_record_id` remains intact and the source Medical Record recommendation is never rewritten.
+
+Flagging creates fixed privacy-safe Patient/Staff/Doctor notifications, invalidates unsent SMS reminders tied to the invalid schedule, and sends a generic navigation-only Patient email when a portal account exists. The absence note and clinical data are not included. Confirmed moves reuse current reschedule notification, versioned SMS-plan, and email behavior. Side-effect delivery remains best effort and cannot roll back the scheduling state.
+
+No Doctor mutation route, bulk automatic move, duplicate Appointment, auto-cancellation, new provider, environment change, or deployment was added.
