@@ -1007,3 +1007,12 @@ The Staff Patients tab displays the live Pending count as `PWD Verification (n)`
 - Flagging sends privacy-safe in-app notifications, invalidates future SMS reminders for the unusable schedule, and may send a safe navigation-only email. Confirmed rescheduling reuses the existing versioned SMS, notification, and email workflows. Delivery failures do not roll back the saved scheduling decision.
 - Staff retains exclusive Doctor schedule mutation authority. Doctor schedule access remains read-only, Patients remain ownership-scoped, and Admin/unauthenticated roles receive no new access.
 - v1.2.12 is local only. No deployment was performed.
+
+# Schedule UI Redesign — Milestone 1 weekly calendar
+
+- Staff Doctor Schedule now presents the existing schedule data in a Sunday-to-Saturday weekly calendar from 8:00 AM to 6:00 PM, with previous week, next week, and Today navigation.
+- Recurring working hours are green, one-date special availability is blue, and whole-day or partial-day time off is red. Overlapping blocks share the available day-column width and remain keyboard-selectable.
+- Add Working Hours, Add Special Availability, and Add Time Off use accessible dialogs. Selecting a calendar block opens its existing edit, enable/disable, delete, or remove actions as applicable.
+- The existing appointments-needing-reschedule workflow remains below the calendar and retains its original confirmation, availability, lifecycle, privacy, and role rules.
+- This milestone changes presentation only. It adds no API, database, scheduling-rule, role-permission, provider, environment, or deployment change.
+- Narrow screens keep the week readable through a deliberately scrollable calendar, while the controls and action buttons reflow for touch use.

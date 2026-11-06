@@ -12,6 +12,10 @@
 .doctor-record-page .field-error { color: #a33434; }
 .doctor-record-page fieldset { border: 1px solid #dfe7ee; border-radius: 6px; padding: 16px; margin: 16px 0; min-width: 0; }
 .doctor-record-page legend { font-weight: 600; padding: 0 6px; }
+.doctor-record-page .follow-up-fields { padding: 12px 14px; }
+.doctor-record-page .follow-up-fields > legend { font-size: 14px; }
+.doctor-record-page .follow-up-fields > label { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
+.doctor-record-page .follow-up-fields > label input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0; }
 .doctor-record-page .record-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .doctor-record-page .primary-action { color: white; background: #28664f; }
 .doctor-record-page button { cursor: pointer; }

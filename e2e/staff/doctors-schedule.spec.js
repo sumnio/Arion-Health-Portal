@@ -28,82 +28,81 @@ test('Staff Doctors lists active Doctors with today schedule facts and dedicated
   await expect(page.getByText(inactive.display_name)).toHaveCount(0);
   await card.getByRole('link', { name: 'Manage Schedule' }).click();
   await expect(page).toHaveURL(`/staff/doctors/${doctor.doctorId}/schedule`);
+  await expect(page.getByRole('heading', { name: 'Doctor Schedule' })).toBeVisible();
   await expect(page.getByRole('heading', { name: doctor.display_name })).toBeVisible();
-  const clinicClock = page.getByLabel('Clinic date and time');
-  await expect(clinicClock).toContainText('Philippine time');
-  await expect(clinicClock.locator('time')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Week navigation' })).toBeVisible();
+  await expect(page.getByLabel(/Weekly calendar/)).toBeVisible();
   await page.getByRole('link', { name: '← Back to Doctors' }).click();
   await expect(page).toHaveURL('/staff/doctors');
   assertBrowserClean();
 });
 
-test('Staff manages working hours, booking dates, and time off through the simplified page', async ({ page, staffScenario, seededStaff }) => {
+test('Staff manages working hours, special availability, and time off in the weekly calendar', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
   const doctor = await staffScenario.createDoctor();
-  const date = staffScenario.futureDate(4);
+  const date = staffScenario.futureDate(1);
   const weekday = weekDays[dateOnlyToUtc(date).getUTCDay()];
   await loginAsStaff(page, seededStaff);
   await page.goto(`/staff/doctors/${doctor.doctorId}/schedule`);
 
-  const day = page.locator('.working-day').filter({ has: page.getByRole('heading', { name: weekday }) });
-  const addRange = day.locator('.add-range');
-  await addRange.getByLabel('Start').fill('09:00');
-  await addRange.getByLabel('End').fill('12:00');
-  await addRange.getByRole('button', { name: 'Add Time Range' }).click();
+  const originalRange = await page.locator('.week-stepper strong').textContent();
+  await page.getByRole('button', { name: 'Next week' }).click();
+  await expect(page.locator('.week-stepper strong')).not.toHaveText(originalRange);
+  await page.getByRole('button', { name: 'Previous week' }).click();
+  await expect(page.locator('.week-stepper strong')).toHaveText(originalRange);
+  await page.getByRole('button', { name: 'Today' }).click();
+
+  await page.getByRole('button', { name: 'Add Working Hours' }).click();
+  let dialog = page.getByRole('dialog', { name: 'Add Working Hours' });
+  await dialog.getByLabel('Day').selectOption({ label: weekday });
+  await dialog.getByLabel('Start').fill('09:00');
+  await dialog.getByLabel('End').fill('17:00');
+  await dialog.getByRole('button', { name: 'Add Working Hours', exact: true }).click();
   await expect(page.getByRole('status')).toContainText(`${weekday} time range added.`);
-  await expect(day.locator('.schedule-time-value').filter({ hasText: '9:00 AM – 12:00 PM' })).toBeVisible();
-  await expect(day.locator('.schedule-status', { hasText: 'Enabled' })).toBeVisible();
-
-  const range = day.locator('li').first();
-  const actions = range.locator('.row-actions');
-  await expect(actions).toHaveCSS('flex-wrap', 'nowrap');
-  let actionBoxes = await actions.getByRole('button').evaluateAll(buttons => buttons.map(button => { const box = button.getBoundingClientRect(); return { top: box.y, height: box.height }; }));
-  const tops = actionBoxes.map(box => box.top); const heights = actionBoxes.map(box => box.height);
-  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(2);
-  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(2);
-  const statusBox = await range.locator('.schedule-status').boundingBox();
-  const contentBox = await range.locator('.schedule-range-content').boundingBox();
-  expect(statusBox.width).toBeLessThan(contentBox.width / 2);
-  let timeBox = await range.locator('.schedule-time-value').boundingBox();
-  expect(statusBox.y + statusBox.height).toBeLessThanOrEqual(timeBox.y);
-  expect(Math.abs(timeBox.height - actionBoxes[0].height)).toBeLessThan(2);
-
-  await page.setViewportSize({ width: 1000, height: 885 });
-  timeBox = await range.locator('.schedule-time-value').boundingBox();
-  actionBoxes = await actions.getByRole('button').evaluateAll(buttons => buttons.map(button => { const box = button.getBoundingClientRect(); return { top: box.y, height: box.height }; }));
-  expect(Math.min(...actionBoxes.map(box => box.top))).toBeGreaterThanOrEqual(timeBox.y + timeBox.height);
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await range.getByRole('button', { name: 'Edit' }).click();
-  await range.getByLabel('End').fill('11:30');
-  await range.getByRole('button', { name: 'Save' }).click();
+  let workingBlock = page.getByRole('button', { name: /Working Hours.*9:00 AM to 5:00 PM/ }).first();
+  await expect(workingBlock).toBeVisible();
+  await workingBlock.click();
+  await page.getByRole('dialog', { name: 'Working Hours' }).getByRole('button', { name: 'Edit Working Hours' }).click();
+  dialog = page.getByRole('dialog', { name: 'Working Hours' });
+  await dialog.getByLabel('End').fill('16:30');
+  await dialog.getByRole('button', { name: 'Save Changes' }).click();
   await expect(page.getByRole('status')).toContainText(`${weekday} hours updated.`);
-  await day.getByRole('button', { name: 'Disable' }).click();
-  await expect(day.getByText(/Disabled/)).toBeVisible();
-  await day.getByRole('button', { name: 'Enable' }).click();
+  workingBlock = page.getByRole('button', { name: /Working Hours.*9:00 AM to 4:30 PM/ }).first();
+  await workingBlock.click();
+  await page.getByRole('dialog', { name: 'Working Hours' }).getByRole('button', { name: 'Edit Working Hours' }).click();
+  await page.getByRole('dialog', { name: 'Working Hours' }).getByRole('button', { name: 'Disable' }).click();
+  await expect(page.getByRole('button', { name: /Working Hours.*disabled/ }).first()).toBeVisible();
+  await page.getByRole('button', { name: /Working Hours.*disabled/ }).first().click();
+  await page.getByRole('dialog', { name: 'Working Hours' }).getByRole('button', { name: 'Edit Working Hours' }).click();
+  await page.getByRole('dialog', { name: 'Working Hours' }).getByRole('button', { name: 'Enable' }).click();
 
-  const booking = page.locator('.staff-schedule-section').filter({ has: page.getByRole('heading', { name: 'Available Booking Dates' }) });
-  await booking.getByLabel('Date').fill(date);
-  await booking.getByLabel('Start').fill('09:00');
-  await booking.getByLabel('End').fill('11:00');
-  await booking.getByRole('button', { name: 'Add Booking Date' }).click();
-  await expect(booking.locator('.schedule-records')).toContainText('9:00 AM – 11:00 AM');
+  const today = staffScenario.today();
+  if (dateOnlyToUtc(today).getUTCDay() === 6) await page.getByRole('button', { name: 'Next week' }).click();
+  await page.getByRole('button', { name: 'Add Special Availability' }).click();
+  dialog = page.getByRole('dialog', { name: 'Add Special Availability' });
+  await dialog.getByLabel('Date').fill(date);
+  await dialog.getByLabel('Start').fill('12:00');
+  await dialog.getByLabel('End').fill('13:00');
+  await dialog.getByRole('button', { name: 'Add Special Availability', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Special Availability.*12:00 PM to 1:00 PM/ })).toBeVisible();
 
-  const timeOff = page.locator('.staff-schedule-section').filter({ has: page.getByRole('heading', { name: 'Time Off / Unavailable' }) });
-  await timeOff.getByLabel('Date').fill(date);
-  await timeOff.getByLabel('Start').fill('14:00');
-  await timeOff.getByLabel('End').fill('15:00');
-  await timeOff.getByLabel('Reason').fill('E2E meeting');
-  await timeOff.getByRole('button', { name: 'Add Time Off' }).click();
-  await expect(timeOff.getByText('E2E meeting')).toBeVisible();
+  await page.getByRole('button', { name: 'Add Time Off' }).click();
+  dialog = page.getByRole('dialog', { name: 'Add Time Off' });
+  await dialog.getByLabel('Date').fill(date);
+  await dialog.getByLabel('Start').fill('14:00');
+  await dialog.getByLabel('End').fill('15:00');
+  await dialog.getByLabel('Operational reason').fill('E2E meeting');
+  await dialog.getByRole('button', { name: 'Add Time Off', exact: true }).click();
+  const timeOffBlock = page.getByRole('button', { name: /Time Off.*2:00 PM to 3:00 PM/ });
+  await expect(timeOffBlock).toBeVisible();
+  await timeOffBlock.click();
+  await expect(page.getByRole('dialog', { name: 'Time Off' }).getByText('E2E meeting')).toBeVisible();
+  await page.getByRole('dialog', { name: 'Time Off' }).getByRole('button', { name: 'Remove Time Off' }).click();
 
-  await addRange.getByRole('button', { name: 'Add Time Range' }).click();
-  await expect(page.getByRole('alert')).toContainText('Recurring availability ranges cannot overlap.');
-  await booking.getByRole('button', { name: 'Remove' }).click();
-  await expect(booking.getByText('No active booking dates.')).toBeVisible();
-  await timeOff.getByRole('button', { name: 'Remove' }).click();
-  await expect(timeOff.getByText('No current or future time off.')).toBeVisible();
-  await day.getByRole('button', { name: 'Delete' }).click();
-  await expect(day.getByText('No working hours set.')).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('button', { name: 'Add Working Hours' })).toBeVisible();
+  const scrollState = await page.getByLabel(/Weekly calendar/).evaluate(node => ({ scrollWidth: node.scrollWidth, clientWidth: node.clientWidth }));
+  expect(scrollState.scrollWidth).toBeGreaterThan(scrollState.clientWidth);
   assertBrowserClean();
 });
 
@@ -118,11 +117,12 @@ test('Doctor time off flags an appointment without moving it and the Patient con
 
   await loginAsStaff(page, seededStaff);
   await page.goto(`/staff/doctors/${doctor.doctorId}/schedule`);
-  const timeOff = page.locator('.staff-schedule-section').filter({ has: page.getByRole('heading', { name: 'Time Off / Unavailable' }) });
+  await page.getByRole('button', { name: 'Add Time Off' }).click();
+  const timeOff = page.getByRole('dialog', { name: 'Add Time Off' });
   await timeOff.getByLabel('Date').fill(original.date);
   await timeOff.getByLabel('Whole day').check();
-  await timeOff.getByLabel('Reason').fill('Private E2E operational note');
-  await timeOff.getByRole('button', { name: 'Add Time Off' }).click();
+  await timeOff.getByLabel('Operational reason').fill('Private E2E operational note');
+  await timeOff.getByRole('button', { name: 'Add Time Off', exact: true }).click();
 
   const affected = page.locator('.staff-schedule-section').filter({ has: page.getByRole('heading', { name: 'Appointments needing reschedule: 1' }) });
   await expect(affected.getByText(patient.full_name)).toBeVisible();

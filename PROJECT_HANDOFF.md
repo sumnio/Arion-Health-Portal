@@ -392,3 +392,11 @@ Suggestions reuse published availability, Doctor blocks, occupancy, 30-minute sl
 Flagging creates fixed privacy-safe Patient/Staff/Doctor notifications, invalidates unsent SMS reminders tied to the invalid schedule, and sends a generic navigation-only Patient email when a portal account exists. The absence note and clinical data are not included. Confirmed moves reuse current reschedule notification, versioned SMS-plan, and email behavior. Side-effect delivery remains best effort and cannot roll back the scheduling state.
 
 No Doctor mutation route, bulk automatic move, duplicate Appointment, auto-cancellation, new provider, environment change, or deployment was added.
+
+# Schedule UI Redesign Milestone 1 handoff
+
+The Staff Doctor Schedule is now a reusable weekly calendar interface. `WeeklyScheduleCalendar` converts the unchanged recurring availability, published one-date availability, and blocked-time response into green, blue, and red visual blocks. `ScheduleDialog` supplies focus handling, Escape close, focus restoration, and labelled modal semantics for schedule actions.
+
+All mutations still call the established Staff scheduling service methods. Recurring hours can be added, edited, enabled/disabled, and deleted; special availability and time off can be added and removed. The affected-appointment rescheduling panel remains intact below the calendar. The calendar is horizontally scrollable on small screens and exposes descriptive keyboard buttons for every event.
+
+Milestone 2 must not assume any new backend data model: this milestone introduced no endpoint, schema, scheduling-rule, permission, or deployment change. Historical blocked/published records remain limited by the existing schedule response, and the visual grid intentionally displays the clinic-day window from 8:00 AM to 6:00 PM.
