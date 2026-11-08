@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
-export default function ScheduleDialog({ title, description, onClose, children }) {
+export default function ScheduleDialog({ title, description, onClose, children, variant = 'modal' }) {
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -33,8 +33,8 @@ export default function ScheduleDialog({ title, description, onClose, children }
     if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 
-  return <div className="schedule-dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-    <section ref={panelRef} className="schedule-dialog" role="dialog" aria-modal="true" aria-labelledby="schedule-dialog-title" aria-describedby={description ? 'schedule-dialog-description' : undefined} tabIndex={-1} onKeyDown={handleKeyDown}>
+  return <div className={`schedule-dialog-backdrop has-${variant}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section ref={panelRef} className={`schedule-dialog is-${variant}`} role="dialog" aria-modal="true" aria-labelledby="schedule-dialog-title" aria-describedby={description ? 'schedule-dialog-description' : undefined} tabIndex={-1} onKeyDown={handleKeyDown}>
       <header><div><h2 id="schedule-dialog-title">{title}</h2>{description && <p id="schedule-dialog-description">{description}</p>}</div><button type="button" className="dialog-close" aria-label={`Close ${title}`} onClick={onClose}>×</button></header>
       {children}
     </section>

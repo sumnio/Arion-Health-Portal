@@ -400,3 +400,13 @@ The Staff Doctor Schedule is now a reusable weekly calendar interface. `WeeklySc
 All mutations still call the established Staff scheduling service methods. Recurring hours can be added, edited, enabled/disabled, and deleted; special availability and time off can be added and removed. The affected-appointment rescheduling panel remains intact below the calendar. The calendar is horizontally scrollable on small screens and exposes descriptive keyboard buttons for every event.
 
 Milestone 2 must not assume any new backend data model: this milestone introduced no endpoint, schema, scheduling-rule, permission, or deployment change. Historical blocked/published records remain limited by the existing schedule response, and the visual grid intentionally displays the clinic-day window from 8:00 AM to 6:00 PM.
+
+# Schedule UI Redesign Milestone 2 handoff
+
+The Staff Doctor Schedule now keeps affected Appointments in a compact warning directly under the calendar. **Review Appointments** opens a reusable right-side drawer with operational-only cards and server-provided suggestions. **Leave Pending** closes no records and changes no schedule. A Staff reschedule is written only after a separate confirmation dialog displays the Patient, original time, and replacement time.
+
+After confirmation, the page reloads the authoritative schedule, decreases the affected count, and displays **No appointments need rescheduling** when the list becomes empty. If another booking takes a selected suggestion before confirmation, the existing backend conflict remains authoritative: the Appointment stays affected, the page shows a safe no-longer-available message, refreshes the drawer data, and provides **Reload suggestions**. No automatic move or hidden retry was added.
+
+The calendar now derives its visible hour range from returned events while retaining 8:00 AM–6:00 PM as the minimum baseline. Early or late working hours, special availability, and time off remain visible rather than being clipped. At 390px, calendar columns stay intentionally horizontally scrollable and the review drawer uses the full viewport width. Dialog focus trapping, Escape close, focus restoration, labelled controls, keyboard-selectable blocks, and visible focus treatment remain intact.
+
+This is a frontend-only milestone. It reuses the existing Staff schedule and reschedule APIs and changes no backend behavior, role permission, schema, scheduling rule, notification/email/SMS behavior, provider, environment variable, or deployment. Do not deploy as part of this handoff.

@@ -1016,3 +1016,12 @@ The Staff Patients tab displays the live Pending count as `PWD Verification (n)`
 - The existing appointments-needing-reschedule workflow remains below the calendar and retains its original confirmation, availability, lifecycle, privacy, and role rules.
 - This milestone changes presentation only. It adds no API, database, scheduling-rule, role-permission, provider, environment, or deployment change.
 - Narrow screens keep the week readable through a deliberately scrollable calendar, while the controls and action buttons reflow for touch use.
+
+# Schedule UI Redesign — Milestone 2 reschedule review and final polish
+
+- The affected-appointment area is now a compact status card immediately below the weekly calendar. It uses correct zero, singular, and plural wording and opens an accessible right-side **Review Appointments** drawer instead of permanently expanding operational details on the page.
+- Each drawer card contains only approved scheduling information: Patient display name, Doctor display name, visit type, original date/time, status, suggested replacement times, and an optional another-date slot picker. No diagnosis, clinical notes, prescriptions, supporting documents, or other medical-record content is exposed.
+- **Leave Pending** makes no mutation. **Reschedule** first opens a separate confirmation dialog showing the Patient, original schedule, and replacement schedule. Only **Confirm Reschedule** calls the established Staff rescheduling endpoint.
+- Successful changes refresh the authoritative affected list, reduce its count, and show the compact zero state when none remain. A stale or newly occupied slot fails safely, refreshes the suggestions, keeps the Appointment affected, and offers an explicit **Reload suggestions** action.
+- The weekly timeline retains the normal 8:00 AM–6:00 PM baseline but expands earlier or later when returned schedule blocks require it, up to the complete clinic day. Late-night ranges are therefore no longer clipped. Narrow screens retain the deliberate horizontal calendar scroll and use a full-width review drawer.
+- Milestone 2 changes only frontend presentation and browser acceptance coverage. Existing API contracts, Staff-only permissions, availability/conflict rules, notification/email/SMS side effects, Patient behavior, database schema, providers, environment configuration, and deployment status are unchanged.
