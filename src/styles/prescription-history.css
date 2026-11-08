@@ -12,7 +12,7 @@
 .prescription-attachment-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .prescription-history-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; font-size: 13px; }
 .prescription-preview-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(15, 32, 48, .62); }
-.prescription-preview-dialog { width: min(900px, 100%); max-height: calc(100vh - 40px); overflow: auto; border-radius: 12px; background: #fff; box-shadow: 0 20px 60px rgba(0, 0, 0, .25); }
+.prescription-preview-dialog { width: min(900px, 100%); max-height: calc(100vh - 40px); overflow: auto; border-radius: 12px; background: #fff; box-shadow: 0 16px 40px rgba(0, 0, 0, .22); }
 .prescription-preview-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid #dce5ec; }
 .prescription-preview-dialog h2, .prescription-preview-dialog p { margin: 0; }
 .prescription-preview-dialog p { margin-top: 5px; color: #52657b; font-size: 13px; overflow-wrap: anywhere; }

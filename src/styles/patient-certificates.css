@@ -4,7 +4,7 @@
 .patient-certificates h2 { font-size: 18px; margin: 0 0 12px; }
 .patient-certificates .certificates-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
 .patient-certificates .certificates-layout > * { min-width: 0; }
-.patient-certificates .certificate-card { border: 1px solid #dfe7ee; border-radius: 9px; padding: 24px; background: white; min-width: 0; }
+.patient-certificates .certificate-card { border: 1px solid #dfe7ee; border-radius: 9px; padding: 20px; background: white; min-width: 0; }
 .patient-certificates .certificate-count, .patient-certificates .certificate-note { font-size: 12px; }
 .patient-certificates .certificate-count { margin: 0 0 14px; }
 .patient-certificates .certificate-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid #dfe7ee; }

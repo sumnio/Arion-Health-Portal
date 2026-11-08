@@ -5,7 +5,7 @@
 .notification-bell:focus-visible, .notification-panel:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .notification-bell svg { width: 24px; height: 24px; }
 .notification-count { position: absolute; top: -5px; right: -7px; min-width: 21px; height: 21px; padding: 0 5px; display: grid; place-items: center; border: 2px solid white; border-radius: 999px; background: #bd2026; color: white; font-size: 11px; font-weight: 700; line-height: 1; }
-.notification-panel { position: absolute; z-index: 20; top: calc(100% + 10px); right: 0; width: min(390px, calc(100vw - 28px)); max-height: min(650px, calc(100vh - 100px)); overflow: auto; border: 1px solid #cedae5; border-radius: 12px; background: white; box-shadow: 0 18px 46px rgb(21 45 75 / 18%); color: #152d4b; }
+.notification-panel { position: absolute; z-index: 20; top: calc(100% + 10px); right: 0; width: min(390px, calc(100vw - 28px)); max-height: min(650px, calc(100vh - 100px)); overflow: auto; border: 1px solid #cedae5; border-radius: 10px; background: white; box-shadow: 0 10px 28px rgb(21 45 75 / 16%); color: #152d4b; }
 .notification-panel > header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #dfe7ee; background: white; }
 .notification-panel h2 { margin: 0; font-size: 18px; }
 .notification-panel header button, .notification-feedback button { border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -63,7 +63,7 @@
 .notification-mark-read { width: max-content; margin-top: 4px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 7px; background: white; color: var(--accent); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .notification-mark-read:hover:not(:disabled) { background: var(--active); }
 .notification-mark-read:disabled { opacity: .6; cursor: wait; }
-.notifications-card .notification-empty { text-align: center; padding: 48px 24px; }
+.notifications-card .notification-empty { text-align: center; padding: 32px 20px; }
 .notifications-card .notification-empty h2 { margin-top: 0; color: #152d4b; }
 .notification-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }
 .notification-pagination button { background: white; cursor: pointer; }

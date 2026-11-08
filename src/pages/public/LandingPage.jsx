@@ -6,7 +6,7 @@ import clinicReception from '../../assets/arion-clinic-reception.jpg';
 const highlights = [
   ['calendar', 'Book Appointments', 'Schedule your visit with an Arion clinic doctor.'],
   ['record', 'Access Your Records', 'Keep your visit history and medical certificates in one place.'],
-  ['people', 'Quality Healthcare', 'Stay connected with your clinic’s doctors and support staff.'],
+  ['people', 'Clinic Support', 'Stay connected with the clinic’s doctors and support staff.'],
 ];
 const clinicAddress = '20 Indonesia Street, corner France Street, Better Living Subdivision, Parañaque City, 1700 Metro Manila';
 const clinicMapUrl = 'https://www.google.com/maps/place/Arion+Medical+Surgical+Clinic/@14.4838328,121.0312203,17z/data=!3m1!4b1!4m6!3m5!1s0x3397cefe64cfa843:0x46d9ccab0fec5f7a!8m2!3d14.4838328!4d121.0312203!16s%2Fg%2F11bzw05dpn';

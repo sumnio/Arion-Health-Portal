@@ -2,8 +2,8 @@
 .patient-appointments p { font-size: 14px; line-height: 1.65; color: #52657b; margin: 8px 0; }
 .patient-appointments h2 { margin: 0 0 14px; font-size: 18px; }
 .patient-appointments h3 { font-size: 15px; font-weight: 700; }
-.patient-appointments .appointments-intro { border: 1px solid #dfe7ee; border-radius: 10px; padding: 26px; background: linear-gradient(110deg, white, #edf4fb); }
-.patient-appointments .appointment-card { border: 1px solid #dfe7ee; border-radius: 9px; padding: 24px; background: white; min-width: 0; }
+.patient-appointments .appointments-intro { border: 1px solid #dfe7ee; border-radius: 9px; padding: 22px; background: white; }
+.patient-appointments .appointment-card { border: 1px solid #dfe7ee; border-radius: 9px; padding: 20px; background: white; min-width: 0; }
 .patient-appointments .appointment-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
 .patient-appointments .appointment-stats strong { display: block; font-size: 28px; color: #214e84; margin-bottom: 6px; }
 .patient-appointments .appointment-stats span { font-size: 13px; }
@@ -21,7 +21,7 @@
 .patient-appointments .appointment-filters button[aria-pressed="true"] { background: #e0ebff; color: #165ec0; font-weight: 700; }
 .patient-appointments .appointment-table-head, .patient-appointments .appointment-row { display: grid; grid-template-columns: 1.1fr 1.4fr .65fr 1.15fr; gap: 18px; }
 .patient-appointments .appointment-table-head { padding: 12px; background: #f3f6fa; font-size: 12px; font-weight: 700; }
-.patient-appointments .appointment-row { padding: 20px 12px; border-bottom: 1px solid #e7edf4; font-size: 13px; }
+.patient-appointments .appointment-row { padding: 16px 12px; border-bottom: 1px solid #e7edf4; font-size: 13px; }
 .patient-appointments .appointment-row:last-child { border-bottom: 0; }
 .patient-appointments .appointment-row > div { min-width: 0; }
 .patient-appointments .appointment-row p { font-size: 12px; margin: 5px 0; }

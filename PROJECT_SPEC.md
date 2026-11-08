@@ -1,5 +1,11 @@
 # Arion Health Portal
 
+## v1.2.18 UI audit and surgical cleanup
+
+v1.2.18 standardizes the existing interface without redesigning workflows. Shared surface, border, radius, spacing, focus, control-height, link, card, and status-badge rules now keep public, Patient, Doctor, Staff, and Admin pages visually consistent. Oversized padding, headings, metric text, empty states, gradients, rounding, and decorative shadows were reduced where they made routine pages feel crowded or inconsistent. Functional overlays such as dialogs, notification menus, certificate previews, and the Assistant retain clear elevation.
+
+Dashboard and booking surfaces now use shared card treatment, landing and portal copy is more literal, and core forms have consistent keyboard-visible focus. Responsive behavior remains intact, including 320-pixel Assistant and upload journeys and horizontally scrollable schedule content. No route, API, schema, permission, business rule, provider, environment value, or backend behavior changed. This work is local only and was not deployed.
+
 ## v1.2.10 appointment reschedule email link
 
 After an eligible Patient successfully reschedules an appointment, Arion sends one privacy-safe operational email to the email address on that Patient's portal account. The email contains only the updated clinic date and time, the Doctor's display name when available, and a **View Updated Appointment** link built from the trusted `APP_BASE_URL`. It contains no reason for visit, diagnosis, notes, prescription, supporting document, certificate, medical record, Patient identity details, or login token.

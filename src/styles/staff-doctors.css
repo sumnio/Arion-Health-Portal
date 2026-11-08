@@ -36,7 +36,7 @@
 .staff-schedule .danger-button { border: 1px solid #e7b7bb; background: #fff3f4; color: #a12e39; }
 .staff-schedule button:focus-visible, .staff-schedule input:focus-visible, .staff-schedule select:focus-visible, .weekly-calendar-scroll:focus-visible { outline: 3px solid #6fae97; outline-offset: 2px; }
 
-.schedule-calendar-panel { overflow: hidden; border: 1px solid #d4e0e9; border-radius: 12px; background: white; box-shadow: 0 4px 18px rgb(18 44 73 / 5%); }
+.schedule-calendar-panel { overflow: hidden; border: 1px solid #d4e0e9; border-radius: 9px; background: white; box-shadow: 0 2px 8px rgb(18 44 73 / 5%); }
 .schedule-primary-actions { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; border-bottom: 1px solid #dbe5ed; }
 .schedule-primary-actions button { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding-inline: 18px; }
 .schedule-primary-actions .special-action { color: #155eb6; }
@@ -101,7 +101,7 @@
 .inline-status { margin: 0; border-radius: 7px; background: #edf6f2; color: #176149; padding: 9px 11px; font-size: 13px; }
 
 .schedule-dialog-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(10 31 52 / 55%); }
-.schedule-dialog { width: min(520px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 12px; background: white; box-shadow: 0 24px 70px rgb(8 25 43 / 28%); padding: 22px; }
+.schedule-dialog { width: min(520px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 12px; background: white; box-shadow: 0 16px 40px rgb(8 25 43 / 24%); padding: 22px; }
 .schedule-dialog-backdrop.has-drawer { place-items: stretch end; padding: 0; }
 .schedule-dialog.is-drawer { width: min(590px, 100%); max-height: 100vh; height: 100%; border-radius: 14px 0 0 14px; padding: 24px; }
 .schedule-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 20px; }

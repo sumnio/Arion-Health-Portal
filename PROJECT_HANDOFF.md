@@ -1,5 +1,11 @@
 # Arion Health Portal MVP Handoff
 
+## v1.2.18 handoff — UI audit and surgical cleanup
+
+The interface now uses a smaller shared visual system for card surfaces, borders, corner radii, spacing, focus states, controls, links, and status badges. Public, Patient, Doctor, Staff, and Admin pages keep their existing navigation and workflows, while excessive padding, gradients, oversized headings and metrics, roomy empty states, inconsistent rounding, and unnecessary shadows were reduced. Dialogs and other true overlays keep enough elevation to remain clear.
+
+Literal copy replaces a few generic marketing phrases, and shared dashboard/booking cards reduce duplicated styling. Desktop pages were reviewed manually, while the browser suite covers responsive and 320-pixel journeys. No backend file, schema, API, permission, scheduling rule, clinical rule, provider, environment variable, or deployment was changed. Final validation passed 231 frontend tests, 669 backend tests, 108 Playwright journeys, the Production build, and whitespace checks. The Playwright run uses only `arion_health_e2e` with fake email/SMS and external AI disabled.
+
 ## v1.2.10 appointment reschedule email link
 
 A successful eligible Patient reschedule now sends one privacy-safe email to the Patient's linked portal-account email. It shows only the updated date/time, the Doctor's display name when available, and a **View Updated Appointment** link created from `APP_BASE_URL`. The protected link requires normal login and Patient ownership; it contains no authentication token or clinical/private Patient information.

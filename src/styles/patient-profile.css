@@ -8,7 +8,7 @@
 .patient-profile .profile-layout > *, .patient-profile .profile-fields > * { min-width: 0; }
 .patient-profile aside { display: grid; gap: 18px; }
 .patient-profile form { display: grid; gap: 18px; }
-.patient-profile .profile-card { background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 24px; }
+.patient-profile .profile-card { background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 20px; }
 .patient-profile .profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
 .patient-profile .profile-emergency { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .patient-profile label, .patient-profile legend { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }

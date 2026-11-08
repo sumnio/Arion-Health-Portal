@@ -30,11 +30,11 @@ test('public assistant guides an appointment question through categories and bac
   const panel = await openAssistant(page);
   await expect(panel.getByText("Hi! I'm Arion Assistant. I can help you learn how to use the Arion Health Portal.")).toBeVisible();
   await panel.getByRole('button', { name: 'Appointments' }).click();
-  await expect(panel.getByRole('button', { name: 'How do appointments work?' })).toBeFocused();
+  await expect(panel.getByRole('button', { name: 'How do I book an appointment?' })).toBeFocused();
   await panel.getByRole('button', { name: '← Back to topics' }).click();
   await expect(panel.getByRole('button', { name: 'Getting Started' })).toBeFocused();
   await panel.getByRole('button', { name: 'Appointments' }).click();
-  await panel.getByRole('button', { name: 'How do appointments work?' }).click();
+  await panel.getByRole('button', { name: 'How do I book an appointment?' }).click();
   await expect(panel.getByText(/Patient bookings start as Pending/)).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Browse topics' })).toBeVisible();
   assertBrowserClean();
@@ -60,7 +60,7 @@ test('Login public assistant explains Patient password recovery', async ({ page 
   await page.goto('/login');
   const panel = await openAssistant(page);
   await panel.getByRole('button', { name: 'Account Help' }).click();
-  await panel.getByRole('button', { name: 'I forgot my password' }).click();
+  await panel.getByRole('button', { name: 'How do I reset my password?' }).click();
   await expect(panel.getByText(/select Forgot Password on Login to request an email reset link/i)).toBeVisible();
 });
 
@@ -111,7 +111,7 @@ test('public assistant stays usable inside tablet and 320-pixel viewports', asyn
     await expect(panel.getByRole('textbox', { name: 'Message Arion Assistant' })).toBeVisible();
     await expect(panel.getByRole('button', { name: 'Getting Started' })).toBeVisible();
     await panel.getByRole('button', { name: 'Queue & Clinic Process' }).click();
-    await expect(panel.getByRole('button', { name: 'What does Senior/PWD priority mean?' })).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'How does Senior or PWD priority work?' })).toBeVisible();
     expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   }
 });

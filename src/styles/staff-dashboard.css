@@ -2,14 +2,14 @@
 .staff-dashboard p { color: #52657b; line-height: 1.6; margin: 10px 0; }
 .staff-dashboard h2 { font-size: 18px; margin: 0 0 12px; }
 .staff-dashboard .staff-title { display: flex; justify-content: space-between; gap: 20px; }
-.staff-dashboard .staff-welcome { background: #e7f2ff; border: 1px solid #d0e3fa; padding: 26px; border-radius: 10px; margin-top: 20px; }
+.staff-dashboard .staff-welcome { background: #f5f9fd; border: 1px solid #d0e3fa; padding: 20px; border-radius: 9px; margin-top: 16px; }
 .staff-dashboard .staff-welcome h2 { font-size: 22px; }
 .staff-dashboard .staff-note { font-size: 12px; }
-.staff-dashboard .staff-counts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; margin: 22px 0; }
-.staff-dashboard .staff-counts section { padding: 22px; background: white; border: 1px solid #dfe7ee; border-radius: 10px; }
+.staff-dashboard .staff-counts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 18px 0; }
+.staff-dashboard .staff-counts section { padding: 18px; background: white; border: 1px solid #dfe7ee; border-radius: 8px; }
 .staff-dashboard .staff-counts h2 { font-size: 14px; color: #52657b; }
 .staff-dashboard .staff-counts strong { font-size: 30px; }
-.staff-dashboard .staff-overview { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 22px; align-items: start; }
+.staff-dashboard .staff-overview { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 18px; align-items: start; }
 .staff-dashboard .dashboard-card { border-color: #dfe7ee; }
 .staff-dashboard .dashboard-card-heading { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .staff-dashboard .dashboard-card-heading a { font-size: 13px; color: #165ec0; text-decoration: underline; }

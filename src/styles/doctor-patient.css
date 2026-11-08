@@ -8,7 +8,7 @@
 .doctor-patient-page .patient-tab-panel { min-height: 240px; }
 .doctor-patient-page p { color: #52657b; line-height: 1.6; margin: 10px 0; }
 .doctor-patient-page .doctor-patient-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 22px; }
-.doctor-patient-page .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 10px; padding: 24px; margin-bottom: 20px; overflow-wrap: anywhere; }
+.doctor-patient-page .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 20px; margin-bottom: 18px; overflow-wrap: anywhere; }
 .doctor-patient-page h2 { font-size: 19px; margin: 0 0 18px; }
 .doctor-patient-page h3 { font-size: 22px; margin: 0; }
 .doctor-patient-page .patient-name { display: block; font-size: 22px; }

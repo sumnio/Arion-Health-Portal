@@ -5,7 +5,7 @@
 .patient-records h3 { font-size: 14px; font-weight: 700; margin: 0; }
 .patient-records .records-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
 .patient-records .records-layout > * { min-width: 0; }
-.patient-records .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 24px; min-width: 0; }
+.patient-records .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 20px; min-width: 0; }
 .patient-records .record-search { background: white; border: 1px solid #dfe7ee; border-radius: 8px; padding: 16px; }
 .patient-records .record-search label { display: block; font-size: 13px; margin-bottom: 8px; font-weight: 600; }
 .patient-records .record-search input { width: 100%; min-width: 0; border: 1px solid #c6d4e1; border-radius: 6px; padding: 12px; font: inherit; font-size: 14px; }
