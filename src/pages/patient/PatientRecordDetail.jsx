@@ -6,6 +6,7 @@ import SupportingDocumentList from '../../components/documents/SupportingDocumen
 import { formatBookingDate, formatEncounter } from '../../services/dateTimeService.js';
 import { patientApiErrorMessage, patientApiService } from '../../services/patientApiService.js';
 import '../../styles/patient-records.css';
+import PrescriptionAttachmentButton from '../../components/records/PrescriptionAttachmentButton.jsx';
 
 function FollowUp({ record }) {
   if (!record.follow_up_required) return <p>No follow-up recommended.</p>;
@@ -45,7 +46,7 @@ export default function PatientRecordDetail() {
     {record && <div className="records-layout"><div className="record-detail-sections">
       <section className="record-card record-summary"><DateTile value={record.encounter_at} /><div><h2>{record.visitType}</h2><p><strong>{record.doctor}</strong><br />{record.specialty}</p><p><time>{formatEncounter(record.encounter_at)}</time><br />Philippine time</p></div></section>
       <RecordSection title="Diagnosis"><p className="record-callout">{record.diagnosis}</p></RecordSection>
-      <RecordSection title="Prescriptions">{record.prescriptions.length ? <ul className="record-prescriptions">{record.prescriptions.map((item) => <li key={item.id}><h3>{item.medicine}</h3><dl><div><dt>Dosage</dt><dd>{item.dosage}</dd></div><div><dt>Instructions</dt><dd>{item.instructions || 'No additional instructions recorded.'}</dd></div></dl></li>)}</ul> : <p>No prescriptions recorded for this visit.</p>}</RecordSection>
+      <RecordSection title="Prescriptions">{record.prescriptions.length ? <ul className="record-prescriptions">{record.prescriptions.map((item) => <li key={item.id}><h3>{item.medicine || 'Attached prescription'}</h3><dl>{item.dosage && <div><dt>Dosage</dt><dd>{item.dosage}</dd></div>}<div><dt>Instructions</dt><dd>{item.instructions || 'No additional instructions recorded.'}</dd></div></dl><PrescriptionAttachmentButton prescription={item} downloadAttachment={patientApiService.downloadPrescriptionAttachment} /></li>)}</ul> : <p>No prescriptions recorded for this visit.</p>}</RecordSection>
       <RecordSection title="Doctor’s Notes"><p className="record-callout">{record.notes || 'No doctor’s notes recorded.'}</p></RecordSection>
       <RecordSection title="Follow-up"><FollowUp record={record} /></RecordSection>
     </div><aside className="record-detail-sections">

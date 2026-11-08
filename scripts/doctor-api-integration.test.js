@@ -37,6 +37,21 @@ test('Doctor service normalizes consultation context and submits prescriptions w
   assert.deepEqual(previewPayload, { purpose: 'Other', custom_purpose: 'Insurance', diagnosis_summary: 'Well', recommendation: 'Rest', valid_until: '2026-11-01' });
 });
 
+test('Doctor service sends optional prescription attachments with indexed immutable metadata payload', async () => {
+  let recordPayload;
+  const repository = { async createMedicalRecord(_id, payload) { recordPayload = payload; return record; } };
+  const attachment = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'prescription.png', { type: 'image/png' });
+  await createDoctorApiService(repository).createMedicalRecord('a1', {
+    diagnosis: 'Attachment prescription', notes: '', follow_up: '',
+    prescriptions: [{ medicine: '', dosage: '', instructions: '', attachment }],
+  });
+  assert.ok(recordPayload instanceof FormData);
+  const payload = JSON.parse(recordPayload.get('payload'));
+  assert.deepEqual(payload.prescriptions, [{ medicine: null, dosage: null, instructions: null, attachment_index: 0 }]);
+  assert.equal(recordPayload.getAll('attachments').length, 1);
+  assert.equal(recordPayload.get('attachments').name, 'prescription.png');
+});
+
 test('Doctor API errors expose safe backend business messages', () => { assert.equal(doctorApiErrorMessage(new ApiError('Blocked time overlaps an existing active appointment.', { status: 409, code: 'BLOCK_OVERLAPS_APPOINTMENT' })), 'Blocked time overlaps an existing active appointment.'); });
 
 test('Doctor certificate history normalizes backend filters and resets filtering to explicit pages', async () => {

@@ -24,6 +24,7 @@ import { createGridFsSupportingDocumentStorage } from '../../server/src/services
 import { createGridFsDoctorSignatureStorage } from '../../server/src/services/doctorSignatureStorage.js';
 import { createGridFsCertificateArtifactStorage } from '../../server/src/services/certificateArtifactStorage.js';
 import { createGridFsPwdVerificationStorage } from '../../server/src/services/pwdVerificationStorage.js';
+import { createGridFsPrescriptionAttachmentStorage } from '../../server/src/services/prescriptionAttachmentStorage.js';
 import { authRepository } from '../../server/src/repositories/authRepository.js';
 import { passwordService } from '../../server/src/services/passwordService.js';
 import {
@@ -322,7 +323,12 @@ export class PatientScenario {
       await Promise.allSettled(certificates.filter(item => item.pdf_storage_file_id).map(item => certificateStorage.delete(item.pdf_storage_file_id)));
       await MedicalCertificate.deleteMany(certificateQuery);
     }
-    if (recordIds.length) await Prescription.deleteMany({ medical_record_id: { $in: recordIds } });
+    if (recordIds.length) {
+      const prescriptions = await Prescription.find({ medical_record_id: { $in: recordIds } }).select('+attachment_storage_file_id').lean();
+      const prescriptionStorage = createGridFsPrescriptionAttachmentStorage();
+      await Promise.allSettled(prescriptions.filter((item) => item.attachment_storage_file_id).map((item) => prescriptionStorage.delete(item.attachment_storage_file_id)));
+      await Prescription.deleteMany({ medical_record_id: { $in: recordIds } });
+    }
     if (recordQuery.$or.length) await MedicalRecord.deleteMany(recordQuery);
     if (appointmentIds.length) {
       const supportingDocuments = await ConsultationSupportingDocument.find({ appointment_id: { $in: appointmentIds } }).lean();

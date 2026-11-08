@@ -334,7 +334,10 @@ DoctorPublishedAvailability stores the date-specific ranges a Doctor has actuall
 |---|---|---|
 | id | identifier, PK | MongoDB `_id` |
 | doctor_id | identifier, FK | References `Doctor.id` |
-| availability_date | date | Specific published calendar date |
+| availability_date | date | First published calendar date; the only date when `repeat_weekly` is false |
+| repeat_weekly | boolean | Applies on the same weekday until Staff stops the series |
+| excluded_dates | date[] | Weekly dates removed without ending later occurrences |
+| date_overrides | object[] | One-date start/end changes for weekly occurrences |
 | start_time | time | Start of published range |
 | end_time | time | End of published range; later than `start_time` |
 | created_at | timestamp | Managed by Mongoose timestamps |
@@ -363,7 +366,7 @@ Relationship: Doctor 1 -> many DoctorBlockedTime, via DoctorBlockedTime.doctor_i
 - Appointment slots are fixed at 30 minutes.
 - Staff manages recurring availability, published availability, and blocked time for active Doctors; `/doctor/schedule` is read-only.
 - A doctor may publish multiple DoctorAvailability ranges for the same day. Gaps between ranges represent regular recurring breaks.
-- A doctor may publish availability up to 30 days ahead and is not required to publish all 30 days. Patients may see and book only dates/times actually published by the doctor; a recurring weekly row alone does not publish every matching future date.
+- Staff may publish one date or begin a weekly publication up to 30 days ahead. Weekly publication continues on the same weekday until Staff stops it. Patients see only effective published times after removed dates and one-date overrides are applied; Working Hours alone are never bookable.
 - Exact clinic operating hours are TBD and must be configurable. Do not hardcode clinic-hour values. Once configured, DoctorAvailability and every bookable 30-minute slot must remain within those hours.
 - DoctorBlockedTime overrides regular DoctorAvailability. Any slot overlapping blocked time is unavailable, including when only part of a day is blocked.
 - Already-booked slots are unavailable for new booking. The same doctor must not have two active appointments in the same time slot or overlapping appointment intervals. Different doctors may have appointments at the same time.
@@ -893,3 +896,12 @@ Doctor 1 ─── 0..many DoctorBlockedTime
 `Appointment.doctor_unavailability_block_ids` records the active operational blocks that caused the unresolved flag. This does not create a new Appointment status or ownership path. A blocked period may flag several Appointments, and an Appointment may reference more than one overlapping block. Confirmation updates the same Appointment and clears its block references; it does not create a replacement entity.
 
 Staff owns the `DoctorBlockedTime` mutation and may read the privacy-minimized affected projection. Patient access continues through `authenticated UserProfile -> own Patient -> owned Appointment` and is subject to existing self-reschedule rules. Doctor schedule access remains read-only, while Admin and unauthenticated roles gain no traversal. Doctor absence notes do not traverse to Patient, notification, email, SMS, Assistant, MedicalRecord, Prescription, Certificate, or supporting-document relationships.
+# v1.2.16 Prescription attachment relationship
+
+```text
+MedicalRecord 1 ─── 0..many Prescription 1 ─── 0..1 private GridFS file
+```
+
+The existing Prescription belongs to one immutable MedicalRecord and may now reference one object in the private `prescription_files` GridFS bucket. A row may contain structured medicine/dosage data, an attachment, or both. The GridFS reference and SHA-256 hash stay private; normal record projections expose only safe attachment availability and display metadata.
+
+Doctor access follows `authenticated UserProfile -> owning Doctor -> owned MedicalRecord -> Prescription -> attachment`. Patient access follows `authenticated UserProfile -> own Patient -> owned MedicalRecord -> Prescription -> attachment`. Staff, Admin, unrelated users, and unauthenticated callers have no traversal route to attachment bytes. The relationship adds no OCR/AI, external provider, public link, notification, email, SMS, edit, replace, or delete relationship.

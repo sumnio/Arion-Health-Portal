@@ -134,6 +134,12 @@ export const clinicalRepository = {
   async listPrescriptions(recordId) {
     return Prescription.find({ medical_record_id: recordId }).sort({ created_at: 1 }).lean();
   },
+  async findPrescriptionWithRecord(prescriptionId) {
+    return Prescription.findById(prescriptionId)
+      .select('+attachment_storage_file_id +attachment_sha256')
+      .populate({ path: 'medical_record_id', select: 'patient_id doctor_id appointment_id' })
+      .lean();
+  },
   async findLatestLinkedFollowUp(recordId) {
     return Appointment.findOne({ source_medical_record_id: recordId })
       .select('appointment_at status visit_type reason check_in_at source_medical_record_id')

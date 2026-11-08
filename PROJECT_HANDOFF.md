@@ -410,3 +410,27 @@ After confirmation, the page reloads the authoritative schedule, decreases the a
 The calendar now derives its visible hour range from returned events while retaining 8:00 AM–6:00 PM as the minimum baseline. Early or late working hours, special availability, and time off remain visible rather than being clipped. At 390px, calendar columns stay intentionally horizontally scrollable and the review drawer uses the full viewport width. Dialog focus trapping, Escape close, focus restoration, labelled controls, keyboard-selectable blocks, and visible focus treatment remain intact.
 
 This is a frontend-only milestone. It reuses the existing Staff schedule and reschedule APIs and changes no backend behavior, role permission, schema, scheduling rule, notification/email/SMS behavior, provider, environment variable, or deployment. Do not deploy as part of this handoff.
+
+# Weekly booking publication and calendar update handoff
+
+The Staff Doctor Schedule now separates three ideas clearly:
+
+- **Working Hours** are the recurring green schedule template.
+- **Published for booking** is the blue Patient-booking layer inside Working Hours.
+- **Time Off** is the red striped unavailable layer shown above both.
+
+Staff can publish one date or repeat the same time every selected weekday. A weekly publication begins on its chosen first date and continues until Staff stops it. The event popup stays compact: the close **×** replaces a duplicate Close button, leaving **Change Time**, **Remove This Monday**, and **Stop All Mondays**. **Change Time** opens a second form where Staff chooses one date or all matching weekdays.
+
+Changing one occurrence writes a date-specific time override. It does not change the following weeks. Changing the whole series updates its base time while keeping previously customized dates. Removing one occurrence writes an excluded date; stopping the series removes the complete weekly publication. All edited times must remain inside active Working Hours and cannot overlap another publication.
+
+Patient slot generation now expands weekly publications and applies date overrides and exclusions before Time Off, past-time, occupancy, clinic-hour, and 14-day-horizon checks. The displayed calendar and Patient booking page therefore use the same effective schedule.
+
+The backend additions are Staff-only `PATCH /api/staff/doctors/:doctorId/published-availability/:publishedId` for time edits and `POST /api/staff/doctors/:doctorId/published-availability/:publishedId/exceptions` for removing one weekly date. `DoctorPublishedAvailability` now includes `repeat_weekly`, `excluded_dates`, and `date_overrides`. Existing role boundaries, Appointment history preservation, notification/email/SMS behavior, providers, and environment configuration remain unchanged. No deployment was performed.
+# v1.2.16 handoff — Optional Prescription Attachments
+
+- Doctor Medical Record creation now accepts digital Prescription details, one optional JPG/JPEG/PNG/PDF attachment up to 5 MB, or both in the same intentional Prescription row.
+- Multipart submissions use one JSON `payload` field and an `attachments` array. Each row references at most one upload through its validated `attachment_index`; duplicate and unreferenced files are rejected.
+- Server validation checks file size, non-empty content, extension, MIME type, and binary signature before private storage. Files use generated names in GridFS bucket `prescription_files`; Prescription keeps private metadata and SHA-256 integrity data.
+- Record creation remains atomic in behavior. Any attachment uploaded before a storage/database failure is deleted, while the browser keeps the Doctor's local form and file selection for retry.
+- Saved Prescription data is read-only. The owning Doctor and owning Patient have separate authenticated download routes; Staff/Admin and unrelated users remain denied. Normal record responses expose safe attachment metadata only, never the GridFS ID or hash.
+- No OCR, AI parsing, public link, external storage, notification/email/SMS content, update/delete/replacement route, dependency, environment variable, or deployment was added.

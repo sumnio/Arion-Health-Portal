@@ -60,9 +60,9 @@ test('Medical Record payload remains clinical form values only', async () => {
   assert.doesNotMatch(addRecord.match(/async function submit[\s\S]*?if \(loading\)/)?.[0] ?? '', /supporting_documents|documentIds|storage_file_id|fileContents/);
 });
 
-test('Doctor pages offer no document mutation, category, or history controls', async () => {
+test('Doctor pages offer no supporting-document mutation, category, or history controls', async () => {
   const combined = `${await source('../src/pages/doctor/DoctorPatientDetail.jsx')}\n${await source('../src/pages/doctor/DoctorAddRecord.jsx')}`;
-  assert.doesNotMatch(combined, /type="file"|uploadSupportingDocuments|deleteSupportingDocument|replaceSupportingDocument|renameSupportingDocument|document category|document history/i);
+  assert.doesNotMatch(combined, /uploadSupportingDocuments|deleteSupportingDocument|replaceSupportingDocument|renameSupportingDocument|supporting document category|supporting document history/i);
 });
 
 test('document styles preserve focus, wrapping, and narrow-screen usability', async () => {

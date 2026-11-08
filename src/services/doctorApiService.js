@@ -128,15 +128,29 @@ export function createDoctorApiService(repository = doctorApiRepository) {
       return normalizeDoctorCertificates(await repository.getPatientHistory(patientId, options), patientName);
     },
     async createMedicalRecord(appointmentId, values) {
-      return normalizeRecord(await repository.createMedicalRecord(appointmentId, {
+      const attachments = [];
+      const payload = {
         diagnosis: values.diagnosis.trim(), notes: values.notes?.trim() || null, follow_up: values.follow_up?.trim() || null,
         follow_up_required: values.follow_up_required === true,
         follow_up_recommended_date: values.follow_up_required ? values.follow_up_recommended_date : null,
         follow_up_reason: values.follow_up_required ? values.follow_up_reason.trim() : null,
-        prescriptions: (values.prescriptions ?? []).map(({ medicine, dosage, instructions }) => ({ medicine: medicine.trim(), dosage: dosage.trim(), instructions: instructions?.trim() || null })),
-      }));
+        prescriptions: (values.prescriptions ?? []).map(({ medicine, dosage, instructions, attachment }) => {
+          const item = { medicine: medicine.trim() || null, dosage: dosage.trim() || null, instructions: instructions?.trim() || null };
+          if (attachment) {
+            item.attachment_index = attachments.length;
+            attachments.push(attachment);
+          }
+          return item;
+        }),
+      };
+      if (!attachments.length) return normalizeRecord(await repository.createMedicalRecord(appointmentId, payload));
+      const formData = new FormData();
+      formData.append('payload', JSON.stringify(payload));
+      attachments.forEach((file) => formData.append('attachments', file, file.name));
+      return normalizeRecord(await repository.createMedicalRecord(appointmentId, formData));
     },
     async getRecord(id) { return normalizeRecord(await repository.getRecord(id)); },
+    downloadPrescriptionAttachment: (id) => repository.downloadPrescriptionAttachment(id),
     async issueCertificate(recordId, values, patientName = '') {
       const created = await repository.createCertificate(recordId, {
         purpose: values.purpose,

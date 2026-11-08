@@ -33,6 +33,7 @@ export function createPatientApiRepository(client = apiClient) {
     },
     async getRecords() { return (await client.request('/api/patient/records')).medical_records; },
     async getRecord(id) { return (await client.request(`/api/patient/records/${encodeURIComponent(id)}`)).medical_record; },
+    async downloadPrescriptionAttachment(prescriptionId) { return client.download(`/api/patient/prescriptions/${encodeURIComponent(prescriptionId)}/attachment`); },
     async getCertificates({ view = 'active', page = 1 } = {}) {
       return client.request(`/api/patient/certificates?view=${encodeURIComponent(view)}&page=${encodeURIComponent(page)}`);
     },

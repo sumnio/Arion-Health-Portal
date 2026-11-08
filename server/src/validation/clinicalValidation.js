@@ -30,8 +30,11 @@ function rejectUnknown(body, allowed) {
   rejectUnknownFields(body, allowed);
 }
 
-export function validateMedicalRecordCreate(body = {}) {
+export function validateMedicalRecordCreate(body = {}, { attachmentCount = 0 } = {}) {
   rejectUnknown(body, recordFields);
+  if (!Number.isInteger(attachmentCount) || attachmentCount < 0 || attachmentCount > INPUT_LIMITS.prescriptions) {
+    throw httpError(400, 'INVALID_PRESCRIPTION_ATTACHMENT_COUNT', 'The prescription attachment count is invalid.');
+  }
   if (body.prescriptions != null && !Array.isArray(body.prescriptions)) {
     throw httpError(400, 'VALIDATION_ERROR', 'prescriptions must be an array.');
   }
@@ -53,6 +56,15 @@ export function validateMedicalRecordCreate(body = {}) {
   } else if (body.follow_up_recommended_date || body.follow_up_reason) {
     throw httpError(400, 'VALIDATION_ERROR', 'Follow-up date and reason are accepted only when follow_up_required is true.');
   }
+  const attachmentIndexes = (body.prescriptions ?? [])
+    .map((item) => item?.attachment_index)
+    .filter((value) => value != null);
+  if (new Set(attachmentIndexes).size !== attachmentIndexes.length) {
+    throw httpError(400, 'DUPLICATE_PRESCRIPTION_ATTACHMENT_REFERENCE', 'Each prescription attachment may be used only once.');
+  }
+  if (attachmentIndexes.length !== attachmentCount) {
+    throw httpError(400, 'UNREFERENCED_PRESCRIPTION_ATTACHMENT', 'Every uploaded attachment must belong to one prescription.');
+  }
   return {
     diagnosis: boundedText(body.diagnosis, 'diagnosis', 2000),
     notes: boundedText(body.notes, 'notes', INPUT_LIMITS.narrative, { optional: true }),
@@ -61,11 +73,25 @@ export function validateMedicalRecordCreate(body = {}) {
     follow_up_recommended_date: followUpRecommendedDate,
     follow_up_reason: followUpReason,
     prescriptions: (body.prescriptions ?? []).map((item, index) => {
-      rejectUnknown(item, new Set(['medicine', 'dosage', 'instructions']));
+      rejectUnknown(item, new Set(['medicine', 'dosage', 'instructions', 'attachment_index']));
+      const attachmentIndex = item.attachment_index;
+      const hasAttachment = attachmentIndex != null;
+      if (hasAttachment && (!Number.isInteger(attachmentIndex) || attachmentIndex < 0 || attachmentIndex >= attachmentCount)) {
+        throw httpError(400, 'INVALID_PRESCRIPTION_ATTACHMENT_REFERENCE', `prescriptions[${index}].attachment_index is invalid.`);
+      }
+      const medicine = boundedText(item.medicine, `prescriptions[${index}].medicine`, INPUT_LIMITS.shortText, { optional: true });
+      const dosage = boundedText(item.dosage, `prescriptions[${index}].dosage`, INPUT_LIMITS.shortText, { optional: true });
+      if (!hasAttachment && (!medicine || !dosage)) {
+        throw httpError(400, 'VALIDATION_ERROR', `prescriptions[${index}] requires medicine and dosage, or an attachment.`);
+      }
+      if ((medicine && !dosage) || (!medicine && dosage)) {
+        throw httpError(400, 'VALIDATION_ERROR', `prescriptions[${index}] must include both medicine and dosage when using structured details.`);
+      }
       return {
-        medicine: boundedText(item.medicine, `prescriptions[${index}].medicine`, INPUT_LIMITS.shortText),
-        dosage: boundedText(item.dosage, `prescriptions[${index}].dosage`, INPUT_LIMITS.shortText),
+        medicine,
+        dosage,
         instructions: boundedText(item.instructions, `prescriptions[${index}].instructions`, INPUT_LIMITS.reason, { optional: true }),
+        attachment_index: hasAttachment ? attachmentIndex : null,
       };
     }),
   };

@@ -225,6 +225,7 @@ export function createPatientApiService(repository = patientApiRepository) {
       record.certificates = (certificateResult.medical_certificates ?? []).filter((item) => item.medical_record_id === record.id).map((item) => normalizeCertificate(item));
       return record;
     },
+    downloadPrescriptionAttachment: (id) => repository.downloadPrescriptionAttachment(id),
     async getCertificates(options = {}) {
       const [result, profile] = await Promise.all([repository.getCertificates(options), repository.getProfile()]);
       return {

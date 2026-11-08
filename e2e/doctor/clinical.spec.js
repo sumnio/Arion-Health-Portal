@@ -50,13 +50,24 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.getByLabel('Medicine *').fill('E2E Salbutamol');
   await page.getByLabel('Dosage *').fill('2 puffs');
   await page.getByLabel('Instructions (optional)', { exact: true }).fill('Use every six hours as needed.');
+  await page.getByLabel('Prescription attachment (optional)').setInputFiles({
+    name: 'e2e-prescription.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\nE2E prescription attachment\n%%EOF'),
+  });
+  await expect(page.getByText('e2e-prescription.pdf')).toBeVisible();
+  await expect(page.locator('iframe[title="Preview of e2e-prescription.pdf"]')).toBeVisible();
   await page.getByRole('button', { name: 'Save Medical Record' }).click();
   await expect(page.getByRole('heading', { name: 'Medical Record Saved' })).toBeVisible();
 
   const record = await MedicalRecord.findOne({ appointment_id: appointment.appointmentId }).lean();
   expect(record).toMatchObject({ diagnosis: 'E2E acute bronchitis', doctor_id: expect.anything(), patient_id: expect.anything(), follow_up_required: true, follow_up_reason: 'Reassessment after treatment.' });
-  const prescription = await Prescription.findOne({ medical_record_id: record._id }).lean();
+  const prescription = await Prescription.findOne({ medical_record_id: record._id }).select('+attachment_storage_file_id +attachment_sha256').lean();
   expect(prescription).toMatchObject({ medicine: 'E2E Salbutamol', dosage: '2 puffs' });
+  expect(prescription.attachment_original_filename).toBe('e2e-prescription.pdf');
+  expect(prescription.attachment_mime_type).toBe('application/pdf');
+  expect(prescription.attachment_storage_file_id).toBeTruthy();
+  expect(prescription.attachment_sha256).toMatch(/^[a-f0-9]{64}$/);
 
   const duplicate = await browserApi(page, `/api/doctor/appointments/${appointment.appointmentId}/medical-record`, {
     method: 'POST',
@@ -111,6 +122,9 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await expect(page.getByText('E2E acute bronchitis').first()).toBeVisible();
   await page.getByText('View record').click();
   await expect(page.getByText('E2E Salbutamol')).toBeVisible();
+  const doctorAttachmentDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'View attachment' }).click();
+  expect((await doctorAttachmentDownload).suggestedFilename()).toBe('e2e-prescription.pdf');
   await expect(page.getByRole('button', { name: /edit|delete/i })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Certificates' }).click();
   await page.getByText('View Certificate').click();
@@ -127,6 +141,10 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await logoutThroughUi(page);
   await loginAsPatient(page, patient);
   await page.goto(`/patient/records/${record._id}`);
+  await expect(page.getByText('E2E Salbutamol')).toBeVisible();
+  const patientAttachmentDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'View attachment' }).click();
+  expect((await patientAttachmentDownload).suggestedFilename()).toBe('e2e-prescription.pdf');
   await expect(page.getByText('Reassessment after treatment.')).toBeVisible();
   await expect(page.getByText('Follow-up recommended — Not yet scheduled.')).toBeVisible();
   await page.getByRole('link', { name: 'Schedule Follow-up' }).click();

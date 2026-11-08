@@ -83,7 +83,7 @@ test('Staff manages working hours, published availability, and time off in the w
   if (dateOnlyToUtc(today).getUTCDay() === 6) await page.getByRole('button', { name: 'Next week' }).click();
   await page.getByRole('button', { name: 'Publish Availability' }).click();
   dialog = page.getByRole('dialog', { name: 'Publish Availability' });
-  await dialog.getByLabel('Date').fill(date);
+  await dialog.getByLabel('First date').fill(date);
   await dialog.getByLabel('Start').fill('12:00');
   await dialog.getByLabel('End').fill('13:00');
   await dialog.getByRole('button', { name: 'Publish Availability', exact: true }).click();
@@ -91,7 +91,7 @@ test('Staff manages working hours, published availability, and time off in the w
 
   await page.getByRole('button', { name: 'Add Time Off' }).click();
   dialog = page.getByRole('dialog', { name: 'Add Time Off' });
-  await dialog.getByLabel('Date').fill(date);
+  await dialog.getByLabel('Date', { exact: true }).fill(date);
   await dialog.getByLabel('Start').fill('14:00');
   await dialog.getByLabel('End').fill('15:00');
   await dialog.getByLabel('Operational reason').fill('E2E meeting');

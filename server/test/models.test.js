@@ -382,11 +382,22 @@ test('MedicalRecord supports a null appointment for an exceptional manual record
   assert.equal(record.appointment_id, null);
 });
 
-test('Prescription requires its MedicalRecord relation, medicine, and dosage', async () => {
+test('Prescription requires its MedicalRecord relation and accepts structured details or a private attachment', async () => {
   await assert.rejects(
     new Prescription({ instructions: 'After meals' }).validate(),
     /required/i,
   );
+  const attachmentOnly = new Prescription({
+    medical_record_id: objectId(),
+    attachment_storage_file_id: objectId(),
+    attachment_mime_type: 'application/pdf',
+    attachment_file_size: 100,
+    attachment_original_filename: 'prescription.pdf',
+    attachment_sha256: 'a'.repeat(64),
+    attachment_uploaded_at: new Date(),
+  });
+  await attachmentOnly.validate();
+  assert.equal(attachmentOnly.medicine, null);
 });
 
 test('MedicalCertificate rejects valid_until before date_issued', async () => {

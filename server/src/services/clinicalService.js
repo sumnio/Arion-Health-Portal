@@ -17,6 +17,7 @@ import { certificateValidityStatus } from './certificateValidity.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
 import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
 import { CERTIFICATE_PDF_RENDER_VERSION, buildCertificatePdf } from './certificatePdfService.js';
+import { validatePrescriptionAttachmentFiles } from '../validation/prescriptionAttachmentValidation.js';
 
 function id(value) {
   const resolved = value?._id ?? value?.id ?? value;
@@ -75,7 +76,18 @@ function appointmentView(appointment) {
 export const doctorHistoryDateRange = appointmentHistoryDateRange;
 
 function prescriptionView(item) {
-  return { id: id(item), medicine: item.medicine, dosage: item.dosage, instructions: item.instructions ?? null };
+  return {
+    id: id(item),
+    medicine: item.medicine ?? null,
+    dosage: item.dosage ?? null,
+    instructions: item.instructions ?? null,
+    attachment_available: Boolean(item.attachment_storage_file_id || item.attachment_uploaded_at),
+    attachment: item.attachment_uploaded_at ? {
+      filename: item.attachment_original_filename,
+      mime_type: item.attachment_mime_type,
+      size: item.attachment_file_size,
+    } : null,
+  };
 }
 
 async function presentRecord(repository, record, suppliedPrescriptions) {
@@ -147,7 +159,7 @@ function certificatePdfData(item, clinic) {
   };
 }
 
-export function createClinicalService({ repository, clinic, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, pdfRenderer = buildCertificatePdf, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
+export function createClinicalService({ repository, clinic, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, prescriptionAttachmentStorage, pdfRenderer = buildCertificatePdf, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
   async function doctorFor(profileId) {
     const doctor = await repository.findDoctorByUserProfileId(profileId);
     if (!doctor) throw httpError(403, 'DOCTOR_PROFILE_REQUIRED', 'An active Doctor profile is required.');
@@ -157,6 +169,28 @@ export function createClinicalService({ repository, clinic, notificationTriggers
     const patient = await repository.findPatientByUserProfileId(profileId);
     if (!patient) throw httpError(404, 'PATIENT_PROFILE_NOT_FOUND', 'Patient profile was not found.');
     return patient;
+  }
+  async function prescriptionAttachmentFor(prescriptionId, ownerField, ownerId) {
+    validateClinicalObjectId(prescriptionId, 'prescriptionId');
+    const prescription = await repository.findPrescriptionWithRecord(prescriptionId);
+    const record = prescription?.medical_record_id;
+    if (!prescription || !record || id(record[ownerField]) !== id(ownerId)) {
+      throw httpError(404, 'PRESCRIPTION_ATTACHMENT_NOT_FOUND', 'Prescription attachment was not found.');
+    }
+    if (!prescription.attachment_storage_file_id) {
+      throw httpError(404, 'PRESCRIPTION_ATTACHMENT_NOT_FOUND', 'Prescription attachment was not found.');
+    }
+    try {
+      return {
+        filename: prescription.attachment_original_filename,
+        mimeType: prescription.attachment_mime_type,
+        size: prescription.attachment_file_size,
+        sha256: prescription.attachment_sha256,
+        stream: prescriptionAttachmentStorage.openDownload(prescription.attachment_storage_file_id),
+      };
+    } catch {
+      throw httpError(503, 'PRESCRIPTION_ATTACHMENT_UNAVAILABLE', 'The prescription attachment is temporarily unavailable.');
+    }
   }
 
   return {
@@ -219,9 +253,9 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       if (id(appointment.doctor_id) !== id(doctor)) throw httpError(403, 'FORBIDDEN', 'This appointment is assigned to another Doctor.');
       return (await repository.listPriorityHistory(appointmentId)).map(priorityAuditView);
     },
-    async createRecord(profileId, appointmentId, body) {
+    async createRecord(profileId, appointmentId, body, files = []) {
       validateClinicalObjectId(appointmentId, 'appointmentId');
-      const input = validateMedicalRecordCreate(body);
+      const input = validateMedicalRecordCreate(body, { attachmentCount: files.length });
       const doctor = await doctorFor(profileId);
       const appointment = await repository.findAppointmentById(appointmentId);
       if (!appointment) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
@@ -232,8 +266,33 @@ export function createClinicalService({ repository, clinic, notificationTriggers
         throw httpError(400, 'FOLLOW_UP_DATE_BEFORE_CONSULTATION', 'The recommended follow-up date cannot be before the consultation date.');
       }
       if (await repository.findRecordByAppointmentId(appointmentId)) throw httpError(409, 'MEDICAL_RECORD_EXISTS', 'This appointment already has a medical record.');
+      const validatedFiles = validatePrescriptionAttachmentFiles(files);
+      const storedFileIds = [];
+      let created;
       try {
-        const created = await repository.createRecordWithPrescriptions({
+        const prescriptions = [];
+        for (const item of input.prescriptions) {
+          const { attachment_index: attachmentIndex, ...structured } = item;
+          if (attachmentIndex == null) {
+            prescriptions.push(structured);
+            continue;
+          }
+          const file = validatedFiles[attachmentIndex];
+          let stored;
+          try { stored = await prescriptionAttachmentStorage.upload(file); }
+          catch { throw httpError(503, 'PRESCRIPTION_ATTACHMENT_STORAGE_UNAVAILABLE', 'The prescription attachment could not be stored securely.'); }
+          storedFileIds.push(stored.storageFileId);
+          prescriptions.push({
+            ...structured,
+            attachment_storage_file_id: stored.storageFileId,
+            attachment_mime_type: file.mimeType,
+            attachment_file_size: file.size,
+            attachment_original_filename: file.originalFilename,
+            attachment_sha256: createHash('sha256').update(file.buffer).digest('hex'),
+            attachment_uploaded_at: now(),
+          });
+        }
+        created = await repository.createRecordWithPrescriptions({
           patient_id: appointment.patient_id, doctor_id: doctor._id ?? doctor.id,
           appointment_id: appointment._id ?? appointment.id, encounter_at: now(),
           diagnosis: input.diagnosis, notes: input.notes, follow_up: input.follow_up,
@@ -242,15 +301,16 @@ export function createClinicalService({ repository, clinic, notificationTriggers
             ? dateOnlyToUtc(input.follow_up_recommended_date)
             : null,
           follow_up_reason: input.follow_up_reason,
-        }, input.prescriptions);
-        created.record.patient_id = await repository.findPatientById(id(appointment.patient_id));
-        created.record.doctor_id = doctor;
-        created.record.appointment_id = appointment;
-        return presentRecord(repository, created.record, created.prescriptions);
+        }, prescriptions);
       } catch (error) {
+        await Promise.allSettled(storedFileIds.map((storageFileId) => prescriptionAttachmentStorage.delete(storageFileId)));
         if (duplicateKey(error)) throw httpError(409, 'MEDICAL_RECORD_EXISTS', 'This appointment already has a medical record.');
         throw error;
       }
+      created.record.patient_id = await repository.findPatientById(id(appointment.patient_id));
+      created.record.doctor_id = doctor;
+      created.record.appointment_id = appointment;
+      return presentRecord(repository, created.record, created.prescriptions);
     },
 
     async listDoctorPatientRecords(profileId, patientId) {
@@ -283,6 +343,10 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       if (!record) throw httpError(404, 'MEDICAL_RECORD_NOT_FOUND', 'Medical record was not found.');
       return presentRecord(repository, record);
     },
+    async getDoctorPrescriptionAttachment(profileId, prescriptionId) {
+      const doctor = await doctorFor(profileId);
+      return prescriptionAttachmentFor(prescriptionId, 'doctor_id', doctor);
+    },
     async listPatientRecords(profileId) {
       const patient = await patientFor(profileId);
       return Promise.all((await repository.listRecordsForPatient(id(patient))).map((item) => presentRecord(repository, item)));
@@ -293,6 +357,10 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const record = await repository.findRecordForPatient(recordId, id(patient));
       if (!record) throw httpError(404, 'MEDICAL_RECORD_NOT_FOUND', 'Medical record was not found.');
       return presentRecord(repository, record);
+    },
+    async getPatientPrescriptionAttachment(profileId, prescriptionId) {
+      const patient = await patientFor(profileId);
+      return prescriptionAttachmentFor(prescriptionId, 'patient_id', patient);
     },
 
     async previewCertificate(profileId, recordId, body) {

@@ -3,6 +3,8 @@ import RecordSection from '../records/RecordSection.jsx';
 import CertificatePdfPreview from '../certificates/CertificatePdfPreview.jsx';
 import StatusBadge from '../dashboard/StatusBadge.jsx';
 import { formatCertificateDate, formatEncounter } from '../../services/dateTimeService.js';
+import PrescriptionAttachmentButton from './PrescriptionAttachmentButton.jsx';
+import { doctorApiService } from '../../services/doctorApiService.js';
 
 const certificateFilters = ['all', 'active', 'expired'];
 const certificateEmpty = {
@@ -34,7 +36,7 @@ export default function ConsultationHistory({ records, certificates, section = '
   return <>
     {section !== 'certificates' && <RecordSection title="Medical Records"><p>Saved medical records are read-only.</p>{records.length ? records.slice(0, recordLimit).map(record => <details className="history-disclosure" key={record.id}><summary><time dateTime={record.encounter_at}>{formatEncounter(record.encounter_at)}</time><strong>{record.diagnosis}</strong><span>View record</span></summary><div className="history-content"><p>Doctor: {record.doctor}</p>{record.notes && <><h3>Doctor’s notes</h3><p className="clinical-text">{record.notes}</p></>}{record.follow_up && <><h3>Follow-up instructions</h3><p className="clinical-text">{record.follow_up}</p></>}{record.follow_up_required ? <><h3>Follow-up recommendation</h3><p className="clinical-text">Recommended {record.follow_up_recommended_date}: {record.follow_up_reason}</p><p>{record.follow_up_appointment && ['pending', 'confirmed'].includes(record.follow_up_appointment.status) ? 'Follow-up appointment scheduled.' : 'Not yet scheduled.'}</p></> : <p>No follow-up recommended.</p>}
       <h3>Related appointment</h3>{record.appointment ? <><p>{formatEncounter(record.appointment.appointment_at)} · {record.appointment.reason}</p><StatusBadge status={record.appointment.status} /></> : <p>{record.appointment_id ? 'Appointment details are unavailable.' : 'No linked appointment (manual record).'}</p>}
-      <h3>Prescriptions</h3>{record.prescriptions.length ? <ul className="history-prescriptions">{record.prescriptions.map(item => <li key={item.id}><strong>{item.medicine}</strong><p>{item.dosage}</p>{item.instructions && <p>{item.instructions}</p>}</li>)}</ul> : <p>No prescriptions recorded.</p>}
+      <h3>Prescriptions</h3>{record.prescriptions.length ? <ul className="history-prescriptions">{record.prescriptions.map(item => <li key={item.id}><strong>{item.medicine || 'Attached prescription'}</strong>{item.dosage && <p>{item.dosage}</p>}{item.instructions && <p>{item.instructions}</p>}<PrescriptionAttachmentButton prescription={item} downloadAttachment={doctorApiService.downloadPrescriptionAttachment} /></li>)}</ul> : <p>No prescriptions recorded.</p>}
     </div></details>) : <p>No medical records found.</p>}{records.length > 0 && <p role="status">Showing {Math.min(recordLimit, records.length)} of {records.length} consultations</p>}{recordLimit < records.length && <button type="button" className="action-link" onClick={() => setRecordLimit(limit => limit + 5)}>Load more consultations</button>}</RecordSection>}
     {section !== 'records' && <RecordSection title="Medical Certificates">
       <p>Issued certificates are read-only. Use All, Active, or Expired to review them.</p>

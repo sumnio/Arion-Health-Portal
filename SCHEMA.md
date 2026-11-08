@@ -257,13 +257,16 @@ Represents a date-specific time range the Doctor has actually published for pati
 |---|---|---|
 | id | identifier, PK | MongoDB `_id` |
 | doctor_id | identifier, FK | References `Doctor.id` |
-| availability_date | date | Specific published calendar date |
+| availability_date | date | First published calendar date; the only date when `repeat_weekly` is false |
+| repeat_weekly | boolean | When true, applies on the same weekday until Staff stops the series |
+| excluded_dates | date[] | Weekly occurrence dates removed without stopping the series |
+| date_overrides | object[] | Per-date `availability_date`, `start_time`, and `end_time` overrides for weekly occurrences |
 | start_time | time | Start of the published range |
 | end_time | time | End of the published range; must be later than `start_time` |
 | created_at | timestamp | Managed by Mongoose timestamps |
 | updated_at | timestamp | Managed by Mongoose timestamps |
 
-A Doctor may publish multiple non-overlapping ranges for one date. The 30-day publication horizon and clinic-hours boundary are service rules; the 14-day patient booking window is a separate service rule.
+Staff may publish multiple non-overlapping ranges for one date. A publication may apply once or repeat weekly. Weekly removed dates and one-date time changes are stored on the publication so later weeks remain intact. The 30-day first-publication horizon and clinic-hours boundary are service rules; the 14-day Patient booking window is a separate service rule.
 
 ---
 
@@ -286,7 +289,7 @@ Represents one-time or temporary exceptions to the regular schedule. A block can
 - Appointment slots are fixed at 30 minutes.
 - Staff manages recurring availability, published availability, and blocked time for active Doctors. Doctor schedule views are read-only.
 - A doctor may publish multiple DoctorAvailability ranges for the same day. Gaps between ranges represent regular recurring breaks.
-- A doctor may publish availability up to 30 days ahead and is not required to publish all 30 days. Patients may see and book only dates/times actually published by the doctor; a recurring weekly row alone does not publish every matching future date.
+- Staff may publish one date or begin a weekly publication up to 30 days ahead. Weekly publication continues on the same weekday until Staff stops it. Patients see only effective published times after removed dates and one-date overrides are applied; Working Hours alone are never bookable.
 - Exact clinic operating hours are TBD and must be configurable. Do not hardcode clinic-hour values. Once configured, DoctorAvailability and every bookable 30-minute slot must remain within those hours.
 - DoctorBlockedTime overrides regular DoctorAvailability. Any slot overlapping blocked time is unavailable, including when only part of a day is blocked.
 - Already-booked slots are unavailable for new booking. The same doctor must not have two active appointments in the same time slot or overlapping appointment intervals. Different doctors may have appointments at the same time.
@@ -938,3 +941,21 @@ Rejected resubmission updates the same Patient-owned record from Rejected to Pen
 `Appointment` adds nullable `source_medical_record_id -> MedicalRecord._id`. A linked Appointment must use the Medical Record's Patient and Doctor, `visit_type = follow_up`, and the fixed operational reason `Follow-up consultation`. A partial unique index permits only one `pending` or `confirmed` linked Appointment per Medical Record; terminal appointments do not prevent legitimate rebooking. The Appointment contains no copied follow-up reason.
 
 The recommendation and actual Appointment are deliberately separate: scheduling and rescheduling change only the Appointment. MedicalRecord has no update/delete route. Patient/Staff booking continues to use published availability, blocked-time and slot-conflict checks, and the existing 14-day horizon.
+# Prescription attachment fields (v1.2.16)
+
+Collection: `prescriptions` (extended; no new metadata collection)
+
+| Field | Type | Rules |
+|---|---|---|
+| `medical_record_id` | ObjectId | Existing required MedicalRecord reference |
+| `medicine` | String, nullable | Required with `dosage` when no attachment exists; optional for attachment-only rows |
+| `dosage` | String, nullable | Required with `medicine` when structured details are used |
+| `instructions` | String, nullable | Existing bounded optional instructions |
+| `attachment_storage_file_id` | ObjectId, nullable | Private GridFS reference; excluded from default selection |
+| `attachment_mime_type` | enum, nullable | `application/pdf`, `image/png`, or `image/jpeg` |
+| `attachment_file_size` | Number, nullable | 1 byte through 5 MB |
+| `attachment_original_filename` | String, nullable | Sanitized display/download filename, maximum 180 characters |
+| `attachment_sha256` | String, nullable | 64-character SHA-256 integrity hash; excluded from default selection |
+| `attachment_uploaded_at` | Date, nullable | Server-authoritative immutable upload timestamp |
+
+Binary bytes live only in the private GridFS bucket `prescription_files`, which creates the standard `prescription_files.files` and `prescription_files.chunks` collections. One Prescription has zero or one attachment. There is no public URL, external storage key, extracted text, OCR/AI field, mutable version, or deletion flag.

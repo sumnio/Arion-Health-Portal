@@ -20,7 +20,7 @@ const ids = {
 
 function clone(value) { return value == null ? value : structuredClone(value); }
 
-function createContext({ certificateIssuanceEnabled = true, notificationTriggers, smsReminders, doctorStatus = 'active', missingSignature = false } = {}) {
+function createContext({ certificateIssuanceEnabled = true, notificationTriggers, smsReminders, doctorStatus = 'active', missingSignature = false, prescriptionStorageFailure = false } = {}) {
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
     [ids.otherPatientProfile, { user_profile_id: ids.otherPatientProfile, display_name: 'Other Patient', role: 'patient', status: 'active' }],
@@ -54,6 +54,7 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
   const prescriptions = new Map();
   const certificates = new Map();
   const certificateArtifacts = new Map();
+  const prescriptionAttachments = new Map();
   const certificateRuntime = { numberCalls: 0, renders: [] };
   const priorityAudits = [{ _id: '800000000000000000000001', appointment_id: ids.confirmed, previous_priority: 'normal', new_priority: 'urgent', urgency_reason: 'Severe pain or discomfort', explanation: null, correction_reason: null, staff_actor_user_profile_id: { _id: ids.staffProfile, display_name: 'Staff' }, created_at: new Date('2026-09-25T01:50:00Z') }];
   let sequence = 100;
@@ -101,6 +102,12 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
     async listRecordsForDoctorPatient(doctorId, patientId) { return [...records.values()].filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId)).map(populateRecord); },
     async findRecordForDoctor(recordId, doctorId) { const item = records.get(String(recordId)); return item?.doctor_id === String(doctorId) ? populateRecord(item) : null; },
     async listPrescriptions(recordId) { return [...prescriptions.values()].filter((item) => item.medical_record_id === String(recordId)).map(clone); },
+    async findPrescriptionWithRecord(prescriptionId) {
+      const item = prescriptions.get(String(prescriptionId));
+      if (!item) return null;
+      const record = records.get(String(item.medical_record_id));
+      return { ...clone(item), medical_record_id: record ? { _id: record._id, patient_id: record.patient_id, doctor_id: record.doctor_id, appointment_id: record.appointment_id } : null };
+    },
     async createCertificate(data) {
       if (this.failCertificateDuplicates-- > 0 || [...certificates.values()].some((item) => item.medical_certificate_number === data.medical_certificate_number)) throw Object.assign(new Error('duplicate'), { code: 11000 });
       const value = { _id: nextId(), ...clone(data), patient_id: String(data.patient_id), doctor_id: String(data.doctor_id), medical_record_id: String(data.medical_record_id), created_at: new Date(), updated_at: new Date() };
@@ -139,10 +146,20 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
     openDownload(storageFileId) { return Readable.from(certificateArtifacts.get(String(storageFileId))); },
     async delete(storageFileId) { certificateArtifacts.delete(String(storageFileId)); },
   };
+  const prescriptionAttachmentStorage = {
+    async upload(file) {
+      if (prescriptionStorageFailure) throw new Error('storage unavailable');
+      const storageFileId = nextId();
+      prescriptionAttachments.set(storageFileId, Buffer.from(file.buffer));
+      return { storageFileId };
+    },
+    openDownload(storageFileId) { return Readable.from(prescriptionAttachments.get(String(storageFileId))); },
+    async delete(storageFileId) { prescriptionAttachments.delete(String(storageFileId)); },
+  };
   const pdfRenderer = (certificate, { signatureBuffer, signatureMissingText }) => { certificateRuntime.renders.push(clone(certificate)); return Buffer.from(`%PDF-1.4\n${certificate.medical_certificate_number}\n${certificate.patient_name}\nValid Until: ${certificate.valid_until ?? 'legacy'}\n${signatureBuffer?.toString() ?? signatureMissingText ?? 'legacy-no-signature'}\n%%EOF\n`); };
-  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City', timeZone: 'Asia/Manila' }, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, pdfRenderer, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => { certificateRuntime.numberCalls += 1; return 'AHC-20260925-ABCDEF12'; }, certificateIssuanceEnabled });
+  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City', timeZone: 'Asia/Manila' }, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, prescriptionAttachmentStorage, pdfRenderer, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => { certificateRuntime.numberCalls += 1; return 'AHC-20260925-ABCDEF12'; }, certificateIssuanceEnabled });
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, clinicalModule });
-  return { app, appointments, records, prescriptions, certificates, certificateArtifacts, certificateRuntime, signatureState, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
+  return { app, appointments, records, prescriptions, prescriptionAttachments, certificates, certificateArtifacts, certificateRuntime, signatureState, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
 }
 
 async function withServer(app, callback) {
@@ -150,7 +167,7 @@ async function withServer(app, callback) {
   await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
   try { await callback(`http://127.0.0.1:${server.address().port}`); } finally { await new Promise((resolve) => server.close(resolve)); }
 }
-function request(base, path, { method = 'GET', cookie, body } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }); }
+function request(base, path, { method = 'GET', cookie, body, formData } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: formData ?? (body ? JSON.stringify(body) : undefined) }); }
 const recordBody = { diagnosis: 'Viral upper respiratory infection', notes: 'Rest advised', follow_up: 'Return in seven days', prescriptions: [{ medicine: 'Paracetamol', dosage: '500 mg', instructions: 'Every six hours as needed' }] };
 const certificateBody = { purpose: 'Fit to Return', diagnosis_summary: 'Recovered from viral infection', recommendation: 'May return to regular duties.', valid_until: '2026-10-02' };
 
@@ -165,6 +182,73 @@ async function createRecord(context, base, appointmentId = ids.confirmed) {
 
 test('Doctor creates an assigned MedicalRecord and linked Prescription', async () => {
   const context = createContext(); await withServer(context.app, async (base) => { const { response, body } = await createRecord(context, base); assert.equal(response.status, 201); assert.equal(body.medical_record.diagnosis, recordBody.diagnosis); assert.equal(body.medical_record.prescriptions[0].medicine, 'Paracetamol'); assert.equal(context.records.size, 1); assert.equal(context.prescriptions.size, 1); });
+});
+
+function attachmentForm(payload, bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1]), { name = 'prescription.png', type = 'image/png' } = {}) {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+  formData.append('attachments', new Blob([bytes], { type }), name);
+  return formData;
+}
+
+test('Doctor saves an attachment-only prescription and owning Doctor and Patient can download it', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const payload = { diagnosis: 'Attachment prescription', prescriptions: [{ medicine: null, dosage: null, instructions: null, attachment_index: 0 }] };
+    const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), formData: attachmentForm(payload) });
+    const body = await response.json();
+    assert.equal(response.status, 201);
+    const prescription = body.medical_record.prescriptions[0];
+    assert.equal(prescription.medicine, null);
+    assert.equal(prescription.attachment_available, true);
+    assert.equal(prescription.attachment.filename, 'prescription.png');
+    assert.equal('attachment_storage_file_id' in prescription, false);
+    assert.equal('attachment_sha256' in prescription, false);
+    const doctorDownload = await request(base, `/api/doctor/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(ids.doctorProfile) });
+    assert.equal(doctorDownload.status, 200);
+    assert.equal(doctorDownload.headers.get('content-type'), 'image/png');
+    assert.equal((await doctorDownload.arrayBuffer()).byteLength, 9);
+    assert.equal((await request(base, `/api/doctor/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 404);
+    assert.equal((await request(base, `/api/patient/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(ids.patientProfile) })).status, 200);
+    assert.equal((await request(base, `/api/patient/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(ids.otherPatientProfile) })).status, 404);
+    for (const profile of [ids.staffProfile, ids.adminProfile]) {
+      assert.equal((await request(base, `/api/doctor/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(profile) })).status, 403);
+      assert.equal((await request(base, `/api/patient/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(profile) })).status, 403);
+    }
+  });
+});
+
+test('prescription attachment validation rejects spoofed, empty, oversized, duplicate, and unreferenced files', async () => {
+  const cases = [
+    { expected: 400, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }] }, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), { name: 'fake.jpg', type: 'image/jpeg' }) },
+    { expected: 400, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }] }, Buffer.alloc(0), { name: 'empty.png', type: 'image/png' }) },
+    { expected: 413, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }] }, Buffer.alloc((5 * 1024 * 1024) + 1), { name: 'large.png', type: 'image/png' }) },
+    { expected: 400, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }, { attachment_index: 0 }] }) },
+    { expected: 400, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ medicine: 'Medicine', dosage: 'Dose' }] }) },
+  ];
+  for (const item of cases) {
+    const context = createContext();
+    await withServer(context.app, async (base) => {
+      const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), formData: item.form() });
+      assert.equal(response.status, item.expected);
+      assert.equal(context.records.size, 0);
+      assert.equal(context.prescriptionAttachments.size, 0);
+    });
+  }
+});
+
+test('prescription attachment storage and record failures clean up without partial clinical data', async () => {
+  for (const storageFailure of [true, false]) {
+    const context = createContext({ prescriptionStorageFailure: storageFailure });
+    if (!storageFailure) context.repository.createRecordWithPrescriptions = async () => { throw new Error('record failure'); };
+    await withServer(context.app, async (base) => {
+      const payload = { diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }] };
+      const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), formData: attachmentForm(payload) });
+      assert.equal(response.status, storageFailure ? 503 : 500);
+      assert.equal(context.records.size, 0);
+      assert.equal(context.prescriptionAttachments.size, 0);
+    });
+  }
 });
 
 test('Doctor saves an immutable structured follow-up recommendation visible to the owning Patient', async () => {
