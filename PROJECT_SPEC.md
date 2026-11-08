@@ -1,5 +1,11 @@
 # Arion Health Portal
 
+## v1.2.19 role-by-role surgical UI polish
+
+v1.2.19 applies the v1.2.18 visual baseline only to the remaining inconsistent role pages. Clinic Analytics, Doctor Patient lists and medical-record forms, Staff Calendar and walk-in surfaces, Admin account lists, notifications, Patient Profile/PWD forms, and public authentication cards now use tighter spacing, calmer borders and corner radii, smaller routine metrics, clearer rows, and more compact empty states. Tables remain readable, form labels and keyboard focus remain visible, and functional overlays retain appropriate elevation.
+
+Pages that were already consistent were deliberately left unchanged, including the weekly Doctor Schedule, core dashboards, Patient appointments/records/certificates/prescriptions, Doctor certificate/history flows, Staff queue/PWD/Doctor management flows, the landing hero/map/carousel, and the Assistant. Navigation, routes, workflow behavior, backend code, schemas, APIs, permissions, providers, and environment settings are unchanged. This work remains local and has not been deployed.
+
 ## v1.2.18 UI audit and surgical cleanup
 
 v1.2.18 standardizes the existing interface without redesigning workflows. Shared surface, border, radius, spacing, focus, control-height, link, card, and status-badge rules now keep public, Patient, Doctor, Staff, and Admin pages visually consistent. Oversized padding, headings, metric text, empty states, gradients, rounding, and decorative shadows were reduced where they made routine pages feel crowded or inconsistent. Functional overlays such as dialogs, notification menus, certificate previews, and the Assistant retain clear elevation.

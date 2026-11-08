@@ -1,5 +1,11 @@
 # Arion Health Portal MVP Handoff
 
+## v1.2.19 handoff — role-by-role surgical UI polish
+
+The remaining visual outliers now follow the v1.2.18 shared standard. Analytics cards and tables, Doctor Patient and record-entry pages, Staff calendar and walk-in pages, Admin account lists, notification centers, Patient Profile/PWD forms, and public authentication cards were compacted without changing their content, navigation, permissions, or workflows. Routine nested surfaces no longer rely on decorative shadows, status badges are less pill-like, and desktop/mobile layouts avoid horizontal overflow.
+
+Already-consistent pages were intentionally preserved, especially the weekly Doctor Schedule, role dashboards, Patient clinical/certificate surfaces, Doctor certificate/history pages, Staff queue/PWD pages, landing content, and Assistant. Validation uses the isolated `arion_health_e2e` database with fake/test providers and external AI disabled. No backend, schema, API, auth/RBAC, provider, environment, or deployment change was made.
+
 ## v1.2.18 handoff — UI audit and surgical cleanup
 
 The interface now uses a smaller shared visual system for card surfaces, borders, corner radii, spacing, focus states, controls, links, and status badges. Public, Patient, Doctor, Staff, and Admin pages keep their existing navigation and workflows, while excessive padding, gradients, oversized headings and metrics, roomy empty states, inconsistent rounding, and unnecessary shadows were reduced. Dialogs and other true overlays keep enough elevation to remain clear.

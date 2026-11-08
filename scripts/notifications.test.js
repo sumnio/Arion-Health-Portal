@@ -100,6 +100,7 @@ test('full-page notification items label appointment and event times while the b
   assert.match(item, /pwd_verification_rejected/);
   assert.match(item, />Mark as read</);
   assert.match(styles, /\.notification-page-list\s*\{[^}]*display:\s*grid;[^}]*gap:/s);
-  assert.match(styles, /\.notification-page-list \.notification-item\s*\{[^}]*border:[^}]*border-radius:[^}]*box-shadow:/s);
+  assert.match(styles, /\.notification-page-list \.notification-item\s*\{[^}]*border:[^}]*border-radius:/s);
+  assert.doesNotMatch(styles, /\.notification-page-list \.notification-item\s*\{[^}]*box-shadow:/s);
   assert.doesNotMatch(bell, /detailed/);
 });

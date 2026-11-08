@@ -51,27 +51,27 @@
 .location-copy .clinic-phone a { width: max-content; color: #203e51; font-size: 21px; font-weight: 700; text-decoration: none; }
 .location-copy .clinic-phone a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .location-copy .public-button { margin-top: 8px; }
-.public-v2.auth-shell main { width: 100%; padding: 44px 24px 60px; display: flex; align-items: flex-start; justify-content: center; }
-.auth-card { width: 100%; max-width: 460px; padding: 28px; border: 1px solid #dfe7ed; border-radius: 10px; background: #fff; box-shadow: 0 3px 12px #263f5108; }
+.public-v2.auth-shell main { width: 100%; padding: 36px 24px 48px; display: flex; align-items: flex-start; justify-content: center; }
+.auth-card { width: 100%; max-width: 450px; padding: 24px; border: 1px solid #dfe7ed; border-radius: var(--radius-card); background: #fff; box-shadow: 0 3px 12px #263f5108; }
 .auth-card-wide { max-width: 660px; }
 .unauthorized-actions { justify-content: center; }
 .not-found-page { width: 100%; text-align: center; }
 .not-found-page h1 { margin-bottom: 24px; }
-.auth-heading { text-align: center; margin-bottom: 24px; }
+.auth-heading { text-align: center; margin-bottom: 20px; }
 .auth-symbol { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #edf2f5; color: #496778; font-size: 23px; margin-bottom: 16px; }
 .public-v2 .auth-heading h1 { font-size: 26px; letter-spacing: -.025em; }
 .auth-heading p { font-size: 14px; color: #607180; margin: 10px 0 0; line-height: 1.6; }
-.auth-notice { font-size: 12px; color: #516776; line-height: 1.6; background: #f0f5f8; border-radius: 6px; padding: 12px 14px; margin: 0 0 24px; }
+.auth-notice { font-size: 12px; color: #516776; line-height: 1.6; background: #f0f5f8; border-radius: 6px; padding: 11px 13px; margin: 0 0 18px; }
 .auth-notice p { margin: 4px 0 0; }
-.form-field { margin-bottom: 20px; min-width: 0; }
-.form-field label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+.form-field { margin-bottom: 16px; min-width: 0; }
+.form-field label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; }
 .form-field :is(input,select) { width: 100%; min-width: 0; min-height: 46px; border: 1px solid #cbd7e1; background: #fff; border-radius: 6px; padding: 11px 12px; font: inherit; font-size: 14px; color: #263f51; }
 .form-field input::placeholder { color: #7a8b99; font-size: 13px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
 .password-input { position: relative; }
 .password-input input { padding-right: 62px; }
 .password-toggle { position: absolute; right: 3px; top: 3px; bottom: 3px; padding: 0 10px; color: #456277; background: transparent; border: 0; border-radius: 4px; font-size: 12px; cursor: pointer; }
-.auth-switch { text-align: center; font-size: 13px; margin: 24px 0 0; line-height: 1.7; }
+.auth-switch { text-align: center; font-size: 13px; margin: 20px 0 0; line-height: 1.7; }
 .auth-switch a { color: #215c83; text-decoration: underline; text-underline-offset: 3px; margin-left: 4px; }
 .auth-inline-link { margin: -10px 0 18px; text-align: right; font-size: 13px; }
 .auth-inline-link a { color: #215c83; text-decoration: underline; text-underline-offset: 3px; }
@@ -108,7 +108,7 @@
   .location-copy { padding: 26px; }
   .public-v2 .portal-footer { padding: 22px; flex-wrap: wrap; }
   .public-v2.auth-shell main { padding: 28px 16px; }
-  .auth-card { padding: 26px 20px; }
+  .auth-card { padding: 22px 18px; }
   .form-grid { grid-template-columns: 1fr; }
   .public-v2 .auth-heading h1 { font-size: 24px; }
   .otp-inputs { gap: 6px; }
