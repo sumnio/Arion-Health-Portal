@@ -225,7 +225,20 @@ export function createPatientApiService(repository = patientApiRepository) {
       record.certificates = (certificateResult.medical_certificates ?? []).filter((item) => item.medical_record_id === record.id).map((item) => normalizeCertificate(item));
       return record;
     },
-    downloadPrescriptionAttachment: (id) => repository.downloadPrescriptionAttachment(id),
+    async getPrescriptions({ page = 1 } = {}) {
+      const result = await repository.getPrescriptions({ page });
+      const pagination = result.pagination ?? {};
+      return {
+        items: result.prescriptions ?? [],
+        pagination: {
+          page: pagination.page ?? 1,
+          pageSize: pagination.page_size ?? 5,
+          total: pagination.total ?? 0,
+          pageCount: pagination.page_count ?? 1,
+        },
+      };
+    },
+    downloadPrescriptionAttachment: (id, options) => repository.downloadPrescriptionAttachment(id, options),
     async getCertificates(options = {}) {
       const [result, profile] = await Promise.all([repository.getCertificates(options), repository.getProfile()]);
       return {

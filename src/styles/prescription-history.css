@@ -1,0 +1,30 @@
+.prescription-history-count { font-size: 12px; }
+.prescription-history-list { display: grid; gap: 14px; margin-top: 14px; }
+.prescription-history-item { border: 1px solid #dce5ec; border-radius: 8px; padding: 18px; background: #fff; }
+.prescription-history-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.prescription-history-heading h3 { margin: 0 0 6px; font-size: 16px; }
+.prescription-issued-status, .prescription-attachment-indicator { display: inline-block; color: #426078; font-size: 12px; }
+.prescription-attachment-indicator { padding: 5px 9px; border-radius: 999px; background: #e8f2fb; color: #175d99; font-weight: 600; }
+.prescription-history-item dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin: 16px 0; }
+.prescription-history-item dl > div { min-width: 0; }
+.prescription-history-item dt { margin-bottom: 4px; color: #52657b; font-size: 12px; font-weight: 600; }
+.prescription-history-item dd { margin: 0; overflow-wrap: anywhere; font-size: 14px; }
+.prescription-attachment-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.prescription-history-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; font-size: 13px; }
+.prescription-preview-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(15, 32, 48, .62); }
+.prescription-preview-dialog { width: min(900px, 100%); max-height: calc(100vh - 40px); overflow: auto; border-radius: 12px; background: #fff; box-shadow: 0 20px 60px rgba(0, 0, 0, .25); }
+.prescription-preview-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid #dce5ec; }
+.prescription-preview-dialog h2, .prescription-preview-dialog p { margin: 0; }
+.prescription-preview-dialog p { margin-top: 5px; color: #52657b; font-size: 13px; overflow-wrap: anywhere; }
+.prescription-preview-close { width: 38px; height: 38px; border: 0; border-radius: 50%; background: #edf3f6; color: #284b63; font-size: 24px; cursor: pointer; }
+.prescription-preview-dialog iframe, .prescription-preview-dialog img { display: block; width: 100%; height: min(70vh, 720px); border: 0; background: #f5f7f9; object-fit: contain; }
+.patient-record-tabs { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid #cbd8e0; }
+.patient-record-tabs button { padding: 11px 16px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #284b63; font: inherit; font-weight: 600; cursor: pointer; }
+.patient-record-tabs button[aria-selected="true"] { border-bottom-color: #19745b; color: #0d604a; }
+@media (max-width: 600px) {
+  .prescription-history-heading { display: grid; }
+  .prescription-history-item dl { grid-template-columns: 1fr; }
+  .prescription-preview-backdrop { padding: 8px; }
+  .prescription-preview-dialog { max-height: calc(100vh - 16px); }
+  .prescription-preview-dialog iframe, .prescription-preview-dialog img { height: 65vh; }
+}

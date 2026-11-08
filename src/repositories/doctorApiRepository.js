@@ -35,6 +35,9 @@ export function createDoctorApiRepository(client = apiClient) {
       const query = new URLSearchParams({ certificate_status: certificateStatus, certificate_page: String(certificatePage) });
       return request(`/api/doctor/patients/${encodeURIComponent(patientId)}/records?${query}`);
     },
+    async getPatientPrescriptions(patientId, { page = 1 } = {}) {
+      return request(`/api/doctor/patients/${encodeURIComponent(patientId)}/prescriptions?page=${encodeURIComponent(page)}`);
+    },
     async listSupportingDocuments(appointmentId) {
       return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/supporting-documents`)).supporting_documents;
     },
@@ -42,7 +45,10 @@ export function createDoctorApiRepository(client = apiClient) {
       return client.download(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/supporting-documents/${encodeURIComponent(documentId)}`);
     },
     async getRecord(recordId) { return (await request(`/api/doctor/records/${encodeURIComponent(recordId)}`)).medical_record; },
-    async downloadPrescriptionAttachment(prescriptionId) { return client.download(`/api/doctor/prescriptions/${encodeURIComponent(prescriptionId)}/attachment`); },
+    async downloadPrescriptionAttachment(prescriptionId, { inline = false } = {}) {
+      const suffix = inline ? '?disposition=inline' : '';
+      return client.download(`/api/doctor/prescriptions/${encodeURIComponent(prescriptionId)}/attachment${suffix}`);
+    },
     async createMedicalRecord(appointmentId, payload) {
       const path = `/api/doctor/appointments/${encodeURIComponent(appointmentId)}/medical-record`;
       const response = payload instanceof FormData

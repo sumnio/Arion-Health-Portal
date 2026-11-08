@@ -42,6 +42,19 @@ function normalizeRecord(item) {
   };
 }
 
+function normalizePrescriptionHistory(result) {
+  const pagination = result.pagination ?? {};
+  return {
+    items: result.prescriptions ?? [],
+    pagination: {
+      page: pagination.page ?? 1,
+      pageSize: pagination.page_size ?? 5,
+      total: pagination.total ?? 0,
+      pageCount: pagination.page_count ?? 1,
+    },
+  };
+}
+
 function normalizeCertificate(item, patientName = '') {
   return {
     ...item, patientName,
@@ -124,6 +137,9 @@ export function createDoctorApiService(repository = doctorApiRepository) {
                 : canAddRecord ? 'Review the patient information before adding a medical record.' : 'This appointment is not eligible for a medical record.';
       return { patient: appointment.patient, appointment, records, certificates, certificateFilter: certificateResult.filter, certificatePagination: certificateResult.pagination, priorityHistory, existingRecord, canAddRecord, canComplete, consultationMessage };
     },
+    async getPatientPrescriptions(patientId, { page = 1 } = {}) {
+      return normalizePrescriptionHistory(await repository.getPatientPrescriptions(patientId, { page }));
+    },
     async getPatientCertificates(patientId, options = {}, patientName = '') {
       return normalizeDoctorCertificates(await repository.getPatientHistory(patientId, options), patientName);
     },
@@ -150,7 +166,7 @@ export function createDoctorApiService(repository = doctorApiRepository) {
       return normalizeRecord(await repository.createMedicalRecord(appointmentId, formData));
     },
     async getRecord(id) { return normalizeRecord(await repository.getRecord(id)); },
-    downloadPrescriptionAttachment: (id) => repository.downloadPrescriptionAttachment(id),
+    downloadPrescriptionAttachment: (id, options) => repository.downloadPrescriptionAttachment(id, options),
     async issueCertificate(recordId, values, patientName = '') {
       const created = await repository.createCertificate(recordId, {
         purpose: values.purpose,

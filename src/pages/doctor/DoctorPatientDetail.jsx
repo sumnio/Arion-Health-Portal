@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ConsultationHistory from '../../components/records/ConsultationHistory.jsx';
+import PrescriptionHistory from '../../components/records/PrescriptionHistory.jsx';
 import RecordSection from '../../components/records/RecordSection.jsx';
 import StatusBadge from '../../components/dashboard/StatusBadge.jsx';
 import SupportingDocumentList from '../../components/documents/SupportingDocumentList.jsx';
@@ -15,6 +16,7 @@ const tabs = [
   ['overview', 'Overview'],
   ['consultation', 'Consultation'],
   ['records', 'Medical Records'],
+  ['prescriptions', 'Prescriptions'],
   ['certificates', 'Certificates'],
 ];
 
@@ -29,6 +31,7 @@ export default function DoctorPatientDetail() {
   const [certificateFilter, setCertificateFilter] = useState('all');
   const [certificateStatus, setCertificateStatus] = useState('ready');
   const [certificateError, setCertificateError] = useState('');
+  const [prescriptionState, setPrescriptionState] = useState({ status: 'idle', items: [], pagination: { page: 1, pageSize: 5, total: 0, pageCount: 1 }, error: '' });
   const load = useCallback(async () => {
     setState((old) => ({ ...old, loading: true, error: '' }));
     try {
@@ -69,6 +72,24 @@ export default function DoctorPatientDetail() {
     }
   }
 
+  const loadPrescriptions = useCallback(async (page = 1) => {
+    setPrescriptionState((current) => ({ ...current, status: 'loading', error: '' }));
+    try {
+      const result = await doctorApiService.getPatientPrescriptions(id, { page });
+      setPrescriptionState({ status: 'ready', items: result.items, pagination: result.pagination, error: '' });
+    } catch (error) {
+      setPrescriptionState((current) => ({ ...current, status: 'error', error: doctorApiErrorMessage(error, 'Prescriptions could not be loaded.') }));
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'prescriptions' && prescriptionState.status === 'idle') loadPrescriptions();
+  }, [activeTab, prescriptionState.status, loadPrescriptions]);
+
+  function selectTab(key) {
+    setActiveTab(key);
+  }
+
   if (state.loading) return <div className="doctor-patient-page">{back}<p role="status">Loading patient consultation…</p></div>;
   if (state.error || !state.detail) return <div className="doctor-patient-page">{back}<RecordSection title="Patient or appointment not found"><p role="alert">{state.error}</p></RecordSection></div>;
 
@@ -80,7 +101,7 @@ export default function DoctorPatientDetail() {
   return <div className="doctor-patient-page">{back}
     <header className="detail-heading"><div><h1>{patient.full_name}</h1><p>{formatBookingDate(appointment.date)} · {appointment.timeLabel} · Philippine time</p></div><StatusBadge status={appointment.status} /></header>
     <nav className="patient-detail-tabs" role="tablist" aria-label="Patient details">
-      {tabs.map(([key, label]) => <button key={key} id={`patient-tab-${key}`} type="button" role="tab" aria-selected={activeTab === key} aria-controls={`patient-panel-${key}`} onClick={() => setActiveTab(key)}>{label}</button>)}
+      {tabs.map(([key, label]) => <button key={key} id={`patient-tab-${key}`} type="button" role="tab" aria-selected={activeTab === key} aria-controls={`patient-panel-${key}`} onClick={() => selectTab(key)}>{label}</button>)}
     </nav>
     <section id={`patient-panel-${activeTab}`} className="patient-tab-panel" role="tabpanel" aria-labelledby={`patient-tab-${activeTab}`}>
       {activeTab === 'overview' && <div className="doctor-patient-grid"><RecordSection title="Patient Information"><strong className="patient-name">{patient.full_name}</strong><p>{age == null ? 'Age unavailable' : `${age} years old`} · {patient.sex}</p><dl><div><dt>Date of birth</dt><dd>{formatBookingDate(patient.dob)}</dd></div><div><dt>Contact number</dt><dd>{patient.contact_number}</dd></div><div><dt>Allergies</dt><dd>{patient.allergies?.length ? patient.allergies.join(', ') : 'No known allergies reported'}</dd></div><div><dt>PWD status</dt><dd>{patient.is_pwd ? 'Verified PWD' : 'Not verified'}</dd></div><div><dt>Senior status</dt><dd>{senior ? 'Senior citizen' : 'Not a senior citizen'} (based on date of birth)</dd></div></dl></RecordSection>
@@ -89,6 +110,7 @@ export default function DoctorPatientDetail() {
         </div></div>}
       {activeTab === 'consultation' && <><RecordSection title="Consultation"><p>{consultationMessage}</p>{existingRecord && <><p><strong>Saved diagnosis:</strong> {existingRecord.diagnosis}</p>{existingRecord.follow_up_required ? <p><strong>Follow-up recommended:</strong> {formatBookingDate(existingRecord.follow_up_recommended_date)} · {existingRecord.follow_up_reason}<br />{existingRecord.follow_up_appointment && ['pending', 'confirmed'].includes(existingRecord.follow_up_appointment.status) ? 'Follow-up appointment scheduled.' : 'Not yet scheduled. Patient or Staff may schedule from available slots.'}</p> : <p>No follow-up recommended.</p>}</>}{message && <p role={message.startsWith('Consultation marked') ? 'status' : 'alert'}>{message}</p>}<div className="record-actions">{canAddRecord && <Link className="action-link primary-action" to={`/doctor/patients/${id}/add-record`} state={{ appointmentId: appointment.id, date: appointment.date, tab: 'consultation' }}>Add Medical Record</Link>}{existingRecord && certificateIssuanceEnabled && !issuedForCurrentRecord && <Link className="action-link primary-action" to={`/doctor/records/${existingRecord.id}/certificate/new`}>Issue Medical Certificate</Link>}{issuedForCurrentRecord && <button type="button" className="action-link" onClick={() => setActiveTab('certificates')}>View Issued Certificate</button>}{canComplete && <button className="action-link primary-action" disabled={submitting} onClick={completeConsultation}>{submitting ? 'Completing…' : 'Mark Consultation Completed'}</button>}</div></RecordSection>{!existingRecord && ['pending', 'confirmed'].includes(appointment.status) && <RecordSection title="Patient Supporting Documents"><SupportingDocumentList appointmentId={appointment.id} documentService={doctorSupportingDocumentService} emptyMessage="No supporting documents were uploaded for this consultation." loadErrorMessage="Supporting documents could not be loaded." /></RecordSection>}</>}
       {activeTab === 'records' && <ConsultationHistory key={`${id}-records-${records.length}`} records={records} certificates={certificates} section="records" />}
+      {activeTab === 'prescriptions' && <PrescriptionHistory items={prescriptionState.items} pagination={prescriptionState.pagination} status={prescriptionState.status === 'idle' ? 'loading' : prescriptionState.status} error={prescriptionState.error} emptyMessage="No prescriptions have been issued for this Patient." downloadAttachment={doctorApiService.downloadPrescriptionAttachment} onPage={loadPrescriptions} onRetry={() => loadPrescriptions(prescriptionState.pagination.page)} />}
       {activeTab === 'certificates' && <ConsultationHistory records={records} certificates={certificates} section="certificates" certificateFilter={certificateFilter} certificatePagination={certificatePagination} certificateStatus={certificateStatus} certificateError={certificateError} onCertificateFilter={(filter) => loadCertificates(filter, 1)} onCertificatePage={(page) => loadCertificates(certificateFilter, page)} onCertificateRetry={() => loadCertificates(certificateFilter, certificatePagination?.page ?? 1)} />}
     </section>
   </div>;

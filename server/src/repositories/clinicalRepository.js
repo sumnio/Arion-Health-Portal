@@ -140,6 +140,45 @@ export const clinicalRepository = {
       .populate({ path: 'medical_record_id', select: 'patient_id doctor_id appointment_id' })
       .lean();
   },
+  async listPrescriptionsForDoctorPatient(doctorId, patientId, { page, limit }) {
+    const recordIds = await MedicalRecord.find({ doctor_id: doctorId, patient_id: patientId }).distinct('_id');
+    const query = { medical_record_id: { $in: recordIds } };
+    const [items, total] = await Promise.all([
+      Prescription.find(query)
+        .sort({ created_at: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate({
+          path: 'medical_record_id',
+          select: 'patient_id doctor_id appointment_id encounter_at',
+          populate: { path: 'appointment_id', select: 'appointment_at status visit_type' },
+        })
+        .lean(),
+      Prescription.countDocuments(query),
+    ]);
+    return { items, total };
+  },
+  async listPrescriptionsForPatient(patientId, { page, limit }) {
+    const recordIds = await MedicalRecord.find({ patient_id: patientId }).distinct('_id');
+    const query = { medical_record_id: { $in: recordIds } };
+    const [items, total] = await Promise.all([
+      Prescription.find(query)
+        .sort({ created_at: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate({
+          path: 'medical_record_id',
+          select: 'patient_id doctor_id appointment_id encounter_at',
+          populate: [
+            { path: 'doctor_id', select: 'specialty user_profile_id', populate: { path: 'user_profile_id', select: 'display_name' } },
+            { path: 'appointment_id', select: 'appointment_at status visit_type' },
+          ],
+        })
+        .lean(),
+      Prescription.countDocuments(query),
+    ]);
+    return { items, total };
+  },
   async findLatestLinkedFollowUp(recordId) {
     return Appointment.findOne({ source_medical_record_id: recordId })
       .select('appointment_at status visit_type reason check_in_at source_medical_record_id')

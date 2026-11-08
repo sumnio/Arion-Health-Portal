@@ -434,3 +434,15 @@ The backend additions are Staff-only `PATCH /api/staff/doctors/:doctorId/publish
 - Record creation remains atomic in behavior. Any attachment uploaded before a storage/database failure is deleted, while the browser keeps the Doctor's local form and file selection for retry.
 - Saved Prescription data is read-only. The owning Doctor and owning Patient have separate authenticated download routes; Staff/Admin and unrelated users remain denied. Normal record responses expose safe attachment metadata only, never the GridFS ID or hash.
 - No OCR, AI parsing, public link, external storage, notification/email/SMS content, update/delete/replacement route, dependency, environment variable, or deployment was added.
+## v1.2.17 handoff — Prescription history and private attachment access
+
+- Doctor route: `GET /api/doctor/patients/:patientId/prescriptions?page=N` returns only the signed-in Doctor's issued prescription rows for that Patient.
+- Patient route: `GET /api/patient/prescriptions?page=N` returns only prescriptions linked to the signed-in Patient's Medical Records.
+- Both history responses are newest-first, server-paginated at five items, preserve Medical Record/appointment context, and omit private GridFS IDs and hashes.
+- Attachment routes accept `?disposition=inline` only to change authenticated response disposition for preview. The default remains an authenticated download. Both stream the original private GridFS bytes with safe MIME, filename, `no-store`, and `nosniff` headers.
+- Frontend temporary object URLs are revoked when previews close, files change, or components unmount. No permanent or public attachment URL is created.
+- Doctor UI: Patient Details → Prescriptions. Patient UI: My Records → Prescriptions and the existing individual Medical Record detail.
+- There are no issued-prescription mutation endpoints or UI controls. Corrections or reissue remain outside this version.
+- Staff and Admin receive no prescription history or attachment UI/API access. No OCR, AI transcription, or external-provider transfer was introduced.
+- No schema/ERD change was required for v1.2.17; it reuses the v1.2.16 Prescription-to-MedicalRecord relationship and private `prescription_files` GridFS bucket.
+- No deployment was performed.

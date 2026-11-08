@@ -17,6 +17,7 @@ export const PATIENT_CERTIFICATE_PAGE_SIZE = 5;
 export const PATIENT_CERTIFICATE_VIEWS = Object.freeze(['active', 'archived']);
 export const DOCTOR_CERTIFICATE_PAGE_SIZE = 5;
 export const DOCTOR_CERTIFICATE_FILTERS = Object.freeze(['all', 'active', 'expired', 'legacy']);
+export const PRESCRIPTION_HISTORY_PAGE_SIZE = 5;
 
 export function validateClinicalObjectId(value, name) {
   if (!mongoose.isObjectIdOrHexString(value)) {
@@ -220,5 +221,13 @@ export function validatePatientCertificateQuery(query = {}) {
     view,
     page: queryInteger(query.page, 'page', { defaultValue: 1, max: 100000 }),
     limit: PATIENT_CERTIFICATE_PAGE_SIZE,
+  };
+}
+
+export function validatePrescriptionHistoryQuery(query = {}) {
+  validateQueryKeys(query, new Set(['page']));
+  return {
+    page: queryInteger(scalar(query.page, 'page'), 'page', { defaultValue: 1, max: 100000 }),
+    limit: PRESCRIPTION_HISTORY_PAGE_SIZE,
   };
 }

@@ -1048,3 +1048,15 @@ An assigned active Doctor creating a Medical Record may intentionally add a Pres
 Validated bytes are stored under generated internal names in the private MongoDB GridFS bucket `prescription_files`. Prescription stores the private GridFS reference, sanitized original filename, allowlisted MIME type, size, SHA-256 hash, and server upload timestamp. No public URL, raw storage identifier, hash, or bytes are returned by normal record APIs. A failed upload or record transaction removes any newly stored file so no partial Medical Record, Prescription, or orphaned file remains.
 
 Prescription rows and attachments become immutable when the Medical Record is saved. The assigned Doctor may retrieve only attachments linked to that Doctor's own Medical Records, and a Patient may retrieve only attachments from their own Medical Records. Staff, Admin, unrelated Doctors, unrelated Patients, inactive accounts, and unauthenticated callers have no attachment-content route. No OCR, AI extraction, external provider, edit, replacement, deletion, logging of file content, notification content, email content, SMS content, or deployment is added.
+## v1.2.17 — Prescription Viewing, Download, and History
+
+- Doctor Patient Details includes a read-only **Prescriptions** tab containing only prescriptions issued by the signed-in Doctor for that Patient.
+- Patient **My Records** includes a **Prescriptions** view containing only the signed-in Patient's prescriptions. The existing Medical Record detail continues to show prescriptions for that visit.
+- Prescription histories are ordered newest first and use server-side pagination with five items per page.
+- Digital-only, attachment-only, and combined digital-plus-attachment prescriptions are displayed accurately with their linked Medical Record and appointment context.
+- Private JPG, JPEG, PNG, and PDF prescription attachments are streamed through authenticated Doctor or Patient endpoints. **View** uses an inline, temporary browser object URL; **Download** uses the original bytes and safe original filename.
+- Every attachment request repeats server-side ownership checks. The issuing Doctor and owning Patient are allowed; other Doctors, other Patients, Staff, Admin, and unauthenticated users receive no attachment content.
+- Issued prescriptions and attachments remain immutable. The history UI provides no edit, replace, or delete action.
+- Storage IDs, GridFS filenames, hashes, and public URLs are never exposed. Prescription content remains excluded from operational Staff/Admin pages, generic notifications, email, SMS, logs, and external Assistant payloads.
+- Prescription attachments are never processed with OCR or AI.
+- v1.2.17 is local-only and was not deployed.

@@ -94,7 +94,7 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
       if ([...records.values()].some((item) => item.appointment_id === String(data.appointment_id))) throw Object.assign(new Error('duplicate'), { code: 11000 });
       const record = { _id: nextId(), ...clone(data), patient_id: String(data.patient_id), doctor_id: String(data.doctor_id), appointment_id: String(data.appointment_id), created_at: new Date(), updated_at: new Date() };
       records.set(record._id, record);
-      const made = inputs.map((item) => { const value = { _id: nextId(), medical_record_id: record._id, ...clone(item) }; prescriptions.set(value._id, value); return value; });
+      const made = inputs.map((item) => { const value = { _id: nextId(), medical_record_id: record._id, ...clone(item), created_at: new Date(), updated_at: new Date() }; prescriptions.set(value._id, value); return value; });
       return { record: clone(record), prescriptions: clone(made) };
     },
     async listRecordsForPatient(patientId) { return [...records.values()].filter((item) => item.patient_id === String(patientId)).map(populateRecord); },
@@ -107,6 +107,16 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
       if (!item) return null;
       const record = records.get(String(item.medical_record_id));
       return { ...clone(item), medical_record_id: record ? { _id: record._id, patient_id: record.patient_id, doctor_id: record.doctor_id, appointment_id: record.appointment_id } : null };
+    },
+    async listPrescriptionsForDoctorPatient(doctorId, patientId, { page, limit }) {
+      const matchingRecordIds = new Set([...records.values()].filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId)).map((item) => item._id));
+      const matching = [...prescriptions.values()].filter((item) => matchingRecordIds.has(item.medical_record_id)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || String(b._id).localeCompare(String(a._id)));
+      return { items: matching.slice((page - 1) * limit, page * limit).map((item) => { const record = records.get(item.medical_record_id); return { ...clone(item), medical_record_id: { ...clone(record), appointment_id: clone(appointments.get(record.appointment_id)) } }; }), total: matching.length };
+    },
+    async listPrescriptionsForPatient(patientId, { page, limit }) {
+      const matchingRecordIds = new Set([...records.values()].filter((item) => item.patient_id === String(patientId)).map((item) => item._id));
+      const matching = [...prescriptions.values()].filter((item) => matchingRecordIds.has(item.medical_record_id)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || String(b._id).localeCompare(String(a._id)));
+      return { items: matching.slice((page - 1) * limit, page * limit).map((item) => { const record = records.get(item.medical_record_id); return { ...clone(item), medical_record_id: { ...clone(record), doctor_id: clone(doctors.get(record.doctor_id)), appointment_id: clone(appointments.get(record.appointment_id)) } }; }), total: matching.length };
     },
     async createCertificate(data) {
       if (this.failCertificateDuplicates-- > 0 || [...certificates.values()].some((item) => item.medical_certificate_number === data.medical_certificate_number)) throw Object.assign(new Error('duplicate'), { code: 11000 });
@@ -215,6 +225,57 @@ test('Doctor saves an attachment-only prescription and owning Doctor and Patient
       assert.equal((await request(base, `/api/doctor/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(profile) })).status, 403);
       assert.equal((await request(base, `/api/patient/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(profile) })).status, 403);
     }
+  });
+});
+
+test('Doctor and Patient receive paginated newest-first prescription history without private storage references', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const payload = { diagnosis: 'Prescription history', prescriptions: [{ medicine: 'Newest medicine', dosage: '10 mg', instructions: 'Once daily', attachment_index: 0 }] };
+    const created = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), formData: attachmentForm(payload) });
+    assert.equal(created.status, 201);
+    const createdBody = await created.json();
+    const prescriptionId = createdBody.medical_record.prescriptions[0].id;
+    const recordId = createdBody.medical_record.id;
+    for (let index = 0; index < 5; index += 1) {
+      const itemId = (500 + index).toString(16).padStart(24, '0');
+      context.prescriptions.set(itemId, { _id: itemId, medical_record_id: recordId, medicine: `Older medicine ${index + 1}`, dosage: '5 mg', instructions: null, created_at: new Date(`2026-09-2${index}T02:00:00Z`), updated_at: new Date() });
+    }
+
+    const doctorResponse = await request(base, `/api/doctor/patients/${ids.patient}/prescriptions?page=1`, { cookie: context.cookie(ids.doctorProfile) });
+    const doctorBody = await doctorResponse.json();
+    assert.equal(doctorResponse.status, 200);
+    assert.equal(doctorBody.prescriptions.length, 5);
+    assert.equal(doctorBody.pagination.total, 6);
+    assert.equal(doctorBody.pagination.page_count, 2);
+    assert.equal(doctorBody.prescriptions[0].medicine, 'Newest medicine');
+    assert.equal(doctorBody.prescriptions[0].medical_record.id, recordId);
+    assert.equal(doctorBody.prescriptions[0].medical_record.appointment.id, ids.confirmed);
+    assert.equal(JSON.stringify(doctorBody).includes('attachment_storage_file_id'), false);
+    assert.equal(JSON.stringify(doctorBody).includes('attachment_sha256'), false);
+
+    const patientResponse = await request(base, '/api/patient/prescriptions?page=2', { cookie: context.cookie(ids.patientProfile) });
+    const patientBody = await patientResponse.json();
+    assert.equal(patientResponse.status, 200);
+    assert.equal(patientBody.prescriptions.length, 1);
+    assert.equal(patientBody.pagination.page, 2);
+    assert.equal(patientBody.prescriptions[0].doctor.display_name, 'Dr. Maria Santos');
+    assert.equal((await request(base, `/api/doctor/patients/${ids.patient}/prescriptions`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 200);
+    assert.equal((await (await request(base, `/api/doctor/patients/${ids.patient}/prescriptions`, { cookie: context.cookie(ids.otherDoctorProfile) })).json()).prescriptions.length, 0);
+    assert.equal((await request(base, '/api/patient/prescriptions', { cookie: context.cookie(ids.otherPatientProfile) })).status, 200);
+    assert.equal((await (await request(base, '/api/patient/prescriptions', { cookie: context.cookie(ids.otherPatientProfile) })).json()).prescriptions.length, 0);
+    assert.equal((await request(base, '/api/patient/prescriptions')).status, 401);
+    for (const profile of [ids.staffProfile, ids.adminProfile]) {
+      assert.equal((await request(base, '/api/patient/prescriptions', { cookie: context.cookie(profile) })).status, 403);
+    }
+
+    const inline = await request(base, `/api/patient/prescriptions/${prescriptionId}/attachment?disposition=inline`, { cookie: context.cookie(ids.patientProfile) });
+    assert.equal(inline.status, 200);
+    assert.equal(inline.headers.get('content-type'), 'image/png');
+    assert.match(inline.headers.get('content-disposition'), /^inline;/);
+    assert.match(inline.headers.get('content-disposition'), /prescription\.png/);
+    const download = await request(base, `/api/doctor/prescriptions/${prescriptionId}/attachment`, { cookie: context.cookie(ids.doctorProfile) });
+    assert.match(download.headers.get('content-disposition'), /^attachment;/);
   });
 });
 

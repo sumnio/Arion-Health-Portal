@@ -15,10 +15,10 @@ function sendCertificatePdf(response, artifact, { disposition = 'attachment' } =
   return artifact.stream.pipe(response);
 }
 
-function sendPrescriptionAttachment(response, artifact) {
+function sendPrescriptionAttachment(response, artifact, { disposition = 'attachment' } = {}) {
   response.set({
     'Content-Type': artifact.mimeType,
-    'Content-Disposition': `attachment; filename="prescription-attachment"; filename*=UTF-8''${encodeURIComponent(artifact.filename)}`,
+    'Content-Disposition': `${disposition}; filename="prescription-attachment"; filename*=UTF-8''${encodeURIComponent(artifact.filename)}`,
     'Cache-Control': 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
     ...(artifact.size ? { 'Content-Length': String(artifact.size) } : {}),
@@ -64,7 +64,11 @@ export function createDoctorClinicalController({ clinicalService }) {
       response.json({ medical_record: await clinicalService.getDoctorRecord(request.authUser.user_profile_id, request.params.recordId) });
     },
     async prescriptionAttachment(request, response) {
-      return sendPrescriptionAttachment(response, await clinicalService.getDoctorPrescriptionAttachment(request.authUser.user_profile_id, request.params.prescriptionId));
+      return sendPrescriptionAttachment(response, await clinicalService.getDoctorPrescriptionAttachment(request.authUser.user_profile_id, request.params.prescriptionId), { disposition: request.query.disposition === 'inline' ? 'inline' : 'attachment' });
+    },
+    async patientPrescriptions(request, response) {
+      const result = await clinicalService.listDoctorPatientPrescriptions(request.authUser.user_profile_id, request.params.patientId, request.query);
+      response.json({ prescriptions: result.items, pagination: { page: result.page, page_size: result.page_size, total: result.total, page_count: result.page_count } });
     },
     async createCertificate(request, response) {
       response.status(201).json({ medical_certificate: await clinicalService.createCertificate(request.authUser.user_profile_id, request.params.recordId, request.body) });
@@ -94,7 +98,11 @@ export function createPatientClinicalController({ clinicalService }) {
       response.json({ medical_record: await clinicalService.getPatientRecord(request.authUser.user_profile_id, request.params.recordId) });
     },
     async prescriptionAttachment(request, response) {
-      return sendPrescriptionAttachment(response, await clinicalService.getPatientPrescriptionAttachment(request.authUser.user_profile_id, request.params.prescriptionId));
+      return sendPrescriptionAttachment(response, await clinicalService.getPatientPrescriptionAttachment(request.authUser.user_profile_id, request.params.prescriptionId), { disposition: request.query.disposition === 'inline' ? 'inline' : 'attachment' });
+    },
+    async prescriptions(request, response) {
+      const result = await clinicalService.listPatientPrescriptions(request.authUser.user_profile_id, request.query);
+      response.json({ prescriptions: result.items, pagination: { page: result.page, page_size: result.page_size, total: result.total, page_count: result.page_count } });
     },
     async certificates(request, response) {
       const result = await clinicalService.listPatientCertificates(request.authUser.user_profile_id, request.query);

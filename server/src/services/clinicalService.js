@@ -9,6 +9,7 @@ import {
   validateClinicalObjectId,
   validateMedicalRecordCreate,
   validatePatientCertificateQuery,
+  validatePrescriptionHistoryQuery,
 } from '../validation/clinicalValidation.js';
 import { addDays, clinicDate, dateOnlyToUtc, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
 import { appointmentHistoryDateRange } from '../utils/appointmentHistory.js';
@@ -86,6 +87,21 @@ function prescriptionView(item) {
       filename: item.attachment_original_filename,
       mime_type: item.attachment_mime_type,
       size: item.attachment_file_size,
+    } : null,
+  };
+}
+
+function prescriptionHistoryView(item) {
+  const record = item.medical_record_id;
+  return {
+    ...prescriptionView(item),
+    issued_at: iso(item.created_at),
+    status: 'issued',
+    doctor: doctorView(record?.doctor_id),
+    medical_record: record ? {
+      id: id(record),
+      encounter_at: iso(record.encounter_at),
+      appointment: appointmentView(record.appointment_id),
     } : null,
   };
 }
@@ -347,6 +363,19 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const doctor = await doctorFor(profileId);
       return prescriptionAttachmentFor(prescriptionId, 'doctor_id', doctor);
     },
+    async listDoctorPatientPrescriptions(profileId, patientId, query = {}) {
+      validateClinicalObjectId(patientId, 'patientId');
+      const filters = validatePrescriptionHistoryQuery(query);
+      const doctor = await doctorFor(profileId);
+      const result = await repository.listPrescriptionsForDoctorPatient(id(doctor), patientId, filters);
+      return {
+        items: result.items.map(prescriptionHistoryView),
+        page: filters.page,
+        page_size: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+      };
+    },
     async listPatientRecords(profileId) {
       const patient = await patientFor(profileId);
       return Promise.all((await repository.listRecordsForPatient(id(patient))).map((item) => presentRecord(repository, item)));
@@ -361,6 +390,18 @@ export function createClinicalService({ repository, clinic, notificationTriggers
     async getPatientPrescriptionAttachment(profileId, prescriptionId) {
       const patient = await patientFor(profileId);
       return prescriptionAttachmentFor(prescriptionId, 'patient_id', patient);
+    },
+    async listPatientPrescriptions(profileId, query = {}) {
+      const filters = validatePrescriptionHistoryQuery(query);
+      const patient = await patientFor(profileId);
+      const result = await repository.listPrescriptionsForPatient(id(patient), filters);
+      return {
+        items: result.items.map(prescriptionHistoryView),
+        page: filters.page,
+        page_size: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+      };
     },
 
     async previewCertificate(profileId, recordId, body) {
