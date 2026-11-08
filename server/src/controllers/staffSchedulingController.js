@@ -47,10 +47,28 @@ export function createStaffSchedulingController({ doctorAvailabilityService, boo
       logChange(request, 'published_availability_created', published.id);
       response.status(201).json({ published_availability: published });
     },
+    async updatePublished(request, response) {
+      const published = await doctorAvailabilityService.updatePublishedForDoctor(
+        request.params.doctorId,
+        request.params.publishedId,
+        request.body,
+      );
+      logChange(request, 'published_availability_updated', published.id);
+      response.json({ published_availability: published });
+    },
     async deletePublished(request, response) {
       validateEmptyBody(request.body);
       const result = await doctorAvailabilityService.deletePublishedForDoctor(request.params.doctorId, request.params.publishedId);
       logChange(request, 'published_availability_deleted', result.id);
+      response.json(result);
+    },
+    async excludePublishedOccurrence(request, response) {
+      const result = await doctorAvailabilityService.excludePublishedOccurrenceForDoctor(
+        request.params.doctorId,
+        request.params.publishedId,
+        request.body,
+      );
+      logChange(request, 'published_availability_occurrence_excluded', result.id);
       response.json(result);
     },
     async createBlocked(request, response) {

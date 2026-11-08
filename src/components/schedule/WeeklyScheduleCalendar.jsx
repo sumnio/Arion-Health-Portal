@@ -17,6 +17,20 @@ function dateOnly(value) {
   return String(value ?? '').slice(0, 10);
 }
 
+function publicationAppliesOn(item, day) {
+  const startDate = dateOnly(item.availability_date);
+  if (item.repeat_weekly !== true) return startDate === day.date;
+  const startWeekday = new Date(`${startDate}T00:00:00Z`).getUTCDay();
+  return day.date >= startDate
+    && day.dayOfWeek === startWeekday
+    && !(item.excluded_dates ?? []).some(value => dateOnly(value) === day.date);
+}
+
+function publicationRangeForDay(item, day) {
+  const override = (item.date_overrides ?? []).find(value => dateOnly(value.availability_date) === day.date);
+  return override ?? item;
+}
+
 function blockParts(item) {
   const parts = value => Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(value)).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
   const start = parts(item.start_at); const end = parts(item.end_at);
@@ -45,7 +59,10 @@ export function weekRangeLabel(weekStart) {
 
 function rawEventsForDay(day, schedule) {
   const working = schedule.recurring_availability.filter(item => item.day_of_week === day.dayOfWeek).map(item => ({ id: `working-${item.id}`, type: 'working', label: 'Working Hours', start: item.start_time, end: item.end_time, source: item, disabled: !item.is_active }));
-  const special = schedule.published_availability.filter(item => dateOnly(item.availability_date) === day.date).map(item => ({ id: `special-${item.id}`, type: 'special', label: 'Published for booking', start: item.start_time, end: item.end_time, source: item }));
+  const special = schedule.published_availability.filter(item => publicationAppliesOn(item, day)).map(item => {
+    const range = publicationRangeForDay(item, day);
+    return { id: `special-${item.id}-${day.date}`, type: 'special', label: 'Published for booking', start: range.start_time, end: range.end_time, source: item };
+  });
   const timeOff = schedule.blocked_times.map(item => ({ item, parts: blockParts(item) })).filter(({ parts }) => parts.date === day.date).map(({ item, parts }) => ({ id: `timeoff-${item.id}`, type: 'timeoff', label: 'Time Off', start: parts.start, end: parts.end, wholeDay: parts.wholeDay, source: item }));
   return [...working, ...special, ...timeOff].map(event => ({ ...event, date: day.date, startMinute: minutes(event.start), endMinute: minutes(event.end) }));
 }
@@ -78,9 +95,11 @@ export default function WeeklyScheduleCalendar({ weekStart, schedule, onSelectEv
           const top = ((event.startMinute - timeline.startMinute) / timeline.totalMinutes) * 100;
           const height = ((event.endMinute - event.startMinute) / timeline.totalMinutes) * 100;
           return <button key={event.id} type="button" className={`calendar-schedule-block is-${event.type} ${event.disabled ? 'is-disabled' : ''}`} style={{ top: `${top}%`, height: `${height}%` }} onClick={() => onSelectEvent(event)} aria-label={`${event.label}, ${day.name} ${day.date}, ${event.wholeDay ? 'whole day' : `${formatSlot(event.start)} to ${formatSlot(event.end)}`}${event.disabled ? ', disabled' : ''}`}>
-            <span className="calendar-block-mark" aria-hidden="true">{event.type === 'working' ? '▣' : event.type === 'special' ? '★' : '⊘'}</span>
-            <strong>{event.wholeDay ? 'Whole day' : `${formatSlot(event.start)} – ${formatSlot(event.end)}`}</strong>
-            <span>{event.label}{event.disabled ? ' · Disabled' : ''}</span>
+            {event.type === 'special' ? <span className="calendar-publication-label"><span aria-hidden="true">★</span><strong>Published</strong><small>{formatSlot(event.start)} – {formatSlot(event.end)}</small></span> : <>
+              <span className="calendar-block-mark" aria-hidden="true">{event.type === 'working' ? '▣' : '⊘'}</span>
+              <strong>{event.wholeDay ? 'Whole day' : `${formatSlot(event.start)} – ${formatSlot(event.end)}`}</strong>
+              <span>{event.label}{event.disabled ? ' · Disabled' : ''}</span>
+            </>}
           </button>;
         })}</div>)}
       </div>

@@ -45,8 +45,12 @@ test('Staff schedule presents a compact warning, accessible review drawer, expli
   assert.match(styles, /calendar-view-control[^}]*justify-content:\s*center/);
   assert.match(styles, /week-stepper button[^}]*place-items:\s*center/);
   assert.match(styles, /calendar-schedule-block[^}]*width:\s*calc\(100% - 10px\)/);
-  assert.match(styles, /calendar-schedule-block\.is-special[^}]*border-left-width:\s*6px/);
+  assert.match(styles, /calendar-schedule-block\.is-special[^}]*border-left:\s*5px solid/);
+  assert.match(styles, /calendar-publication-label[^}]*display:\s*grid/);
   assert.match(styles, /calendar-schedule-block\.is-timeoff[^}]*repeating-linear-gradient/);
+  for (const text of ['This date only', 'Every ', 'Remove This ', 'Stop All ']) assert.match(page, new RegExp(text));
+  for (const text of ['Change Time', 'This ', 'All ', 'Save Time']) assert.match(page, new RegExp(text));
+  assert.match(calendar, /date_overrides/);
   assert.match(styles, /@media \(max-width: 560px\)/);
   assert.match(styles, /affected-card-actions/);
 });

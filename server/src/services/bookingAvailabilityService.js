@@ -12,6 +12,12 @@ import {
 import { validateSlotQuery } from '../validation/schedulingValidation.js';
 
 function slotKey(value) { return new Date(value).getTime(); }
+function dateKey(value) { return new Date(value).toISOString().slice(0, 10); }
+function effectivePublishedRange(range, date) {
+  if (range.repeat_weekly !== true) return range;
+  const override = (range.date_overrides ?? []).find((item) => dateKey(item.availability_date) === date);
+  return override ? { ...range, start_time: override.start_time, end_time: override.end_time } : range;
+}
 
 export function createBookingAvailabilityService({ repository, clinic, now = () => new Date() }) {
   async function getAvailableSlots(doctorId, date) {
@@ -23,7 +29,13 @@ export function createBookingAvailabilityService({ repository, clinic, now = () 
     const today = clinicDate(current, clinic.timeZone);
     if (date < today || date > addDays(today, 14)) return [];
 
-    const published = await repository.listPublishedForDate(doctorId, dateOnlyToUtc(date));
+    const published = (await repository.listPublishedForDate(doctorId, dateOnlyToUtc(date))).filter((range) => {
+      if (range.repeat_weekly !== true) return dateKey(range.availability_date) === date;
+      const start = dateKey(range.availability_date);
+      const sameWeekday = dateOnlyToUtc(start).getUTCDay() === dateOnlyToUtc(date).getUTCDay();
+      const excluded = (range.excluded_dates ?? []).some((value) => dateKey(value) === date);
+      return date >= start && sameWeekday && !excluded;
+    }).map((range) => effectivePublishedRange(range, date));
     if (!published.length) return [];
     const dayStart = zonedDateTimeToUtc(date, '00:00', clinic.timeZone);
     const dayEnd = zonedDateTimeToUtc(addDays(date, 1), '00:00', clinic.timeZone);

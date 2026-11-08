@@ -61,14 +61,46 @@ export function validateRecurringPatch(body, existing) {
 
 export function validatePublishedCreate(body) {
   objectBody(body);
-  rejectUnsupported(body, ['availability_date', 'start_time', 'end_time']);
+  rejectUnsupported(body, ['availability_date', 'start_time', 'end_time', 'repeat_weekly']);
   if (!isValidDateOnly(body.availability_date)) {
     throw httpError(400, 'INVALID_DATE', 'availability_date must use YYYY-MM-DD.');
   }
   const startTime = time(body.start_time, 'start_time');
   const endTime = time(body.end_time, 'end_time');
   orderedRange(startTime, endTime);
-  return { availability_date: body.availability_date, start_time: startTime, end_time: endTime };
+  if (body.repeat_weekly != null && typeof body.repeat_weekly !== 'boolean') {
+    throw httpError(400, 'INVALID_INPUT', 'repeat_weekly must be boolean.');
+  }
+  return { availability_date: body.availability_date, start_time: startTime, end_time: endTime, repeat_weekly: body.repeat_weekly === true };
+}
+
+export function validatePublishedException(body) {
+  objectBody(body);
+  rejectUnsupported(body, ['availability_date']);
+  if (!isValidDateOnly(body.availability_date)) {
+    throw httpError(400, 'INVALID_DATE', 'availability_date must use YYYY-MM-DD.');
+  }
+  return { availability_date: body.availability_date };
+}
+
+export function validatePublishedUpdate(body) {
+  objectBody(body);
+  rejectUnsupported(body, ['scope', 'availability_date', 'start_time', 'end_time']);
+  if (!['series', 'occurrence'].includes(body.scope)) {
+    throw httpError(400, 'INVALID_UPDATE_SCOPE', 'scope must be series or occurrence.');
+  }
+  if (body.scope === 'occurrence' && !isValidDateOnly(body.availability_date)) {
+    throw httpError(400, 'INVALID_DATE', 'availability_date must use YYYY-MM-DD for one-date changes.');
+  }
+  const startTime = time(body.start_time, 'start_time');
+  const endTime = time(body.end_time, 'end_time');
+  orderedRange(startTime, endTime);
+  return {
+    scope: body.scope,
+    availability_date: body.scope === 'occurrence' ? body.availability_date : undefined,
+    start_time: startTime,
+    end_time: endTime,
+  };
 }
 
 export function validateBlockedCreate(body) {

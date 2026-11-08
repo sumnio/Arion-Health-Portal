@@ -1,6 +1,25 @@
 import mongoose from 'mongoose';
 import { isOrderedTimeRange, modelOptions, timePattern } from './modelOptions.js';
 
+const publishedDateOverrideSchema = new mongoose.Schema(
+  {
+    availability_date: { type: Date, required: true },
+    start_time: { type: String, required: true, match: timePattern },
+    end_time: {
+      type: String,
+      required: true,
+      match: timePattern,
+      validate: {
+        validator(value) {
+          return isOrderedTimeRange(this.start_time, value);
+        },
+        message: 'end_time must be later than start_time',
+      },
+    },
+  },
+  { _id: false },
+);
+
 const doctorPublishedAvailabilitySchema = new mongoose.Schema(
   {
     doctor_id: {
@@ -9,6 +28,9 @@ const doctorPublishedAvailabilitySchema = new mongoose.Schema(
       required: true,
     },
     availability_date: { type: Date, required: true },
+    repeat_weekly: { type: Boolean, default: false },
+    excluded_dates: { type: [Date], default: [] },
+    date_overrides: { type: [publishedDateOverrideSchema], default: [] },
     start_time: { type: String, required: true, match: timePattern },
     end_time: {
       type: String,
