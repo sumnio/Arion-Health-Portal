@@ -80,15 +80,21 @@ test('invalid and expired Admin MFA challenges fail without creating an authenti
   const assertBrowserClean = observeBrowser(page);
   await loginThroughUi(page, seededAdmin);
   await expect(page.getByRole('heading', { name: 'Admin Verification' })).toBeVisible();
+  const codeInput = page.getByLabel('6-digit verification code');
+  await expect(codeInput).toBeFocused();
+  await expect(codeInput).toHaveValue('');
+  await expect(codeInput).toHaveAttribute('autocomplete', 'off');
+  await codeInput.fill(seededAdmin.email);
+  await expect(codeInput).toHaveValue('');
   const valid = await currentTotp(seededAdmin.mfaSecret);
-  await page.getByLabel('6-digit verification code').fill(invalidTotp(valid));
+  await codeInput.fill(invalidTotp(valid));
   await page.getByRole('button', { name: 'Verify and Continue' }).click();
   await expect(page.getByRole('alert')).toContainText('invalid or expired');
   expect((await browserApi(page, '/api/auth/me')).status).toBe(401);
   expect((await browserApi(page, '/api/admin/doctors')).status).toBe(401);
 
   await adminScenario.expireMfaChallenge(seededAdmin.profileId);
-  await page.getByLabel('6-digit verification code').fill(valid);
+  await codeInput.fill(valid);
   await page.getByRole('button', { name: 'Verify and Continue' }).click();
   await expect(page.getByRole('alert')).toContainText('missing, expired, or already used');
   expect((await browserApi(page, '/api/auth/me')).status).toBe(401);

@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [qrImage, setQrImage] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -66,6 +67,7 @@ export default function LoginPage() {
 
   async function returnToLogin() {
     setError('');
+    setMfaCode('');
     setBusy(true);
     try { await cancelMfa(); }
     finally { setBusy(false); }
@@ -88,13 +90,17 @@ export default function LoginPage() {
       </div>}
       <form onSubmit={submitMfa}>
         <FormField
+          key="admin-mfa-code"
           label="6-digit verification code"
           name="code"
+          value={mfaCode}
+          onChange={event => setMfaCode(/^[0-9]*$/.test(event.target.value) ? event.target.value.slice(0, 6) : '')}
           inputMode="numeric"
-          autoComplete="one-time-code"
+          autoComplete="off"
           pattern="[0-9]{6}"
           maxLength="6"
           placeholder="000000"
+          autoFocus
           required
         />
         {error && <p className="form-error" role="alert">{error}</p>}

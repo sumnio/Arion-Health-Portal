@@ -53,6 +53,8 @@ test('staff management UI uses contact and lifecycle controls without username o
   assert.match(source, /Contact number/);
   assert.match(source, /Deactivate/);
   assert.match(source, /Reactivate/);
+  assert.match(source, /Account password/);
+  assert.match(source, /Replace Password/);
   assert.doesNotMatch(source, /Username/i);
   assert.doesNotMatch(source, />Delete</);
 });

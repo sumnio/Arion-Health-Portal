@@ -84,6 +84,16 @@ test('Admin MFA client uses credentialed challenge endpoints without browser tok
   assert.equal(calls[2].options.body.code, '654321');
 });
 
+test('Admin MFA input starts empty and rejects browser-filled account text', () => {
+  const source = readFileSync(new URL('../src/pages/public/LoginPage.jsx', import.meta.url), 'utf8');
+  assert.match(source, /const \[mfaCode, setMfaCode\] = useState\(''\)/);
+  assert.match(source, /value=\{mfaCode\}/);
+  assert.match(source, /key="admin-mfa-code"/);
+  assert.match(source, /\^\[0-9\]\*\$/);
+  assert.match(source, /autoComplete="off"/);
+  assert.match(source, /autoFocus/);
+});
+
 test('login replaces backend credential details with the approved generic error', async () => {
   const service = createAuthService({
     async request() { throw new ApiError('internal detail', { status: 401, code: 'INVALID_CREDENTIALS' }); },

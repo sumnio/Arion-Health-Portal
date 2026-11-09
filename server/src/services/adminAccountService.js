@@ -1,5 +1,5 @@
 import { httpError } from '../utils/httpError.js';
-import { validateAdminId, validateAdminListQuery, validateDoctorCreate, validateDoctorUpdate, validatePatientListQuery, validateStaffCreate, validateStaffUpdate } from '../validation/adminAccountValidation.js';
+import { validateAdminId, validateAdminListQuery, validateAdminPasswordReset, validateDoctorCreate, validateDoctorUpdate, validatePatientListQuery, validateStaffCreate, validateStaffUpdate } from '../validation/adminAccountValidation.js';
 
 function id(value) { const result = value?._id ?? value?.id ?? value; return result == null ? null : String(result); }
 function iso(value) { return value ? new Date(value).toISOString() : null; }
@@ -39,17 +39,29 @@ export function createAdminAccountService({ repository, passwords }) {
     const updated = await set(entityId, status);
     return kind === 'doctor' ? doctorView(updated) : kind === 'staff' ? staffView(updated) : patientView(updated);
   }
+  async function resetPassword(kind, entityId, body) {
+    validateAdminId(entityId, `${kind}Id`);
+    const { password } = validateAdminPasswordReset(body);
+    const find = kind === 'doctor' ? repository.findDoctorById.bind(repository) : repository.findStaffById.bind(repository);
+    const existing = await find(entityId);
+    if (!existing) throw httpError(404, `${kind.toUpperCase()}_NOT_FOUND`, `${kind[0].toUpperCase()}${kind.slice(1)} was not found.`);
+    const passwordHash = await passwords.hash(password);
+    if (!await repository.resetAccountPassword(existing.user_profile_id?._id ?? existing.user_profile_id, passwordHash)) throw httpError(404, 'AUTH_ACCOUNT_NOT_FOUND', 'The portal account was not found.');
+    return kind === 'doctor' ? doctorView(existing) : staffView(existing);
+  }
   return {
     async createDoctor(body) { const input = validateDoctorCreate(body); return doctorView(await provision(input, 'doctor')); },
     async listDoctors(query) { return pageResult(await repository.listDoctors(validateAdminListQuery(query)), doctorView); },
     async getDoctor(doctorId) { validateAdminId(doctorId, 'doctorId'); const item = await repository.findDoctorById(doctorId); if (!item) throw httpError(404, 'DOCTOR_NOT_FOUND', 'Doctor was not found.'); return doctorView(item); },
     async updateDoctor(doctorId, body) { validateAdminId(doctorId, 'doctorId'); const input = validateDoctorUpdate(body); const profile = {}; const doctor = {}; for (const [key, value] of Object.entries(input)) (['display_name', 'contact_number'].includes(key) ? profile : doctor)[key] = value; try { const item = await repository.updateDoctor(doctorId, profile, doctor); if (!item) throw httpError(404, 'DOCTOR_NOT_FOUND', 'Doctor was not found.'); return doctorView(item); } catch (error) { if (duplicate(error)) throw duplicateError(error); throw error; } },
     deactivateDoctor(id) { return lifecycle('doctor', id, 'inactive'); }, reactivateDoctor(id) { return lifecycle('doctor', id, 'active'); },
+    resetDoctorPassword(id, body) { return resetPassword('doctor', id, body); },
     async createStaff(body) { const input = validateStaffCreate(body); return staffView(await provision(input, 'staff')); },
     async listStaff(query) { return pageResult(await repository.listStaff(validateAdminListQuery(query)), staffView); },
     async getStaff(staffId) { validateAdminId(staffId, 'staffId'); const item = await repository.findStaffById(staffId); if (!item) throw httpError(404, 'STAFF_NOT_FOUND', 'Staff was not found.'); return staffView(item); },
     async updateStaff(staffId, body) { validateAdminId(staffId, 'staffId'); const item = await repository.updateStaff(staffId, validateStaffUpdate(body)); if (!item) throw httpError(404, 'STAFF_NOT_FOUND', 'Staff was not found.'); return staffView(item); },
     deactivateStaff(id) { return lifecycle('staff', id, 'inactive'); }, reactivateStaff(id) { return lifecycle('staff', id, 'active'); },
+    resetStaffPassword(id, body) { return resetPassword('staff', id, body); },
     async listPatients(query) { return pageResult(await repository.listPatients(validatePatientListQuery(query)), patientView); },
     async getPatient(patientId) { validateAdminId(patientId, 'patientId'); const item = await repository.findPatientById(patientId); if (!item) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.'); return patientView(item); },
     deactivatePatient(id) { return lifecycle('patient', id, 'inactive'); }, reactivatePatient(id) { return lifecycle('patient', id, 'active'); },
