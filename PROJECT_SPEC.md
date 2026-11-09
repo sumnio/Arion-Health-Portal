@@ -1,5 +1,11 @@
 # Arion Health Portal
 
+## v1.2.20 final UI, accessibility, and release-readiness gate
+
+v1.2.20 completes the final frontend consistency and accessibility review without changing any workflow or business behavior. Prescription-attachment previews and supporting-document viewers now trap keyboard focus, close with Escape, prevent background scrolling, and restore focus to the control that opened them. The notification-clear confirmation moves focus to the safe **Keep notifications** action, supports Escape, and restores focus afterward. Public/Auth and representative Patient, Doctor, Staff, and Admin pages remain usable across mobile, tablet, and desktop widths; operational calendars retain intentional internal horizontal scrolling.
+
+No backend, schema, API, authentication, MFA, RBAC, scheduling, clinical, notification, provider, or environment behavior changed. The existing non-blocking frontend bundle-size warning remains a known release consideration; code splitting is outside this verification milestone. This work remains local and was not deployed.
+
 ## v1.2.19 role-by-role surgical UI polish
 
 v1.2.19 applies the v1.2.18 visual baseline only to the remaining inconsistent role pages. Clinic Analytics, Doctor Patient lists and medical-record forms, Staff Calendar and walk-in surfaces, Admin account lists, notifications, Patient Profile/PWD forms, and public authentication cards now use tighter spacing, calmer borders and corner radii, smaller routine metrics, clearer rows, and more compact empty states. Tables remain readable, form labels and keyboard focus remain visible, and functional overlays retain appropriate elevation.

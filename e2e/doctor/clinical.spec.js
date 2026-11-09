@@ -125,10 +125,14 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await expect(page.getByText('E2E acute bronchitis').first()).toBeVisible();
   await page.getByText('View record').click();
   await expect(page.getByText('E2E Salbutamol').first()).toBeVisible();
-  await page.getByRole('button', { name: 'View', exact: true }).click();
+  const doctorAttachmentView = page.getByRole('button', { name: 'View', exact: true });
+  await doctorAttachmentView.click();
   await expect(page.getByRole('dialog', { name: /Prescription attachment preview/ })).toBeVisible();
   await expect(page.locator('iframe[title="Preview of e2e-prescription.pdf"]')).toBeVisible();
-  await page.getByRole('button', { name: 'Close prescription preview' }).click();
+  await expect(page.getByRole('button', { name: 'Close prescription preview' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: /Prescription attachment preview/ })).toHaveCount(0);
+  await expect(doctorAttachmentView).toBeFocused();
   const doctorAttachmentDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download', exact: true }).click();
   expect((await doctorAttachmentDownload).suggestedFilename()).toBe('e2e-prescription.pdf');

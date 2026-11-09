@@ -5,8 +5,8 @@ import clinicReception from '../../assets/arion-clinic-reception.jpg';
 
 const highlights = [
   ['calendar', 'Book Appointments', 'Schedule your visit with an Arion clinic doctor.'],
-  ['record', 'Access Your Records', 'Keep your visit history and medical certificates in one place.'],
-  ['people', 'Clinic Support', 'Stay connected with the clinic’s doctors and support staff.'],
+  ['record', 'View Medical Records', 'View your visit history and medical certificates in one place.'],
+  ['people', 'Contact the Clinic', 'Get help from Arion clinic doctors and support staff.'],
 ];
 const clinicAddress = '20 Indonesia Street, corner France Street, Better Living Subdivision, Parañaque City, 1700 Metro Manila';
 const clinicMapUrl = 'https://www.google.com/maps/place/Arion+Medical+Surgical+Clinic/@14.4838328,121.0312203,17z/data=!3m1!4b1!4m6!3m5!1s0x3397cefe64cfa843:0x46d9ccab0fec5f7a!8m2!3d14.4838328!4d121.0312203!16s%2Fg%2F11bzw05dpn';
@@ -45,10 +45,9 @@ export default function LandingPage() {
 
   return <div className="landing-content">
     <section className="landing-hero" aria-labelledby="welcome-title">
-      <div className="hero-copy"><p className="eyebrow">Your Health. Our Priority.</p>
-        <h1 id="welcome-title">Welcome to<br />Arion Health Portal</h1>
-        <p className="hero-lead">Accessible. Reliable. Patient-centered care.</p>
-        <p>Book appointments with an Arion clinic doctor, view your medical records, and stay connected with the clinic — all in one place.</p>
+      <div className="hero-copy">
+        <h1 id="welcome-title">Welcome to Arion Health Portal</h1>
+        <p className="hero-lead">Book appointments, view your medical records, and stay connected with the clinic.</p>
         <div className="hero-actions"><Link className="public-button primary" to="/login">Login <span aria-hidden="true">→</span></Link><Link className="public-button secondary" to="/register">Register</Link></div>
       </div>
       <figure className="hero-art clinic-photo-carousel" aria-roledescription="carousel" aria-label="Arion Medical Surgical Clinic photos">
@@ -78,8 +77,8 @@ export default function LandingPage() {
       {highlights.map(([kind, title, description]) => <article key={kind}><span className="feature-icon"><FeatureIcon kind={kind} /></span><h2>{title}</h2><p>{description}</p></article>)}
     </section>
     <section className="clinic-location-section" aria-labelledby="clinic-location-title">
+      <div className="location-copy"><p className="eyebrow">Visit our clinic</p><h2 id="clinic-location-title">Arion Medical Surgical Clinic</h2><address>{clinicAddress}</address><div className="clinic-phone"><span>Call the Clinic</span><a href="tel:+63288210577">(02) 8821 0577</a></div><a className="public-button secondary" href={clinicMapUrl} target="_blank" rel="noreferrer">Get Directions <span aria-hidden="true">↗</span></a></div>
       <div className="map-preview"><iframe title="Map showing Arion Medical Surgical Clinic" src={clinicMapEmbedUrl} loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen /></div>
-      <div className="location-copy"><p className="eyebrow">Visit our clinic</p><h2 id="clinic-location-title">Care close to your community</h2><p>Find Arion Medical Surgical Clinic in Better Living Subdivision, Parañaque City.</p><address>{clinicAddress}</address><div className="clinic-phone"><span>Call the Clinic</span><a href="tel:+63288210577">(02) 8821 0577</a></div><a className="public-button secondary" href={clinicMapUrl} target="_blank" rel="noreferrer">Get Directions <span aria-hidden="true">↗</span></a></div>
     </section>
   </div>;
 }

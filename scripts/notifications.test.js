@@ -82,6 +82,9 @@ test('all protected roles expose a notification page and share the notification 
   assert.match(page, /notification-mark-all/);
   assert.match(page, /Clear notifications/);
   assert.match(page, /Yes, clear notifications/);
+  assert.match(page, /keepButtonRef\.current\?\.focus/);
+  assert.match(page, /event\.key === 'Escape'/);
+  assert.match(page, /clearButtonRef\.current\?\.focus/);
   assert.match(page, /notificationApiService\.clearAll/);
   assert.match(page, /detailed/);
   assert.match(page, /You have no unread notifications\./);

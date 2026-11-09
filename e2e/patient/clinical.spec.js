@@ -189,5 +189,12 @@ test('Medical Record Details shows only supporting documents from its exact visi
   await expect(page.getByRole('heading', { name: 'Supporting Documents from this Visit' })).toBeVisible();
   await expect(page.getByText('matching-visit.pdf')).toBeVisible();
   await expect(page.getByText('other-visit.pdf')).toHaveCount(0);
+  const viewDocument = page.getByRole('button', { name: 'View', exact: true });
+  await viewDocument.click();
+  await expect(page.getByRole('dialog', { name: 'matching-visit.pdf' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close document viewer' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'matching-visit.pdf' })).toHaveCount(0);
+  await expect(viewDocument).toBeFocused();
   assertBrowserClean();
 });

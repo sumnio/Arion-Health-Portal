@@ -76,6 +76,13 @@ test('Patient notification page paginates five items and marks all unread items 
   await page.getByRole('navigation', { name: 'Notification filters' }).getByRole('button', { name: /^Unread/ }).click();
   await expect(page.getByRole('heading', { name: 'You have no unread notifications.' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
+  const clearNotifications = page.getByRole('button', { name: 'Clear notifications' });
+  await clearNotifications.click();
+  await expect(page.getByRole('alertdialog', { name: 'Clear all notifications?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Keep notifications' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('alertdialog', { name: 'Clear all notifications?' })).toHaveCount(0);
+  await expect(clearNotifications).toBeFocused();
   assertBrowserClean();
 });
 

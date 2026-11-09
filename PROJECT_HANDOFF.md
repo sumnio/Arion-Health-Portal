@@ -1,5 +1,11 @@
 # Arion Health Portal MVP Handoff
 
+## v1.2.20 handoff — final UI and accessibility gate
+
+The final v1.2 frontend pass found no role-navigation, responsive-layout, or workflow regression. Small accessibility fixes complete keyboard focus trapping, Escape handling, background scroll locking, and trigger-focus restoration for prescription and supporting-document previews. Notification clearing now focuses the safe cancellation action and restores the originating control. Representative Public/Auth, Patient, Doctor, Staff, and Admin pages were reviewed at mobile, tablet, and desktop widths, with horizontal scrolling retained only inside the weekly operational calendar.
+
+There are no backend, schema, API, auth/MFA, RBAC, scheduling, clinical, notification, provider, or environment changes. The existing Vite large-chunk warning remains non-blocking and no unrelated dependency or code-splitting work was introduced. No deployment was performed.
+
 ## v1.2.19 handoff — role-by-role surgical UI polish
 
 The remaining visual outliers now follow the v1.2.18 shared standard. Analytics cards and tables, Doctor Patient and record-entry pages, Staff calendar and walk-in pages, Admin account lists, notification centers, Patient Profile/PWD forms, and public authentication cards were compacted without changing their content, navigation, permissions, or workflows. Routine nested surfaces no longer rely on decorative shadows, status badges are less pill-like, and desktop/mobile layouts avoid horizontal overflow.

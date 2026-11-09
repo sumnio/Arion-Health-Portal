@@ -28,6 +28,9 @@ test('Prescription attachment control provides authenticated View and Download w
   assert.match(source, /URL\.createObjectURL/);
   assert.match(source, /URL\.revokeObjectURL/);
   assert.match(source, /role="dialog"/);
+  assert.match(source, /event\.key === 'Escape'/);
+  assert.match(source, /triggerRef\.current\?\.focus/);
+  assert.match(source, /onKeyDown=\{trapFocus\}/);
   assert.match(source, /mimeType === 'application\/pdf'/);
 });
 
