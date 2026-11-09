@@ -42,7 +42,7 @@ export const staffWalkInService = {
       emergency_contact_name: values.emergency_contact_name?.trim() || null,
       emergency_contact_number: canonicalizePhilippineMobile(values.emergency_contact_number) || null,
       emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null,
-      allergies: (values.allergies ?? '').split(/[,\n]/).map(value => value.trim()).filter(Boolean), is_pwd: values.is_pwd === true };
+      allergies: (values.allergies ?? '').split(/[,\n]/).map(value => value.trim()).filter(Boolean) };
     patientRepository.add(patient);
     return { patient: this.getPatient(patient.id) };
   },

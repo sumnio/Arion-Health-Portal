@@ -9,7 +9,7 @@ import {
   SLOT_TIME_PATTERN,
 } from '../utils/schedulingTime.js';
 
-const allowedCreateFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason']);
+const allowedCreateFields = new Set(['doctor_id', 'appointment_at', 'visit_type', 'reason', 'source_medical_record_id']);
 const allowedRescheduleFields = new Set(['appointment_at']);
 export const PATIENT_APPOINTMENT_REASONS = Object.freeze([
   'General health concern',
@@ -98,6 +98,9 @@ export function validateAppointmentCreate(body, now = new Date(), timeZone = 'As
     appointment_at: appointmentAt,
     visit_type: body.visit_type,
     reason,
+    source_medical_record_id: body.source_medical_record_id == null
+      ? null
+      : validateObjectId(body.source_medical_record_id, 'source_medical_record_id'),
   };
 }
 

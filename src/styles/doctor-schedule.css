@@ -16,7 +16,7 @@
 .doctor-schedule-page .schedule-today { background: #e3f0ea; padding: 6px 10px; border-radius: 5px; }
 .doctor-schedule-page .schedule-note { font-size: 12px; margin-bottom: 18px; }
 .doctor-schedule-page .schedule-day-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-.doctor-schedule-page .schedule-panel { min-width: 0; background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 24px; }
+.doctor-schedule-page .schedule-panel { min-width: 0; background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 20px; }
 .doctor-schedule-page .schedule-timeline { list-style: none; padding: 0; margin: 20px 0 0; }
 .doctor-schedule-page .schedule-timeline li { display: grid; grid-template-columns: 85px minmax(0, 1fr); gap: 12px; align-items: start; padding: 0 0 14px; }
 .doctor-schedule-page .schedule-timeline time { font-size: 14px; font-weight: 600; padding-top: 18px; }
@@ -32,7 +32,7 @@
 .doctor-schedule-page .status-no_show { background: #e7ebf0; color: #44536a; }
 .doctor-schedule-page dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid #e3eaf0; font-size: 14px; }
 .doctor-schedule-page dd { font-weight: 700; margin: 0; }
-.doctor-schedule-page .schedule-empty { text-align: center; padding: 36px 12px; }
+.doctor-schedule-page .schedule-empty { text-align: center; padding: 28px 12px; }
 .doctor-schedule-page .schedule-empty svg { width: 45px; margin: 0 auto 16px; color: #7a9d90; }
 .doctor-schedule-page .doctor-list-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; }
 .doctor-schedule-page .doctor-list-pagination button { min-height: 40px; border: 1px solid #b9c8d5; border-radius: 6px; padding: 8px 14px; background: white; color: #165b45; }

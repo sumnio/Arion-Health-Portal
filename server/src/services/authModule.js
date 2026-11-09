@@ -34,5 +34,5 @@ export function createAuthModule({
     accountSecurity: security.service,
     email: mail.emailService,
   });
-  return { service, tokens, mfaService, emailProvider: mail.provider };
+  return { service, tokens, mfaService, emailProvider: mail.provider, accountTokens: security.tokens, emailService: mail.emailService };
 }

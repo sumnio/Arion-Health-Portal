@@ -19,8 +19,11 @@ export function createStaffSchedulingRouter({ authModule, schedulingModule }) {
   router.patch('/doctors/:doctorId/availability/:availabilityId', controller.updateRecurring);
   router.delete('/doctors/:doctorId/availability/:availabilityId', controller.deleteRecurring);
   router.post('/doctors/:doctorId/published-availability', controller.createPublished);
+  router.patch('/doctors/:doctorId/published-availability/:publishedId', controller.updatePublished);
+  router.post('/doctors/:doctorId/published-availability/:publishedId/exceptions', controller.excludePublishedOccurrence);
   router.delete('/doctors/:doctorId/published-availability/:publishedId', controller.deletePublished);
   router.post('/doctors/:doctorId/blocked-times', controller.createBlocked);
   router.delete('/doctors/:doctorId/blocked-times/:blockedTimeId', controller.deleteBlocked);
+  router.patch('/appointments/:appointmentId/doctor-unavailability-reschedule', controller.rescheduleAffected);
   return router;
 }

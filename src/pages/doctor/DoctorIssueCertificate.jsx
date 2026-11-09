@@ -7,6 +7,7 @@ import FormField from '../../components/public/FormField.jsx';
 import StatusBadge from '../../components/dashboard/StatusBadge.jsx';
 import { certificateIssuanceEnabled } from '../../config/featureConfig.js';
 import { certificatePurposeOptions } from '../../services/certificateContent.js';
+import { validateCertificateDraft } from '../../services/certificateFormValidation.js';
 import { doctorApiErrorMessage, doctorApiService } from '../../services/doctorApiService.js';
 import { clinicToday, formatCertificateDate, formatEncounter } from '../../services/dateTimeService.js';
 import useUnsavedChangesWarning from '../../hooks/useUnsavedChangesWarning.js';
@@ -57,12 +58,7 @@ export default function DoctorIssueCertificate() {
 
   async function submit(event) {
     event.preventDefault();
-    const nextErrors = {};
-    if (!values.purpose) nextErrors.purpose = 'Select a purpose.';
-    if (values.purpose === 'Other' && !values.custom_purpose.trim()) nextErrors.custom_purpose = 'Specify the certificate purpose.';
-    if (!values.diagnosis_summary.trim()) nextErrors.diagnosis_summary = 'Enter a diagnosis summary.';
-    if (!values.recommendation.trim()) nextErrors.recommendation = 'Enter a short recommendation.';
-    if (values.valid_until && values.valid_until < clinicToday()) nextErrors.valid_until = 'Valid until must be on or after the issue date.';
+    const nextErrors = validateCertificateDraft(values);
     if (Object.keys(nextErrors).length) { setErrors(nextErrors); return; }
     setSubmitting(true); setErrors({});
     try {
@@ -76,13 +72,13 @@ export default function DoctorIssueCertificate() {
 
   return <div className="doctor-certificate-page"><h1>{issued ? 'Medical Certificate Issued' : 'Issue Medical Certificate'}</h1><p>{issued ? 'The issued certificate was reloaded from the server and is read-only.' : 'Create a concise certificate from the selected consultation. Fields marked * are required.'}</p><div className="doctor-certificate-layout"><div>
     <RecordSection title="Patient and Medical Record"><h3>{record.patientName}</h3><p>Issuing doctor: {record.doctor}</p><p>Consultation: {formatEncounter(record.appointment?.appointment_at ?? record.encounter_at)}</p><p>Diagnosis: {record.diagnosis}</p><p className="record-reference">Related medical record: {record.id}</p></RecordSection>
-    {issued ? <RecordSection title="Certificate issued"><p role="status">Successfully issued. This certificate cannot be edited, deleted, or reissued here.</p><StatusBadge status="issued" /><div className="certificate-actions">{back}<CertificatePdfButton audience="doctor" certificate={{ ...issued, patientName: record.patientName }} /></div><p>The immutable PDF was generated and stored securely when this certificate was issued.</p></RecordSection> : <form onSubmit={submit} noValidate><RecordSection title="Certificate Details"><StatusBadge status="draft" />{errors.form && <p className="certificate-error" role="alert">{errors.form}</p>}
+    {issued ? <RecordSection title="Certificate issued"><p role="status">Successfully issued. This certificate cannot be edited, deleted, or reissued here.</p><StatusBadge status={issued.validity_status ?? 'issued'} /><div className="certificate-actions">{back}<CertificatePdfButton audience="doctor" certificate={{ ...issued, patientName: record.patientName }} /></div><p>The immutable PDF was generated and stored securely when this certificate was issued.</p></RecordSection> : <form onSubmit={submit} noValidate><RecordSection title="Certificate Details"><StatusBadge status="draft" />{errors.form && <p className="certificate-error" role="alert">{errors.form}</p>}
       <label htmlFor="purpose">Purpose *</label><select id="purpose" value={values.purpose} onChange={changePurpose} required><option value="">Select purpose</option>{certificatePurposeOptions.map((purpose) => <option key={purpose} value={purpose}>{purpose}</option>)}</select>{errors.purpose && <p className="certificate-error">{errors.purpose}</p>}
       {values.purpose === 'Other' && <div><FormField name="custom_purpose" label="Specify Purpose *" value={values.custom_purpose} required maxLength={100} onChange={(event) => updateValue('custom_purpose', event.target.value)} />{errors.custom_purpose && <p className="certificate-error">{errors.custom_purpose}</p>}</div>}
       <label htmlFor="diagnosis_summary">Diagnosis Summary *</label><textarea id="diagnosis_summary" rows={4} maxLength={500} value={values.diagnosis_summary} onChange={(event) => updateValue('diagnosis_summary', event.target.value)} /><p className="certificate-helper">Review and keep only the clinical summary needed for this certificate.</p>{errors.diagnosis_summary && <p className="certificate-error">{errors.diagnosis_summary}</p>}
       <label htmlFor="recommendation">Recommendation *</label><textarea id="recommendation" rows={4} maxLength={500} value={values.recommendation} onChange={(event) => updateValue('recommendation', event.target.value)} /><p className="certificate-helper">Keep this short and relevant to the certificate.</p>{errors.recommendation && <p className="certificate-error">{errors.recommendation}</p>}
       <div className="certificate-readonly-field"><span>Date issued</span><strong>{formatCertificateDate(clinicToday())}</strong><small>The final issue date is assigned by the server.</small></div>
-      <FormField name="valid_until" label="Valid until (optional)" type="date" value={values.valid_until} min={clinicToday()} onChange={(event) => updateValue('valid_until', event.target.value)} />{errors.valid_until && <p className="certificate-error">{errors.valid_until}</p>}
+      <FormField name="valid_until" label="Valid Until *" type="date" value={values.valid_until} min={clinicToday()} required aria-invalid={Boolean(errors.valid_until)} aria-describedby="valid-until-help" onChange={(event) => updateValue('valid_until', event.target.value)} /><p id="valid-until-help" className="certificate-helper">Choose the last date this certificate should remain valid.</p>{errors.valid_until && <p className="certificate-error" role="alert">{errors.valid_until}</p>}
       <div className="certificate-actions">{back}<button disabled={submitting} className="action-link primary-action" type="submit">{submitting ? 'Issuing…' : 'Issue Certificate'}</button></div></RecordSection></form>}
   </div><CertificatePdfPreview recordId={id} values={values} certificateId={issued?.id ?? null} /></div></div>;
 }

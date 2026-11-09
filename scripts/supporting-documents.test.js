@@ -96,6 +96,7 @@ test('booking UI has optional multi-file selection, removal, no categories, and 
 test('appointment and Medical Record details use exact appointment-scoped secure document component', async () => {
   const appointmentSource = await readFile(new URL('../src/pages/patient/PatientAppointmentDetail.jsx', import.meta.url), 'utf8'); const recordSource = await readFile(new URL('../src/pages/patient/PatientRecordDetail.jsx', import.meta.url), 'utf8'); const componentSource = await readFile(new URL('../src/components/documents/SupportingDocumentList.jsx', import.meta.url), 'utf8');
   assert.match(appointmentSource, /appointmentId=\{item\.id\}/); assert.match(recordSource, /appointmentId=\{record\.appointment_id\}/); assert.match(recordSource, /Supporting Documents from this Visit/); assert.match(componentSource, /downloadSupportingDocument\(appointmentId, documentItem\.id\)/); assert.match(componentSource, /URL\.createObjectURL/); assert.match(componentSource, /URL\.revokeObjectURL/); assert.doesNotMatch(componentSource, /localStorage|sessionStorage|dangerouslySetInnerHTML|https?:\/\//);
+  assert.match(componentSource, /event\.key === 'Escape'/); assert.match(componentSource, /onKeyDown=\{trapFocus\}/); assert.match(componentSource, /document\.body\.style\.overflow/); assert.match(componentSource, /triggerRef\.current\?\.focus/);
 });
 
 test('supporting-document UI remains absent from Staff and Admin pages', async () => {

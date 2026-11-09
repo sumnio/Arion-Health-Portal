@@ -10,6 +10,7 @@ export const initialAuthState = {
   accessMessage: '',
   mfaState: null,
   mfaSetup: null,
+  explicitLogout: false,
 };
 
 export function authStateReducer(state, action) {
@@ -17,7 +18,7 @@ export function authStateReducer(state, action) {
     case 'authenticated':
       return { ...initialAuthState, user: action.user, status: 'authenticated' };
     case 'guest':
-      return { ...initialAuthState, status: 'guest', accessMessage: action.message || '' };
+      return { ...initialAuthState, status: 'guest', accessMessage: action.message || '', explicitLogout: action.explicitLogout === true };
     case 'mfa':
       return {
         ...initialAuthState,
@@ -90,7 +91,7 @@ export function AuthProvider({ children }) {
   const register = useCallback((payload) => authService.registerPatient(payload), []);
   const logout = useCallback(async () => {
     try { await authService.logout(); }
-    finally { dispatch({ type: 'guest' }); }
+    finally { dispatch({ type: 'guest', explicitLogout: true }); }
   }, []);
 
   const value = useMemo(() => ({

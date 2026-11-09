@@ -1,5 +1,45 @@
 # Arion Health Portal MVP Handoff
 
+## v1.2.20 handoff — final UI and accessibility gate
+
+The final v1.2 frontend pass found no role-navigation, responsive-layout, or workflow regression. Small accessibility fixes complete keyboard focus trapping, Escape handling, background scroll locking, and trigger-focus restoration for prescription and supporting-document previews. Notification clearing now focuses the safe cancellation action and restores the originating control. Representative Public/Auth, Patient, Doctor, Staff, and Admin pages were reviewed at mobile, tablet, and desktop widths, with horizontal scrolling retained only inside the weekly operational calendar.
+
+There are no backend, schema, API, auth/MFA, RBAC, scheduling, clinical, notification, provider, or environment changes. The existing Vite large-chunk warning remains non-blocking and no unrelated dependency or code-splitting work was introduced. No deployment was performed.
+
+## v1.2.19 handoff — role-by-role surgical UI polish
+
+The remaining visual outliers now follow the v1.2.18 shared standard. Analytics cards and tables, Doctor Patient and record-entry pages, Staff calendar and walk-in pages, Admin account lists, notification centers, Patient Profile/PWD forms, and public authentication cards were compacted without changing their content, navigation, permissions, or workflows. Routine nested surfaces no longer rely on decorative shadows, status badges are less pill-like, and desktop/mobile layouts avoid horizontal overflow.
+
+Already-consistent pages were intentionally preserved, especially the weekly Doctor Schedule, role dashboards, Patient clinical/certificate surfaces, Doctor certificate/history pages, Staff queue/PWD pages, landing content, and Assistant. Validation uses the isolated `arion_health_e2e` database with fake/test providers and external AI disabled. No backend, schema, API, auth/RBAC, provider, environment, or deployment change was made.
+
+## v1.2.18 handoff — UI audit and surgical cleanup
+
+The interface now uses a smaller shared visual system for card surfaces, borders, corner radii, spacing, focus states, controls, links, and status badges. Public, Patient, Doctor, Staff, and Admin pages keep their existing navigation and workflows, while excessive padding, gradients, oversized headings and metrics, roomy empty states, inconsistent rounding, and unnecessary shadows were reduced. Dialogs and other true overlays keep enough elevation to remain clear.
+
+Literal copy replaces a few generic marketing phrases, and shared dashboard/booking cards reduce duplicated styling. Desktop pages were reviewed manually, while the browser suite covers responsive and 320-pixel journeys. No backend file, schema, API, permission, scheduling rule, clinical rule, provider, environment variable, or deployment was changed. Final validation passed 231 frontend tests, 669 backend tests, 108 Playwright journeys, the Production build, and whitespace checks. The Playwright run uses only `arion_health_e2e` with fake email/SMS and external AI disabled.
+
+## v1.2.10 appointment reschedule email link
+
+A successful eligible Patient reschedule now sends one privacy-safe email to the Patient's linked portal-account email. It shows only the updated date/time, the Doctor's display name when available, and a **View Updated Appointment** link created from `APP_BASE_URL`. The protected link requires normal login and Patient ownership; it contains no authentication token or clinical/private Patient information.
+
+Email happens only after the atomic reschedule succeeds. Failed, stale, repeated, unauthorized, and concurrent losing requests send nothing. Missing email/account, disabled delivery, or provider failure does not undo the reschedule. The Patient sees a safe partial-success message if delivery fails. Existing in-app notification fan-out and SMS reminder invalidation, versioning, and replanning remain unchanged. Staff currently has no approved reschedule route/UI, and this milestone does not add one. No deployment was performed.
+
+Final local validation records **651/651 backend tests**, **221/221 frontend tests**, and **104/104 Playwright browser journeys** with fake email, fake/disabled SMS, external AI disabled, and the dedicated E2E database. The Production frontend build passed with the existing non-blocking large-chunk warning. Frontend and backend dependency audits report zero known vulnerabilities, and whitespace validation passed.
+
+## v1.2.9 returning Patient and Portal Access completion
+
+Staff now searches returning Patients by full name, canonical phone, Patient invitation email, or linked account email. Search results show only full name, DOB, masked phone/email, Portal Access status, and optional last visit. Selecting a result reuses the same Patient record for the next walk-in appointment, preserving all prior appointments, clinical records, prescriptions, certificates, PWD verification, notifications, and account linkage.
+
+New Patient registration runs a server-authoritative duplicate review. Phone/email matches are strong, normalized name plus DOB is possible, and name alone remains allowed. Safe candidate cards offer Use Existing Patient. Allowed matches require the explicit Continue as New Patient action; no records are auto-merged. Emails already attached to a Patient or AuthAccount are blocked from a second identity, and nullable `Patient.portal_email` is now uniquely indexed.
+
+Patient Detail includes Send, Resend, and failure Retry controls. Before claim, Staff may correct the email; the replacement transaction invalidates older unused links. Active accounts have no invitation action and cannot change login email through this flow. Resend remains rate-limited, Staff-only, hash-only, transaction-safe, and privacy-minimized. No deployment was performed.
+
+## v1.2.8 walk-in portal invitations
+
+Clinic Patient records and portal accounts remain separate. A Staff-created walk-in may have no email and remain No Account, or may have an optional email and receive an invitation only after appointment creation succeeds. The Patient verifies that email by OTP and creates their own password; Staff never creates or receives credentials. Claiming links the account to the existing Patient record, so prior appointments, records, certificates, PWD verification, and other Patient-owned history remain attached.
+
+Invitation tokens expire after 24 hours, are one-time, and are stored only as protected hashes. Resend invalidates earlier unused invitations. Email delivery is best effort and cannot roll back clinic work. Duplicate account emails, already-linked Patients, stale invitations, and concurrent claims fail closed. The invitation and OTP emails contain no clinical data. No deployment was performed. The formerly deferred returning-Patient and duplicate-review UI is completed in v1.2.9.
+
 ## Final project status
 
 Arion Health Portal has completed MVP development, security hardening, browser regression testing, Vercel deployment, and live synthetic Production validation through Milestone 25.8. Post-MVP Milestones 1.25–1.38 add the local email/account-token foundation, Patient registration email OTP verification, Patient-only secure password recovery, the Arion Assistant v1 feature set and acceptance gate, and the complete Consultation Supporting Documents v1 Patient/Doctor workflow. None of these post-MVP milestones has been deployed.
@@ -102,7 +142,7 @@ Milestone 1.38 completes Consultation Supporting Documents v1 for the assigned D
 ## Roles and permission boundaries
 
 - **Patient:** manages their own profile, books and views their own appointments, reschedules eligible Patient-created appointments by date/time only until one hour before the original start, and reads their own records and issued certificates. Rescheduling keeps the same Doctor and Appointment ID and resets status to pending. Patient ownership is derived from the authenticated profile.
-- The Patient profile opens read-only and requires Edit Profile before approved fields become editable, with visible save feedback. Emergency contacts remain Patient-self-view only; related Doctors may see allergies and PWD status, while Staff may see PWD status but not allergies or emergency contacts. Patient appointment All, Upcoming, and Past & Cancelled views, My Records, and My Certificates show five items per page without deleting history; record search resets to the first page.
+- The Patient profile opens read-only and requires Edit Profile before approved fields become editable, with visible save feedback. Emergency contacts remain Patient-self-view only; related Doctors may see allergies and PWD status, while Staff may see PWD status but not allergies or emergency contacts. Patient appointment All, Upcoming, and Past & Cancelled views and My Records show five items per page; My Certificates uses backend-driven five-item pages independently for Active and Archived without deleting history. Record search resets to the first page.
 - All editable portal contact fields—Patient registration/profile contacts, Staff walk-in registration, and Admin Doctor/Staff account management—use one Philippine mobile rule: exactly 11 digits, beginning with `09`, stored without spaces. Space-formatted input is canonicalized safely; letters, punctuation, invalid lengths/prefixes, and `+63` are rejected. The UI ignores a twelfth digit without invalidating a valid 11-digit value and reports incomplete or invalid entries on blur/save. Emergency contact numbers remain optional and use the same rule when supplied. No migration, SMS support, or privacy-boundary change was introduced.
 - **Doctor:** uses Dashboard, My Schedule, and Patients. My Schedule is read-only and shows Staff-managed Working Hours, Available Booking Dates, and Time Off / Unavailable. Patients is derived only from the Doctor's assigned appointments, never the clinic-wide Patient directory. Patient Detail separates Overview, Consultation, Medical Records, and Certificates while preserving relationship checks. The Doctor creates one MedicalRecord for an eligible assigned consultation, issues certificates only through the approved flow, and completes the consultation after its record is saved. Saved records and issued certificates are read-only. Priority audit history is read-only and limited to appointments assigned to that Doctor.
 - **Staff:** uses the Patients directory and Patient Detail page for demographics, portal-link status, and operational Appointment history covering date/time, status, Doctor, visit type/reason, arrival, priority, and origin. Portal-linked and walk-in/unlinked Patients are both supported. Staff also manages Doctor schedules, the operational calendar, walk-ins, atomic Confirm Arrival, queue, compatibility confirmation, cancellation, and explicit no-show actions after the five-minute grace period. The Dashboard previews five active-queue patients; Patients, Doctors, Notifications, each Patient's Appointment History, and each tabbed Active/Scheduled/Completed-Cancelled-No-show queue view show five items per page. The walk-in page shows the five most recent consultation dates, omits the duplicate queue preview, and loads the selected Doctor's authoritative published same-day schedule; occupied times remain visible but disabled, and creation repeats server-side availability validation. Checked-in confirmed appointments may be marked Urgent only with an approved reason; returning to Normal requires a correction reason, and every change is transactionally appended to priority audit history. Staff may view read-only clinic Analytics for Today, This Week, and This Month. Staff receives no diagnosis, clinical notes, prescriptions, certificate clinical content, or Patient-identifying analytics and cannot complete consultations or edit clinical content.
@@ -298,6 +338,18 @@ Milestone 1.46 replaces the Staff Appointment Queue's current-day terminal tab w
 
 Only safe operational summaries are returned, with navigation to existing Staff Patient Detail. No clinical content, documents, certificates, signatures, account/contact data, Assistant information, notification content, or SMS details are exposed. Patient, Doctor, Admin, inactive, and unauthenticated access are denied. One supporting Appointment index was added; no collection, dependency, environment variable, mutation, export, provider, deployment, notification, SMS, or Doctor History behavior changed.
 
+Milestone v1.2.1 adds the Medical Certificate expiration foundation without changing storage or access architecture. New Doctor issuance and draft preview requests require an explicit `valid_until` date on or after the server-generated Asia/Manila issue date. No fixed duration is invented. Final and preview PDFs use the same renderer and visibly include Date Issued and Valid Until.
+
+Certificate APIs now derive `validity_status`: Active while the clinic date is on or before Valid Until, Expired afterward, and Legacy when an older v1.1 certificate has no validity date. Legacy records and PDFs remain unchanged, issued artifacts remain immutable/private with their existing SHA-256 integrity behavior, and there are still no certificate update/delete routes. Patient archive behavior, expired-download restrictions, Doctor validity filters, backfill, migration, and deployment remain outside this milestone.
+
+Milestone v1.2.2 completes the Patient archive boundary. Patient **My Certificates** now separates Active (including Legacy compatibility records) from Archived (Expired) using strict backend filtering, deterministic newest-first ordering, and five-item pagination per view. Active and Legacy certificates retain existing owner-scoped detail and immutable PDF view/download behavior. Archived rows and direct expired details expose only safe certificate metadata and no View/Download action or PDF preview.
+
+The Patient PDF endpoint recalculates validity using the server's Asia/Manila date immediately before artifact access and returns `403 CERTIFICATE_EXPIRED` for expired certificates without opening GridFS or returning PDF bytes. Ownership is still checked first. The immutable record/artifact, hash, embedded issuance-time signature, and Doctor access remain unchanged; Staff/Admin still receive no certificate content. No archive field/collection, schema migration, expiration notification, provider/environment change, deployment, Patient edit/reissue, or v1.2.3 Doctor filtering was added.
+
+Milestone v1.2.3 completes the v1.2 certificate access model. The existing Doctor **Patient Details → Certificates** tab now provides backend-filtered All, Active, Expired, and Legacy history with fixed five-item pagination and deterministic newest-first sorting. Validity remains server-derived using Asia/Manila. The issuing Doctor can open and download the original private PDF in every validity state, including Expired and Legacy, while another Doctor remains denied.
+
+Issued certificates remain read-only and immutable: there is no edit, extension, update, delete, signature replacement, PDF mutation, or same-record reissue endpoint. A Doctor must issue a new certificate when another valid document is required. Patient v1.2.2 behavior remains Active view/download, Expired Archived metadata-only with `403` artifact denial, and Legacy compatibility access. Staff/Admin receive no certificate content. No schema, collection, migration, provider, environment, notification, or deployment change occurred.
+
 For a new development session, begin with:
 
 > Continue Arion Health Portal from the completed MVP baseline in `PROJECT_HANDOFF.md`. Read `AGENT.md`, `PROJECT_SPEC.md`, `SCHEMA.md`, `ERD.md`, `SITEMAP.md`, `README.md`, and `OPERATIONS_RUNBOOK.md`. Production is DEPLOYED + RESTRICTED and synthetic-only. Preview is isolated. Do not enable Production certificates, use real clinical data, change secrets/cloud resources, or implement backlog items without explicit scope and approval. Preserve 107 frontend, 242 backend, and 48 E2E baseline behavior and add tests for approved changes.
@@ -307,3 +359,108 @@ For a new development session, begin with:
 **Safe for:** school/demo presentation, synthetic workflow demonstrations, local development, protected Preview testing, and restricted Production smoke validation.
 
 **Not authorized for:** real patient or clinical data, live clinic operations, clinical decision-making, certificate issuance in Production, claims of full disaster recovery or durable audit logging, or unrestricted public healthcare use.
+
+## v1.2.5 handoff — PWD verification foundation
+
+The current local milestone replaces every self-declared PWD control with a private Patient-owned submission flow. `GET /api/patient/pwd-verification` returns status-only data; `POST /api/patient/pwd-verification` accepts exactly `pwd_id_number` and one `document` multipart file. Only an authenticated active Patient may call these endpoints. There is intentionally no raw-document route, reviewer endpoint, notification, or non-Patient UI yet.
+
+`pwd_verifications` has one record per Patient and `pwd_verification_files` contains the private GridFS bytes. ID number, storage reference, stored filename, MIME type, size, SHA-256, and rejection reason are schema-private by default. Submission uses upload-first/metadata-second cleanup, blocks duplicates, and returns controlled failures without file or ID details. The Patient sees Not Submitted, Pending Verification, Verified, or Rejected; rejected resubmission is deferred.
+
+The old `Patient.is_pwd` field remains in the schema strictly for compatibility. It is ignored by queue, Doctor clinical projection, Staff projection, and analytics. Only `PwdVerification.status === verified` supplies PWD classification. Senior DOB and Urgent priority rules are unchanged. Staff cannot grant PWD status when registering a walk-in.
+
+For v1.2.6, add a narrowly scoped Staff verification queue and explicit review transition only after re-reading the v1.2.5 ownership and privacy tests. Do not add direct GridFS/public download, Doctor/Admin review, OCR/AI, or Patient-controlled verification. Add approved outcome notification only after a successful review transition and keep it free of ID/document content.
+
+## v1.2.6 handoff — Staff PWD verification and Patient notifications
+
+The local v1.2.6 milestone completes the manual verification workflow in **Staff → Patients → PWD Verification**. Pending submissions are server-paginated and oldest first. Only an authenticated active Staff account may inspect the full ID number and stream the private PDF/image inline from `/api/staff/pwd-verifications/:verificationId/document`; there is no public URL or download action. Doctor, Admin, Patient, inactive, and unauthenticated access remain denied.
+
+Verify and Reject are single atomic Pending-only transitions. Successful reviews store the current reviewer/time and append an immutable history item. Rejection requires a bounded reason. A rejected Patient sees that reason and may upload a corrected document; the current binary is safely replaced while review history is retained. Verified Patients cannot reset or resubmit their status. Concurrent or repeated reviewers receive `409` rather than overwriting the first decision.
+
+Each successful transition triggers one fixed Patient notification after the database commit. Notification text contains no ID, filename, reason, document details, or URL. Only Verified status affects queue priority. v1.2.6 adds no OCR/AI, automated approval, external verification provider, public storage, environment variable, or deployment.
+
+## v1.2.7 handoff — Official verification review and final PWD workflow
+
+The November 2, 2026 official-source review found no clearly authorized public API for a private clinic to automate Philippine PWD ID verification. NCDA/DSWD materials describe UPWDIS, its QR-based verification experience, and its phased government/LGU rollout, but do not publish a public API contract, private-clinic onboarding process, authentication requirements, or permission for third-party automated querying. NCDA Administrative Order No. 001, s. 2026 instead limits access through roles and formal data-sharing agreements. NPC privacy and scraping guidance means a human-facing page or QR result must not be treated as an undocumented API or scraped dataset.
+
+Manual Staff verification is therefore the final approved design. The Patient submits privately, the record remains Pending, active Staff compares it with the applicable official government registry/source through the official human-facing process, Staff verifies or rejects it, and the Patient receives a privacy-safe notification. Only Verified status affects PWD priority. Senior remains DOB-derived and Urgent remains the highest operational tier.
+
+Do not add OCR, AI legitimacy decisions, portal scraping, browser automation, reverse-engineered endpoints, or government credentials. A future official integration must stop for separate approval and first provide published API documentation, explicit access authorization, authentication/onboarding rules, lawful basis, privacy impact and security review, and any required data-sharing agreement. v1.2.7 changes documentation only and performs no deployment.
+
+## Current PWD submission refinement handoff
+
+New submissions use exactly `front_document` and `back_document` multipart image fields. Both must be JPG/JPEG or PNG and no larger than 5 MB each; PDFs, typed `pwd_id_number`, extra fields, missing sides, mismatched extensions/MIME signatures, and additional files are rejected. Existing one-file records remain readable through the legacy Staff review path only. Rejected resubmission atomically replaces both images after successful private storage while preserving review history.
+
+The Patient is instructed that the printed ID name must match the profile name. Staff sees that profile name next to the two images and is instructed to compare them before using the direct bodyless Verify action. There is no separate confirmation checkbox and no automated OCR/AI verification. A successful submission or resubmission sends all active Staff a fixed privacy-safe `pwd_verification_submitted` notification. Staff Patients shows `PWD Verification (n)` using the Pending-list total and refreshes it after review. No deployment was performed.
+# v1.2.11 follow-up recommendation integration
+
+The assigned Doctor can record whether follow-up is required while creating the immutable Medical Record. A required follow-up includes a clinic-date recommendation and a bounded clinical reason. The date cannot precede the consultation date.
+
+Patient and Staff scheduling reuse the existing Doctor availability, conflict, and 14-day booking rules. The Patient or Staff selects the actual slot; the system never books automatically or invents a next-day date. The Appointment links back through `source_medical_record_id`, while the original recommendation remains unchanged after booking, cancellation, or rescheduling. Doctor receives no scheduling mutation permission, and Staff receives no clinical reason.
+
+Recommendations beyond the 14-day horizon remain visible but cannot yet be scheduled. Doctor-unavailability automatic rescheduling is intentionally deferred to v1.2.12. No deployment was performed.
+
+# v1.2.12 handoff — Doctor unavailability rescheduling assistance
+
+Staff may add a bounded whole-day or partial-day Doctor time-off block from the existing schedule page. The backend finds overlapping active Appointments in one batch, adds an explicit Doctor-unavailability flag and block reference, and leaves their original date, status, Patient, Doctor, visit context, and follow-up link unchanged. Terminal Appointments are ignored. Removing the last related block clears an unresolved flag; no Appointment is moved automatically.
+
+The Staff schedule shows the affected count, operational details, up to five ranked replacements, another-date slot lookup, a confirmed Reschedule action, and Leave Pending. The owning Patient sees a generic Doctor-unavailable warning and suggestions only when existing Patient self-reschedule rules permit it. Checked-in or recorded Appointments remain locked and visible for manual Staff handling rather than bypassing lifecycle controls.
+
+Suggestions reuse published availability, Doctor blocks, occupancy, 30-minute slot rules, the 14-day booking horizon, and Asia/Manila time. Final Patient or Staff confirmation revalidates availability and uses an atomic expected-original-time update, so a competing confirmation or stale occupied slot fails safely. The existing Appointment is updated; `source_medical_record_id` remains intact and the source Medical Record recommendation is never rewritten.
+
+Flagging creates fixed privacy-safe Patient/Staff/Doctor notifications, invalidates unsent SMS reminders tied to the invalid schedule, and sends a generic navigation-only Patient email when a portal account exists. The absence note and clinical data are not included. Confirmed moves reuse current reschedule notification, versioned SMS-plan, and email behavior. Side-effect delivery remains best effort and cannot roll back the scheduling state.
+
+No Doctor mutation route, bulk automatic move, duplicate Appointment, auto-cancellation, new provider, environment change, or deployment was added.
+
+# Schedule UI Redesign Milestone 1 handoff
+
+The Staff Doctor Schedule is now a reusable weekly calendar interface. `WeeklyScheduleCalendar` converts the unchanged recurring availability, published one-date availability, and blocked-time response into green, blue, and red visual blocks. `ScheduleDialog` supplies focus handling, Escape close, focus restoration, and labelled modal semantics for schedule actions.
+
+All mutations still call the established Staff scheduling service methods. Recurring hours can be added, edited, enabled/disabled, and deleted; special availability and time off can be added and removed. The affected-appointment rescheduling panel remains intact below the calendar. The calendar is horizontally scrollable on small screens and exposes descriptive keyboard buttons for every event.
+
+Milestone 2 must not assume any new backend data model: this milestone introduced no endpoint, schema, scheduling-rule, permission, or deployment change. Historical blocked/published records remain limited by the existing schedule response, and the visual grid intentionally displays the clinic-day window from 8:00 AM to 6:00 PM.
+
+# Schedule UI Redesign Milestone 2 handoff
+
+The Staff Doctor Schedule now keeps affected Appointments in a compact warning directly under the calendar. **Review Appointments** opens a reusable right-side drawer with operational-only cards and server-provided suggestions. **Leave Pending** closes no records and changes no schedule. A Staff reschedule is written only after a separate confirmation dialog displays the Patient, original time, and replacement time.
+
+After confirmation, the page reloads the authoritative schedule, decreases the affected count, and displays **No appointments need rescheduling** when the list becomes empty. If another booking takes a selected suggestion before confirmation, the existing backend conflict remains authoritative: the Appointment stays affected, the page shows a safe no-longer-available message, refreshes the drawer data, and provides **Reload suggestions**. No automatic move or hidden retry was added.
+
+The calendar now derives its visible hour range from returned events while retaining 8:00 AM–6:00 PM as the minimum baseline. Early or late working hours, special availability, and time off remain visible rather than being clipped. At 390px, calendar columns stay intentionally horizontally scrollable and the review drawer uses the full viewport width. Dialog focus trapping, Escape close, focus restoration, labelled controls, keyboard-selectable blocks, and visible focus treatment remain intact.
+
+This is a frontend-only milestone. It reuses the existing Staff schedule and reschedule APIs and changes no backend behavior, role permission, schema, scheduling rule, notification/email/SMS behavior, provider, environment variable, or deployment. Do not deploy as part of this handoff.
+
+# Weekly booking publication and calendar update handoff
+
+The Staff Doctor Schedule now separates three ideas clearly:
+
+- **Working Hours** are the recurring green schedule template.
+- **Published for booking** is the blue Patient-booking layer inside Working Hours.
+- **Time Off** is the red striped unavailable layer shown above both.
+
+Staff can publish one date or repeat the same time every selected weekday. A weekly publication begins on its chosen first date and continues until Staff stops it. The event popup stays compact: the close **×** replaces a duplicate Close button, leaving **Change Time**, **Remove This Monday**, and **Stop All Mondays**. **Change Time** opens a second form where Staff chooses one date or all matching weekdays.
+
+Changing one occurrence writes a date-specific time override. It does not change the following weeks. Changing the whole series updates its base time while keeping previously customized dates. Removing one occurrence writes an excluded date; stopping the series removes the complete weekly publication. All edited times must remain inside active Working Hours and cannot overlap another publication.
+
+Patient slot generation now expands weekly publications and applies date overrides and exclusions before Time Off, past-time, occupancy, clinic-hour, and 14-day-horizon checks. The displayed calendar and Patient booking page therefore use the same effective schedule.
+
+The backend additions are Staff-only `PATCH /api/staff/doctors/:doctorId/published-availability/:publishedId` for time edits and `POST /api/staff/doctors/:doctorId/published-availability/:publishedId/exceptions` for removing one weekly date. `DoctorPublishedAvailability` now includes `repeat_weekly`, `excluded_dates`, and `date_overrides`. Existing role boundaries, Appointment history preservation, notification/email/SMS behavior, providers, and environment configuration remain unchanged. No deployment was performed.
+# v1.2.16 handoff — Optional Prescription Attachments
+
+- Doctor Medical Record creation now accepts digital Prescription details, one optional JPG/JPEG/PNG/PDF attachment up to 5 MB, or both in the same intentional Prescription row.
+- Multipart submissions use one JSON `payload` field and an `attachments` array. Each row references at most one upload through its validated `attachment_index`; duplicate and unreferenced files are rejected.
+- Server validation checks file size, non-empty content, extension, MIME type, and binary signature before private storage. Files use generated names in GridFS bucket `prescription_files`; Prescription keeps private metadata and SHA-256 integrity data.
+- Record creation remains atomic in behavior. Any attachment uploaded before a storage/database failure is deleted, while the browser keeps the Doctor's local form and file selection for retry.
+- Saved Prescription data is read-only. The owning Doctor and owning Patient have separate authenticated download routes; Staff/Admin and unrelated users remain denied. Normal record responses expose safe attachment metadata only, never the GridFS ID or hash.
+- No OCR, AI parsing, public link, external storage, notification/email/SMS content, update/delete/replacement route, dependency, environment variable, or deployment was added.
+## v1.2.17 handoff — Prescription history and private attachment access
+
+- Doctor route: `GET /api/doctor/patients/:patientId/prescriptions?page=N` returns only the signed-in Doctor's issued prescription rows for that Patient.
+- Patient route: `GET /api/patient/prescriptions?page=N` returns only prescriptions linked to the signed-in Patient's Medical Records.
+- Both history responses are newest-first, server-paginated at five items, preserve Medical Record/appointment context, and omit private GridFS IDs and hashes.
+- Attachment routes accept `?disposition=inline` only to change authenticated response disposition for preview. The default remains an authenticated download. Both stream the original private GridFS bytes with safe MIME, filename, `no-store`, and `nosniff` headers.
+- Frontend temporary object URLs are revoked when previews close, files change, or components unmount. No permanent or public attachment URL is created.
+- Doctor UI: Patient Details → Prescriptions. Patient UI: My Records → Prescriptions and the existing individual Medical Record detail.
+- There are no issued-prescription mutation endpoints or UI controls. Corrections or reissue remain outside this version.
+- Staff and Admin receive no prescription history or attachment UI/API access. No OCR, AI transcription, or external-provider transfer was introduced.
+- No schema/ERD change was required for v1.2.17; it reuses the v1.2.16 Prescription-to-MedicalRecord relationship and private `prescription_files` GridFS bucket.
+- No deployment was performed.

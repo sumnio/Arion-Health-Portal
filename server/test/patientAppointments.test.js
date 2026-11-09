@@ -19,9 +19,10 @@ const ids = {
   cancelled: '100000000000000000000003',
   noShow: '100000000000000000000004',
   otherAppointment: '100000000000000000000005',
+  followUpRecord: '200000000000000000000001',
 };
 
-function createContext({ currentTime = NOW, notificationTriggers, smsReminders } = {}) {
+function createContext({ currentTime = NOW, notificationTriggers, smsReminders, appointmentEmails } = {}) {
   const recordedAppointments = new Set();
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
@@ -54,6 +55,14 @@ function createContext({ currentTime = NOW, notificationTriggers, smsReminders }
     [ids.otherAppointment, base(ids.otherAppointment, ids.otherPatient, 'pending', '2026-09-27T11:00:00.000Z', ids.otherPatientProfile)],
   ]);
   let sequence = 16;
+  const followUpRecords = new Map([[ids.followUpRecord, {
+    _id: ids.followUpRecord,
+    patient_id: ids.patient,
+    doctor_id: ids.doctor,
+    follow_up_required: true,
+    follow_up_recommended_date: new Date('2026-09-26T00:00:00.000Z'),
+    follow_up_reason: 'Private reassessment reason',
+  }]]);
 
   const patientRepository = {
     async findByUserProfileId(profileId) {
@@ -100,6 +109,13 @@ function createContext({ currentTime = NOW, notificationTriggers, smsReminders }
     },
     async findById(appointmentId) { return cloneAppointment(appointments.get(appointmentId)); },
     async medicalRecordExists(appointmentId) { return recordedAppointments.has(String(appointmentId)); },
+    async findFollowUpRecordForPatient(recordId, patientId) {
+      const record = followUpRecords.get(String(recordId));
+      return record?.patient_id === String(patientId) ? structuredClone(record) : null;
+    },
+    async findActiveLinkedFollowUp(recordId) {
+      return cloneAppointment([...appointments.values()].find((item) => String(item.source_medical_record_id ?? '') === String(recordId) && ['pending', 'confirmed'].includes(item.status)));
+    },
     async listRecordedAppointmentIds(appointmentIds) { return appointmentIds.map(String).filter((id) => recordedAppointments.has(id)); },
     async cancelOwnedEligible(appointmentId, patientId, current, expectedAppointmentAt) {
       this.lastCancelTime = current;
@@ -151,8 +167,10 @@ function createContext({ currentTime = NOW, notificationTriggers, smsReminders }
     patients: patientRepository,
     appointments: appointmentRepository,
     bookingAvailabilityService,
+    followUpRecords,
     notificationTriggers,
     smsReminders,
+    appointmentEmails,
     now: () => new Date(currentTime),
   });
   const app = createApp(
@@ -196,6 +214,52 @@ const validBooking = {
 };
 const validReschedule = { appointment_at: '2026-09-28T10:00:00.000Z' };
 
+test('Patient books a recommended follow-up with the same Doctor and source record link', async () => {
+  const context = createContext();
+  await withServer(context.app, async (url) => {
+    const response = await request(url, '/api/patient/appointments', {
+      method: 'POST',
+      cookie: context.cookie(ids.patientProfile),
+      body: {
+        doctor_id: ids.doctor,
+        appointment_at: '2026-09-26T10:00:00.000Z',
+        visit_type: 'follow_up',
+        reason: 'Follow-up consultation',
+        source_medical_record_id: ids.followUpRecord,
+      },
+    });
+    assert.equal(response.status, 201);
+    const appointment = (await response.json()).appointment;
+    assert.equal(appointment.source_medical_record_id, ids.followUpRecord);
+    assert.equal(appointment.visit_type, 'follow_up');
+  });
+});
+
+test('Patient follow-up booking blocks a duplicate active link and permits rebooking after cancellation', async () => {
+  const context = createContext();
+  const body = { doctor_id: ids.doctor, appointment_at: '2026-09-26T10:00:00.000Z', visit_type: 'follow_up', reason: 'Follow-up consultation', source_medical_record_id: ids.followUpRecord };
+  await withServer(context.app, async (url) => {
+    const first = await request(url, '/api/patient/appointments', { method: 'POST', cookie: context.cookie(ids.patientProfile), body });
+    assert.equal(first.status, 201);
+    const firstId = (await first.json()).appointment.id;
+    const duplicate = await request(url, '/api/patient/appointments', { method: 'POST', cookie: context.cookie(ids.patientProfile), body: { ...body, appointment_at: '2026-09-29T10:00:00.000Z' } });
+    assert.equal(duplicate.status, 409);
+    context.appointments.get(firstId).status = 'cancelled';
+    const rebook = await request(url, '/api/patient/appointments', { method: 'POST', cookie: context.cookie(ids.patientProfile), body: { ...body, appointment_at: '2026-09-29T10:00:00.000Z' } });
+    assert.equal(rebook.status, 201);
+  });
+});
+
+test('Patient cannot book a linked follow-up before the recommendation date or for another Patient', async () => {
+  const context = createContext();
+  await withServer(context.app, async (url) => {
+    const before = await request(url, '/api/patient/appointments', { method: 'POST', cookie: context.cookie(ids.patientProfile), body: { doctor_id: ids.doctor, appointment_at: '2026-09-25T10:00:00.000Z', visit_type: 'follow_up', reason: 'Follow-up consultation', source_medical_record_id: ids.followUpRecord } });
+    assert.equal(before.status, 409);
+    const other = await request(url, '/api/patient/appointments', { method: 'POST', cookie: context.cookie(ids.otherPatientProfile), body: { doctor_id: ids.doctor, appointment_at: '2026-09-26T10:00:00.000Z', visit_type: 'follow_up', reason: 'Follow-up consultation', source_medical_record_id: ids.followUpRecord } });
+    assert.equal(other.status, 404);
+  });
+});
+
 test('unauthenticated Patient profile request returns 401', async () => {
   const { app } = createContext();
   await withServer(app, async (url) => assert.equal((await request(url, '/api/patient/profile')).status, 401));
@@ -218,12 +282,12 @@ test('Patient can read only the profile linked to the authenticated UserProfile'
 test('Patient can update approved own profile fields, including documented DOB and sex fields', async () => {
   const { app, cookie } = createContext();
   await withServer(app, async (url) => {
-    const response = await request(url, '/api/patient/profile', { method: 'PATCH', cookie: cookie(ids.patientProfile), body: { full_name: 'Alex Updated', dob: '1991-02-20', sex: 'male', address: 'Quezon City', is_pwd: true } });
+    const response = await request(url, '/api/patient/profile', { method: 'PATCH', cookie: cookie(ids.patientProfile), body: { full_name: 'Alex Updated', dob: '1991-02-20', sex: 'male', address: 'Quezon City' } });
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.patient.full_name, 'Alex Updated');
     assert.equal(body.patient.dob, '1991-02-20');
-    assert.equal(body.patient.is_pwd, true);
+    assert.equal('is_pwd' in body.patient, false);
   });
 });
 
@@ -757,6 +821,54 @@ test('Patient reschedules an eligible pending appointment while preserving ident
   });
 });
 
+test('successful Patient reschedule sends one operational email after the atomic update', async () => {
+  const calls = [];
+  const context = createContext({
+    appointmentEmails: {
+      async appointmentRescheduled(value) {
+        calls.push(structuredClone(value));
+        return { status: 'sent' };
+      },
+    },
+  });
+  await withServer(context.app, async (url) => {
+    const first = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule });
+    assert.equal(first.status, 200);
+    assert.equal((await first.json()).appointment.email_notification, 'sent');
+    const duplicate = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule });
+    assert.equal(duplicate.status, 409);
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].appointmentId, ids.pending);
+  assert.equal(calls[0].patientId, ids.patient);
+  assert.equal(new Date(calls[0].appointmentAt).toISOString(), validReschedule.appointment_at);
+  assert.equal(calls[0].doctorName, 'Dr. Maria Santos');
+});
+
+test('email failure is a safe partial success and never rolls back the reschedule', async () => {
+  const context = createContext({
+    appointmentEmails: { async appointmentRescheduled() { throw new Error('private provider failure'); } },
+  });
+  await withServer(context.app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.appointment.email_notification, 'failed');
+    assert.equal(JSON.stringify(body).includes('private provider failure'), false);
+    assert.equal(context.appointments.get(ids.pending).appointment_at.toISOString(), validReschedule.appointment_at);
+  });
+});
+
+test('Patient without an email notifier still reschedules normally without a false warning', async () => {
+  const context = createContext();
+  await withServer(context.app, async (url) => {
+    const response = await request(url, `/api/patient/appointments/${ids.pending}/reschedule`, { method: 'PATCH', cookie: context.cookie(ids.patientProfile), body: validReschedule });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.appointment.email_notification, 'skipped');
+  });
+});
+
 test('Patient rescheduling resets an eligible unchecked confirmed appointment to pending', async () => {
   const { app, cookie, appointments } = createContext();
   appointments.get(ids.pending).status = 'confirmed';
@@ -905,7 +1017,15 @@ test('stale original appointment time fails atomic rescheduling safely', async (
 });
 
 test('concurrent reschedules allow only one stale-state transition', async () => {
-  const { app, cookie, appointments, appointmentRepository } = createContext();
+  const emailCalls = [];
+  const { app, cookie, appointments, appointmentRepository } = createContext({
+    appointmentEmails: {
+      async appointmentRescheduled(value) {
+        emailCalls.push(structuredClone(value));
+        return { status: 'sent' };
+      },
+    },
+  });
   let reached = 0;
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
@@ -921,6 +1041,7 @@ test('concurrent reschedules allow only one stale-state transition', async () =>
     ]);
     assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
     assert.ok(['2026-09-28T10:00:00.000Z', '2026-09-28T10:30:00.000Z'].includes(appointments.get(ids.pending).appointment_at.toISOString()));
+    assert.equal(emailCalls.length, 1);
   });
 });
 

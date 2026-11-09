@@ -3,7 +3,7 @@ export default function PlaceholderPage({ title, links = [] }) {
   const { id } = useParams();
   return <>
     <header className="page-heading"><p className="eyebrow">Arion Health Portal</p><h1>{title}</h1></header>
-    <section className="placeholder rounded-xl border bg-white p-6" aria-label={title + ' placeholder'}>
+    <section className="placeholder dashboard-card" aria-label={title + ' placeholder'}>
       <span className="badge">Milestone 1 · Placeholder</span>
       <h2>This page is ready for the next milestone.</h2>
       <p>Navigation is available. Page features will be added in a later milestone.</p>

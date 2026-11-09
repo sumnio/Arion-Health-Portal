@@ -1,7 +1,7 @@
 .doctor-certificate-page { max-width: 1280px; margin: auto; }
 .doctor-certificate-page p { color: #52657b; line-height: 1.6; margin: 12px 0; }
 .doctor-certificate-page .doctor-certificate-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; margin-top: 24px; align-items: start; }
-.doctor-certificate-page .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 10px; padding: 24px; margin-bottom: 20px; min-width: 0; }
+.doctor-certificate-page .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 20px; margin-bottom: 18px; min-width: 0; }
 .doctor-certificate-page h2 { font-size: 19px; margin-bottom: 18px; }
 .doctor-certificate-page h3 { font-size: 20px; }
 .doctor-certificate-page .form-field { margin: 18px 0; }
@@ -16,6 +16,9 @@
 .doctor-certificate-page button:disabled { cursor: not-allowed; opacity: .6; }
 .doctor-certificate-page .record-reference { overflow-wrap: anywhere; font-size: 12px; }
 .doctor-certificate-page .certificate-helper { margin-top: 5px; font-size: 12px; }
+.doctor-certificate-page .status-active { background: #ddf4e9; color: #166447; }
+.doctor-certificate-page .status-expired { background: #ffe4e7; color: #a33434; }
+.doctor-certificate-page .status-legacy { background: #e7ebf0; color: #44536a; }
 .doctor-certificate-page .certificate-readonly-field { display: grid; gap: 6px; margin: 18px 0; padding: 12px; border-radius: 6px; background: #f0f4f8; }
 .doctor-certificate-page .certificate-readonly-field span { font-weight: 600; }
 .doctor-certificate-page .certificate-readonly-field small { color: #52657b; }

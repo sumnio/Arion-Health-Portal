@@ -27,7 +27,13 @@ export default function PatientRescheduleForm({ appointment, onRescheduled }) {
     setLoading(true);
     setMessage('');
     try {
-      setSlotsByDate(await patientApiService.getBookableDates(appointment.doctor_id, dates));
+      const available = await patientApiService.getBookableDates(appointment.doctor_id, dates);
+      setSlotsByDate(available);
+      const suggested = appointment.suggested_reschedule_slots?.[0];
+      if (suggested && available[suggested.date]?.some((slot) => slot.appointment_at === suggested.appointment_at && slot.available)) {
+        setDate(suggested.date);
+        setTime(suggested.start_time);
+      }
     } catch (error) {
       setMessage(patientApiErrorMessage(error, 'Unable to load appointment availability.'));
     } finally {
@@ -67,9 +73,10 @@ export default function PatientRescheduleForm({ appointment, onRescheduled }) {
   }
 
   return <div className="appointment-actions reschedule-action patient-booking">
-    {!open && <button type="button" className="action-link primary-action" onClick={() => { setOpen(true); loadAvailability(); }}>Reschedule Appointment</button>}
+    {!open && <button type="button" className="action-link primary-action" onClick={() => { setOpen(true); loadAvailability(); }}>{appointment.requires_reschedule_due_to_doctor_unavailability ? 'Choose New Schedule' : 'Reschedule Appointment'}</button>}
     {open && <form className="appointment-editor reschedule-editor" onSubmit={submit} aria-label="Reschedule appointment">
       <h3>Choose a new schedule</h3>
+      {appointment.requires_reschedule_due_to_doctor_unavailability && <p role="note" className="appointment-error">Your Doctor is unavailable for the current appointment. Your schedule will change only after you confirm a replacement.</p>}
       <p className="booking-hint">Rescheduling is available until one hour before the current appointment. The appointment will return to Pending.</p>
       <dl className="reschedule-current">
         <div><dt>Doctor</dt><dd>{appointment.doctor}</dd></div>
@@ -77,6 +84,7 @@ export default function PatientRescheduleForm({ appointment, onRescheduled }) {
         <div><dt>Reason</dt><dd>{appointment.reason}</dd></div>
         <div><dt>Current schedule</dt><dd>{formatBookingDate(appointment.date)} · {appointment.timeLabel}</dd></div>
       </dl>
+      {appointment.suggested_reschedule_slots?.length > 0 && <div><strong>Suggested replacements</strong><ul>{appointment.suggested_reschedule_slots.map((slot) => <li key={slot.appointment_at}>{formatBookingDate(slot.date)} · {formatSlot(slot.start_time)}</li>)}</ul></div>}
       {message && <p role="alert" className="appointment-error">{message}</p>}
       <BookingCalendar value={date} doctorId={appointment.doctor_id} availableDates={availableDates} loading={loading} onChange={(value) => { setDate(value); setTime(''); setMessage(''); }} invalid={Boolean(message && !date)} />
       <fieldset className="booking-slots">

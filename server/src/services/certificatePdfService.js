@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { deflateSync, inflateSync } from 'node:zlib';
 
-export const CERTIFICATE_PDF_RENDER_VERSION = 'arion-certificate-v2';
+export const CERTIFICATE_PDF_RENDER_VERSION = 'arion-certificate-v3';
 const PAGE = Object.freeze({ width: 595.28, height: 841.89, margin: 48 });
 const BLUE = '0.04 0.29 0.55';
 const MID_BLUE = '0.23 0.56 0.82';
@@ -184,7 +184,10 @@ export function buildCertificatePdf(certificate, { signatureBuffer = null, signa
   document.section('Purpose', certificate.purpose);
   document.section('Diagnosis Summary', certificate.diagnosis_summary);
   document.section('Recommendation', certificate.recommendation ?? 'No additional recommendation recorded.');
-  if (certificate.valid_until) document.section('Valid Until', formatDate(certificate.valid_until));
+  if (certificate.valid_until) {
+    document.section('Valid Until', formatDate(certificate.valid_until));
+    document.paragraph('Valid only until the date stated above and for the stated purpose.', { size: 8.5, leading: 13 });
+  }
   document.signatureBlock(certificate);
   return document.serialize();
 }

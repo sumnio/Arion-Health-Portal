@@ -31,7 +31,13 @@ export function createDoctorApiRepository(client = apiClient) {
     async getSignatureStatus() { return (await request('/api/doctor/profile/signature/status')).signature; },
     async getSignatureImage() { return client.download('/api/doctor/profile/signature'); },
     async uploadSignature(formData) { return (await client.upload('/api/doctor/profile/signature', formData, { method: 'POST' })).signature; },
-    async getPatientHistory(patientId) { return request(`/api/doctor/patients/${encodeURIComponent(patientId)}/records`); },
+    async getPatientHistory(patientId, { certificateStatus = 'all', certificatePage = 1 } = {}) {
+      const query = new URLSearchParams({ certificate_status: certificateStatus, certificate_page: String(certificatePage) });
+      return request(`/api/doctor/patients/${encodeURIComponent(patientId)}/records?${query}`);
+    },
+    async getPatientPrescriptions(patientId, { page = 1 } = {}) {
+      return request(`/api/doctor/patients/${encodeURIComponent(patientId)}/prescriptions?page=${encodeURIComponent(page)}`);
+    },
     async listSupportingDocuments(appointmentId) {
       return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/supporting-documents`)).supporting_documents;
     },
@@ -39,7 +45,17 @@ export function createDoctorApiRepository(client = apiClient) {
       return client.download(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/supporting-documents/${encodeURIComponent(documentId)}`);
     },
     async getRecord(recordId) { return (await request(`/api/doctor/records/${encodeURIComponent(recordId)}`)).medical_record; },
-    async createMedicalRecord(appointmentId, payload) { return (await request(`/api/doctor/appointments/${encodeURIComponent(appointmentId)}/medical-record`, { method: 'POST', body: payload })).medical_record; },
+    async downloadPrescriptionAttachment(prescriptionId, { inline = false } = {}) {
+      const suffix = inline ? '?disposition=inline' : '';
+      return client.download(`/api/doctor/prescriptions/${encodeURIComponent(prescriptionId)}/attachment${suffix}`);
+    },
+    async createMedicalRecord(appointmentId, payload) {
+      const path = `/api/doctor/appointments/${encodeURIComponent(appointmentId)}/medical-record`;
+      const response = payload instanceof FormData
+        ? await client.upload(path, payload, { method: 'POST' })
+        : await request(path, { method: 'POST', body: payload });
+      return response.medical_record;
+    },
     async createCertificate(recordId, payload) { return (await request(`/api/doctor/records/${encodeURIComponent(recordId)}/certificates`, { method: 'POST', body: payload })).medical_certificate; },
     async previewCertificatePdf(recordId, payload, options = {}) { return client.download(`/api/doctor/records/${encodeURIComponent(recordId)}/certificates/preview`, { ...options, method: 'POST', body: payload }); },
     async getCertificate(certificateId) { return (await request(`/api/doctor/certificates/${encodeURIComponent(certificateId)}`)).medical_certificate; },

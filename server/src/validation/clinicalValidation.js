@@ -5,11 +5,19 @@ import { boundedText, INPUT_LIMITS, queryInteger, queryText, rejectUnknownFields
 import { isValidDateOnly } from '../utils/schedulingTime.js';
 import { CERTIFICATE_LIMITS, CERTIFICATE_PURPOSES } from '../services/certificateContent.js';
 
-const recordFields = new Set(['diagnosis', 'notes', 'follow_up', 'prescriptions']);
+const recordFields = new Set([
+  'diagnosis', 'notes', 'follow_up', 'prescriptions',
+  'follow_up_required', 'follow_up_recommended_date', 'follow_up_reason',
+]);
 const certificateFields = new Set(['purpose', 'custom_purpose', 'diagnosis_summary', 'recommendation', 'valid_until']);
 export const DOCTOR_HISTORY_RANGES = Object.freeze(['today', 'last_7_days', 'last_30_days', 'this_month', 'custom']);
 export const DOCTOR_HISTORY_STATUSES = Object.freeze(['completed', 'cancelled', 'no_show']);
 export const DOCTOR_HISTORY_PAGE_SIZE = 10;
+export const PATIENT_CERTIFICATE_PAGE_SIZE = 5;
+export const PATIENT_CERTIFICATE_VIEWS = Object.freeze(['active', 'archived']);
+export const DOCTOR_CERTIFICATE_PAGE_SIZE = 5;
+export const DOCTOR_CERTIFICATE_FILTERS = Object.freeze(['all', 'active', 'expired', 'legacy']);
+export const PRESCRIPTION_HISTORY_PAGE_SIZE = 5;
 
 export function validateClinicalObjectId(value, name) {
   if (!mongoose.isObjectIdOrHexString(value)) {
@@ -23,24 +31,68 @@ function rejectUnknown(body, allowed) {
   rejectUnknownFields(body, allowed);
 }
 
-export function validateMedicalRecordCreate(body = {}) {
+export function validateMedicalRecordCreate(body = {}, { attachmentCount = 0 } = {}) {
   rejectUnknown(body, recordFields);
+  if (!Number.isInteger(attachmentCount) || attachmentCount < 0 || attachmentCount > INPUT_LIMITS.prescriptions) {
+    throw httpError(400, 'INVALID_PRESCRIPTION_ATTACHMENT_COUNT', 'The prescription attachment count is invalid.');
+  }
   if (body.prescriptions != null && !Array.isArray(body.prescriptions)) {
     throw httpError(400, 'VALIDATION_ERROR', 'prescriptions must be an array.');
   }
   if ((body.prescriptions?.length ?? 0) > INPUT_LIMITS.prescriptions) {
     throw httpError(400, 'VALIDATION_ERROR', `prescriptions must contain at most ${INPUT_LIMITS.prescriptions} items.`);
   }
+  const followUpRequired = body.follow_up_required ?? false;
+  if (typeof followUpRequired !== 'boolean') {
+    throw httpError(400, 'VALIDATION_ERROR', 'follow_up_required must be true or false.');
+  }
+  let followUpRecommendedDate = null;
+  let followUpReason = null;
+  if (followUpRequired) {
+    if (!isValidDateOnly(body.follow_up_recommended_date)) {
+      throw httpError(400, 'VALIDATION_ERROR', 'follow_up_recommended_date must use a valid YYYY-MM-DD date.');
+    }
+    followUpRecommendedDate = body.follow_up_recommended_date;
+    followUpReason = boundedText(body.follow_up_reason, 'follow_up_reason', 500);
+  } else if (body.follow_up_recommended_date || body.follow_up_reason) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Follow-up date and reason are accepted only when follow_up_required is true.');
+  }
+  const attachmentIndexes = (body.prescriptions ?? [])
+    .map((item) => item?.attachment_index)
+    .filter((value) => value != null);
+  if (new Set(attachmentIndexes).size !== attachmentIndexes.length) {
+    throw httpError(400, 'DUPLICATE_PRESCRIPTION_ATTACHMENT_REFERENCE', 'Each prescription attachment may be used only once.');
+  }
+  if (attachmentIndexes.length !== attachmentCount) {
+    throw httpError(400, 'UNREFERENCED_PRESCRIPTION_ATTACHMENT', 'Every uploaded attachment must belong to one prescription.');
+  }
   return {
     diagnosis: boundedText(body.diagnosis, 'diagnosis', 2000),
     notes: boundedText(body.notes, 'notes', INPUT_LIMITS.narrative, { optional: true }),
     follow_up: boundedText(body.follow_up, 'follow_up', 2000, { optional: true }),
+    follow_up_required: followUpRequired,
+    follow_up_recommended_date: followUpRecommendedDate,
+    follow_up_reason: followUpReason,
     prescriptions: (body.prescriptions ?? []).map((item, index) => {
-      rejectUnknown(item, new Set(['medicine', 'dosage', 'instructions']));
+      rejectUnknown(item, new Set(['medicine', 'dosage', 'instructions', 'attachment_index']));
+      const attachmentIndex = item.attachment_index;
+      const hasAttachment = attachmentIndex != null;
+      if (hasAttachment && (!Number.isInteger(attachmentIndex) || attachmentIndex < 0 || attachmentIndex >= attachmentCount)) {
+        throw httpError(400, 'INVALID_PRESCRIPTION_ATTACHMENT_REFERENCE', `prescriptions[${index}].attachment_index is invalid.`);
+      }
+      const medicine = boundedText(item.medicine, `prescriptions[${index}].medicine`, INPUT_LIMITS.shortText, { optional: true });
+      const dosage = boundedText(item.dosage, `prescriptions[${index}].dosage`, INPUT_LIMITS.shortText, { optional: true });
+      if (!hasAttachment && (!medicine || !dosage)) {
+        throw httpError(400, 'VALIDATION_ERROR', `prescriptions[${index}] requires medicine and dosage, or an attachment.`);
+      }
+      if ((medicine && !dosage) || (!medicine && dosage)) {
+        throw httpError(400, 'VALIDATION_ERROR', `prescriptions[${index}] must include both medicine and dosage when using structured details.`);
+      }
       return {
-        medicine: boundedText(item.medicine, `prescriptions[${index}].medicine`, INPUT_LIMITS.shortText),
-        dosage: boundedText(item.dosage, `prescriptions[${index}].dosage`, INPUT_LIMITS.shortText),
+        medicine,
+        dosage,
         instructions: boundedText(item.instructions, `prescriptions[${index}].instructions`, INPUT_LIMITS.reason, { optional: true }),
+        attachment_index: hasAttachment ? attachmentIndex : null,
       };
     }),
   };
@@ -81,8 +133,11 @@ export function validateCertificateCreate(body = {}, { dateIssued } = {}) {
   if (!(dateIssued instanceof Date) || Number.isNaN(dateIssued.getTime())) {
     throw new TypeError('A valid server-authoritative dateIssued is required.');
   }
-  const validUntil = body.valid_until ? dateOnly(body.valid_until, 'valid_until') : null;
-  if (validUntil && validUntil < dateIssued) {
+  if (body.valid_until == null || body.valid_until === '') {
+    throw httpError(400, 'VALIDATION_ERROR', 'valid_until is required.');
+  }
+  const validUntil = dateOnly(body.valid_until, 'valid_until');
+  if (validUntil < dateIssued) {
     throw httpError(400, 'VALIDATION_ERROR', 'valid_until cannot be earlier than date_issued.');
   }
   return {
@@ -140,5 +195,39 @@ export function validateDoctorAppointmentHistoryQuery(query = {}) {
     visit_type: visitType,
     page: queryInteger(query.page, 'page', { defaultValue: 1, max: 100000 }),
     limit: DOCTOR_HISTORY_PAGE_SIZE,
+  };
+}
+
+export function validateDoctorCertificateQuery(query = {}) {
+  validateQueryKeys(query, new Set(['certificate_status', 'certificate_page']));
+  const status = scalar(query.certificate_status, 'certificate_status') || 'all';
+  if (!DOCTOR_CERTIFICATE_FILTERS.includes(status)) {
+    throw httpError(400, 'INVALID_QUERY', 'certificate_status is not an approved value.');
+  }
+  return {
+    status,
+    page: queryInteger(scalar(query.certificate_page, 'certificate_page'), 'certificate_page', { defaultValue: 1, max: 100000 }),
+    limit: DOCTOR_CERTIFICATE_PAGE_SIZE,
+  };
+}
+
+export function validatePatientCertificateQuery(query = {}) {
+  validateQueryKeys(query, new Set(['view', 'page']));
+  const view = scalar(query.view, 'view') || 'active';
+  if (!PATIENT_CERTIFICATE_VIEWS.includes(view)) {
+    throw httpError(400, 'INVALID_QUERY', 'view must be active or archived.');
+  }
+  return {
+    view,
+    page: queryInteger(query.page, 'page', { defaultValue: 1, max: 100000 }),
+    limit: PATIENT_CERTIFICATE_PAGE_SIZE,
+  };
+}
+
+export function validatePrescriptionHistoryQuery(query = {}) {
+  validateQueryKeys(query, new Set(['page']));
+  return {
+    page: queryInteger(scalar(query.page, 'page'), 'page', { defaultValue: 1, max: 100000 }),
+    limit: PRESCRIPTION_HISTORY_PAGE_SIZE,
   };
 }

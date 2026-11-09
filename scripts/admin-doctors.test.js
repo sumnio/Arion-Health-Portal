@@ -73,6 +73,8 @@ test('doctor management UI has lifecycle controls and no delete action', async (
   assert.match(source, /Reactivate/);
   assert.match(source, /License number/);
   assert.match(source, /PTR number/);
+  assert.match(source, /Account password/);
+  assert.match(source, /Replace Password/);
   assert.doesNotMatch(source, /Signature reference|signature_path/);
   assert.doesNotMatch(source, />Delete</);
 });

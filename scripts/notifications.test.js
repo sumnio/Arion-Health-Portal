@@ -82,6 +82,9 @@ test('all protected roles expose a notification page and share the notification 
   assert.match(page, /notification-mark-all/);
   assert.match(page, /Clear notifications/);
   assert.match(page, /Yes, clear notifications/);
+  assert.match(page, /keepButtonRef\.current\?\.focus/);
+  assert.match(page, /event\.key === 'Escape'/);
+  assert.match(page, /clearButtonRef\.current\?\.focus/);
   assert.match(page, /notificationApiService\.clearAll/);
   assert.match(page, /detailed/);
   assert.match(page, /You have no unread notifications\./);
@@ -96,8 +99,11 @@ test('full-page notification items label appointment and event times while the b
   assert.match(item, /notification-detail-grid/);
   assert.match(item, />Appointment</);
   assert.match(item, /EVENT_LABELS/);
+  assert.match(item, /pwd_verification_verified/);
+  assert.match(item, /pwd_verification_rejected/);
   assert.match(item, />Mark as read</);
   assert.match(styles, /\.notification-page-list\s*\{[^}]*display:\s*grid;[^}]*gap:/s);
-  assert.match(styles, /\.notification-page-list \.notification-item\s*\{[^}]*border:[^}]*border-radius:[^}]*box-shadow:/s);
+  assert.match(styles, /\.notification-page-list \.notification-item\s*\{[^}]*border:[^}]*border-radius:/s);
+  assert.doesNotMatch(styles, /\.notification-page-list \.notification-item\s*\{[^}]*box-shadow:/s);
   assert.doesNotMatch(bell, /detailed/);
 });

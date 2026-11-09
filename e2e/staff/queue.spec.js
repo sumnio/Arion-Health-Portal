@@ -43,8 +43,8 @@ test('Queue order is Urgent then one Senior/PWD tier then Normal, and priority u
   const doctor = await staffScenario.createDoctor();
   const urgent = await staffScenario.createGuestPatient({ full_name: `E2E Urgent ${staffScenario.marker.slice(0, 6)}` });
   const senior = await staffScenario.createGuestPatient({ full_name: `E2E Senior ${staffScenario.marker.slice(0, 6)}`, dob: new Date('1950-01-01T00:00:00Z') });
-  const pwd = await staffScenario.createGuestPatient({ full_name: `E2E PWD ${staffScenario.marker.slice(0, 6)}`, is_pwd: true });
-  const both = await staffScenario.createGuestPatient({ full_name: `E2E Both ${staffScenario.marker.slice(0, 6)}`, dob: new Date('1950-01-01T00:00:00Z'), is_pwd: true });
+  const pwd = await staffScenario.createGuestPatient({ full_name: `E2E PWD ${staffScenario.marker.slice(0, 6)}`, pwd_verified: true });
+  const both = await staffScenario.createGuestPatient({ full_name: `E2E Both ${staffScenario.marker.slice(0, 6)}`, dob: new Date('1950-01-01T00:00:00Z'), pwd_verified: true });
   const normal = await staffScenario.createGuestPatient({ full_name: `E2E Normal ${staffScenario.marker.slice(0, 6)}` });
   const entries = [
     [urgent, '09:00', '08:30', 'urgent'],

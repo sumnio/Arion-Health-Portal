@@ -1,5 +1,13 @@
 # Arion Health Portal - Revised ERD
 
+## v1.2.9 identity reuse and invitation concurrency
+
+No entity or relationship is added. Returning-Patient search resolves the existing Patient and new appointments keep referencing that same `Patient.id`. Duplicate review never merges Patient nodes. A unique partial `Patient.portal_email` index protects unclaimed email identity, while `AuthAccount.email` remains unique for active credentials. Transactional invitation replacement leaves at most one current unused invitation and preserves the existing Patient-to-PortalInvitation and Patient-to-UserProfile relationships.
+
+## v1.2.8 relationship addition
+
+`Patient (1) → (many historical, at most one current) PortalInvitation` and, only after a successful OTP-backed claim, `Patient (1) → (1) UserProfile → (1) AuthAccount`. Claiming updates the existing Patient; it never creates a replacement Patient or moves appointment/clinical ownership.
+
 This ERD is the logical and relational reference model. UUID and PostgreSQL-specific default notation is retained pending the backend decision; it does not require Supabase as the only implementation and is not a MongoDB collection design.
 
 ## Entity Overview
@@ -326,7 +334,10 @@ DoctorPublishedAvailability stores the date-specific ranges a Doctor has actuall
 |---|---|---|
 | id | identifier, PK | MongoDB `_id` |
 | doctor_id | identifier, FK | References `Doctor.id` |
-| availability_date | date | Specific published calendar date |
+| availability_date | date | First published calendar date; the only date when `repeat_weekly` is false |
+| repeat_weekly | boolean | Applies on the same weekday until Staff stops the series |
+| excluded_dates | date[] | Weekly dates removed without ending later occurrences |
+| date_overrides | object[] | One-date start/end changes for weekly occurrences |
 | start_time | time | Start of published range |
 | end_time | time | End of published range; later than `start_time` |
 | created_at | timestamp | Managed by Mongoose timestamps |
@@ -355,7 +366,7 @@ Relationship: Doctor 1 -> many DoctorBlockedTime, via DoctorBlockedTime.doctor_i
 - Appointment slots are fixed at 30 minutes.
 - Staff manages recurring availability, published availability, and blocked time for active Doctors; `/doctor/schedule` is read-only.
 - A doctor may publish multiple DoctorAvailability ranges for the same day. Gaps between ranges represent regular recurring breaks.
-- A doctor may publish availability up to 30 days ahead and is not required to publish all 30 days. Patients may see and book only dates/times actually published by the doctor; a recurring weekly row alone does not publish every matching future date.
+- Staff may publish one date or begin a weekly publication up to 30 days ahead. Weekly publication continues on the same weekday until Staff stops it. Patients see only effective published times after removed dates and one-date overrides are applied; Working Hours alone are never bookable.
 - Exact clinic operating hours are TBD and must be configurable. Do not hardcode clinic-hour values. Once configured, DoctorAvailability and every bookable 30-minute slot must remain within those hours.
 - DoctorBlockedTime overrides regular DoctorAvailability. Any slot overlapping blocked time is unavailable, including when only part of a day is blocked.
 - Already-booked slots are unavailable for new booking. The same doctor must not have two active appointments in the same time slot or overlapping appointment intervals. Different doctors may have appointments at the same time.
@@ -572,7 +583,7 @@ The MedicalCertificate fields match `SCHEMA.md`:
 | custom_purpose | text, nullable | Safe bounded value used only when purpose is `Other` |
 | diagnosis_summary | text | Doctor-controlled certificate summary, maximum 500 characters for new certificates |
 | recommendation | text, nullable | Doctor-controlled recommendation, maximum 500 characters; nullable for legacy certificates |
-| valid_until | date, nullable | Optional expiration date |
+| valid_until | date, nullable | Required for new issuance and on/after the server-generated issue date; nullable only for legacy certificates |
 | status | enum | `draft`, `issued` |
 | pdf_storage_file_id | ObjectId, nullable, immutable | Private immutable PDF artifact; null for legacy certificates |
 | pdf_sha256 | text, nullable, immutable | Artifact integrity hash |
@@ -593,6 +604,8 @@ Drafts exist only during the approved Doctor creation flow. After status becomes
 For new certificates, `purpose_code` is limited to Sick Leave, School Absence, Fit to Return, Medical Consultation, Follow-up Consultation, Work Clearance, Travel / General Purpose, or Other. Other requires `custom_purpose`; standard purposes reject it. The formal statement is generated deterministically from the stored structured purpose rather than stored as editable text. `date_issued` is server-authoritative, while the trusted consultation date is derived through `MedicalCertificate.medical_record_id -> MedicalRecord.appointment_id -> Appointment.appointment_at`. Legacy records keep their existing `purpose` and remain readable.
 
 The current backend creation endpoint directly persists `issued`, matching the approved UI submission. Certificate numbers are generated server-side and database-unique. Doctor and Patient read endpoints filter by the stored relationship IDs. Responses resolve Doctor credentials and signature availability without exposing the protected `signature_path`.
+
+Validity remains derived rather than stored: `valid_until = null` is Legacy, an Asia/Manila clinic date on or before `valid_until` is Active, and a later clinic date is Expired. New issuance requires the Doctor to choose `valid_until`; no automatic duration is assigned. Existing null values stay unchanged and no legacy PDF is regenerated.
 
 Issued certificates can be downloaded only through authenticated owner-scoped Doctor and Patient routes. QR verification, public certificate verification, external sharing, advanced cryptographic signing, and payment integration remain future scope.
 
@@ -833,3 +846,62 @@ The authenticated UserProfile resolves to its Doctor before any signature operat
 ## Milestone 1.45 Doctor history relationship impact
 
 Milestone 1.45 adds no ERD entity or relationship. The Doctor History tab is a paginated read-only projection over the existing authenticated `UserProfile -> Doctor -> Appointment -> Patient` relationship. It may check the existing `Appointment -> MedicalRecord` relationship only to decide whether to show a link for that exact owned Appointment. It does not traverse or expose clinical record content, Prescriptions, MedicalCertificates, supporting documents, notifications, queue-priority audits, or contact/private profile data.
+
+## Milestone v1.2.5 PWD verification relationship
+
+```text
+Patient 1 ─── 0..1 PwdVerification 1 ─── 2 private GridFS images (front + back)
+                         │
+                         └── optional future reviewer UserProfile
+```
+
+Absence of a PwdVerification means `not_submitted`. A record begins `pending` and is structurally ready for a later Staff-controlled `verified` or `rejected` transition, but v1.2.5 implements no reviewer route. Patient access follows only `authenticated UserProfile -> own Patient -> own PwdVerification status/submission`. No role has a raw-file traversal route in this milestone.
+
+The queue reads only the safe related status and grants the Senior/PWD tier when the Patient is DOB-derived Senior or the PwdVerification is `verified`. `Patient.is_pwd` is a legacy compatibility value and is excluded from this authority path. The relationship does not connect to Appointment mutation, MedicalRecord, Prescription, MedicalCertificate, supporting documents, notifications, assistant data, AI/OCR, or any public/external storage node.
+
+## Milestone v1.2.6 PWD review relationship
+
+```text
+Patient 1 ─── 0..1 PwdVerification 1 ─── 2 current private GridFS images
+                         │
+                         ├── 0..many embedded ReviewHistory decisions
+                         │                  └── 1 Staff UserProfile reviewer
+                         └── 0..1 current Staff UserProfile reviewer
+```
+
+Only an authenticated active Staff reviewer can traverse from a Pending verification to the private front and back ID images. New submissions contain no separately typed PWD ID number. Staff is instructed to compare the printed ID name with the Patient profile name before the direct Verify action; Verify or Reject then atomically changes the current state and appends one decision to the embedded audit history. Rejected resubmission keeps the same PwdVerification relationship and history while safely replacing both current images. The Patient can read only status, safe timestamps, and their own rejection reason; Doctor and Admin have no traversal path to verification content.
+
+A successful submission creates a privacy-safe notification for active Staff, and a successful review creates a privacy-safe Notification for the owning Patient. Neither notification attaches the ID, file, rejection reason, or document metadata. Queue classification continues to read only `status=verified`. No relationship is added to AI/OCR, an external verifier, a public file location, MedicalRecord, Prescription, MedicalCertificate, or SupportingDocument.
+# v1.2.11 follow-up recommendation relationship
+
+```text
+MedicalRecord 1 ─── 0..many terminal/rebooked Appointment
+                      via Appointment.source_medical_record_id
+```
+
+The MedicalRecord is the Doctor's immutable clinical recommendation. The linked Appointment is the actual operational schedule and may occur later than the recommended date when that is the nearest valid slot. At most one linked Appointment may be active (`pending` or `confirmed`) at a time. Cancellation, no-show, completion, and rescheduling do not rewrite the MedicalRecord.
+
+Patient access follows ownership of both the MedicalRecord and Appointment. Staff may traverse only the operational recommendation projection (record ID, recommended date, same Doctor, scheduled state) and cannot traverse `follow_up_reason`. Doctor may create and read the recommendation but gains no Appointment scheduling mutation relationship. Admin and unauthenticated callers gain no clinical traversal.
+
+# v1.2.12 Doctor-unavailability relationship impact
+
+```text
+Doctor 1 ─── 0..many DoctorBlockedTime
+                    │
+                    └── flags 0..many active Appointment
+                                      │
+                                      └── optional source MedicalRecord remains unchanged
+```
+
+`Appointment.doctor_unavailability_block_ids` records the active operational blocks that caused the unresolved flag. This does not create a new Appointment status or ownership path. A blocked period may flag several Appointments, and an Appointment may reference more than one overlapping block. Confirmation updates the same Appointment and clears its block references; it does not create a replacement entity.
+
+Staff owns the `DoctorBlockedTime` mutation and may read the privacy-minimized affected projection. Patient access continues through `authenticated UserProfile -> own Patient -> owned Appointment` and is subject to existing self-reschedule rules. Doctor schedule access remains read-only, while Admin and unauthenticated roles gain no traversal. Doctor absence notes do not traverse to Patient, notification, email, SMS, Assistant, MedicalRecord, Prescription, Certificate, or supporting-document relationships.
+# v1.2.16 Prescription attachment relationship
+
+```text
+MedicalRecord 1 ─── 0..many Prescription 1 ─── 0..1 private GridFS file
+```
+
+The existing Prescription belongs to one immutable MedicalRecord and may now reference one object in the private `prescription_files` GridFS bucket. A row may contain structured medicine/dosage data, an attachment, or both. The GridFS reference and SHA-256 hash stay private; normal record projections expose only safe attachment availability and display metadata.
+
+Doctor access follows `authenticated UserProfile -> owning Doctor -> owned MedicalRecord -> Prescription -> attachment`. Patient access follows `authenticated UserProfile -> own Patient -> owned MedicalRecord -> Prescription -> attachment`. Staff, Admin, unrelated users, and unauthenticated callers have no traversal route to attachment bytes. The relationship adds no OCR/AI, external provider, public link, notification, email, SMS, edit, replace, or delete relationship.

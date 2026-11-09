@@ -11,6 +11,19 @@ export const NO_SHOW_GRACE_PERIOD_MS = 5 * 60 * 1000;
 function id(value) { const result = value?._id ?? value?.id ?? value; return result == null ? null : String(result); }
 function iso(value) { return value ? new Date(value).toISOString() : null; }
 function duplicateKey(error) { return error?.code === 11000; }
+function normalizedName(value) { return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+function dateOnly(value) { return value ? new Date(value).toISOString().slice(0, 10) : null; }
+function maskPhone(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return null;
+  return `${'*'.repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`;
+}
+function maskEmail(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  const separator = normalized.indexOf('@');
+  if (separator < 1) return null;
+  return `${normalized[0]}***${normalized.slice(separator)}`;
+}
 function priorityAuditView(item) {
   return {
     id: id(item), appointment_id: id(item.appointment_id), previous_priority: item.previous_priority,
@@ -28,10 +41,36 @@ function ageAt(dob, date) {
 }
 function patientView(item, date) {
   const age = ageAt(item.dob, date);
-  return { id: id(item), full_name: item.full_name, contact_number: item.contact_number, dob: new Date(item.dob).toISOString().slice(0, 10), age, sex: item.sex, address: item.address ?? null, is_pwd: item.is_pwd === true, is_senior: age >= 60, has_portal_account: Boolean(item.user_profile_id) };
+  const pwdVerificationStatus = item?.pwd_verification?.status ?? 'not_submitted';
+  const hasAccount = Boolean(item.user_profile_id);
+  const invitationSent = !hasAccount && item.portal_email && item.portal_invitation_expires_at && new Date(item.portal_invitation_expires_at) > new Date();
+  return { id: id(item), full_name: item.full_name, email: item.account_email ?? item.portal_email ?? null, contact_number: item.contact_number, dob: new Date(item.dob).toISOString().slice(0, 10), age, sex: item.sex, address: item.address ?? null, is_pwd: pwdVerificationStatus === 'verified', pwd_verification_status: pwdVerificationStatus, is_senior: age >= 60, has_portal_account: hasAccount, portal_status: hasAccount ? 'Active' : invitationSent ? 'Invitation Sent' : 'No Account' };
+}
+function patientSearchView(item, lastVisitAt = null) {
+  const hasAccount = Boolean(item.user_profile_id);
+  const invitationSent = !hasAccount && item.portal_email && item.portal_invitation_expires_at && new Date(item.portal_invitation_expires_at) > new Date();
+  const email = item.account_email ?? item.portal_email ?? null;
+  return {
+    id: id(item), full_name: item.full_name, dob: dateOnly(item.dob),
+    contact_number: maskPhone(item.contact_number), email: maskEmail(email),
+    portal_status: hasAccount ? 'Active' : invitationSent ? 'Invitation Sent' : 'No Account',
+    last_visit_at: lastVisitAt ? iso(lastVisitAt) : null,
+  };
+}
+function duplicateReviewView(items, input, emailConflict) {
+  const inputDob = dateOnly(input.dob);
+  const candidates = items.map((item) => {
+    const itemEmail = String(item.account_email ?? item.portal_email ?? '').trim().toLowerCase();
+    const reasons = [];
+    if (String(item.contact_number ?? '') === input.contact_number) reasons.push('Same contact number');
+    if (input.portal_email && itemEmail === input.portal_email) reasons.push('Same email');
+    if (normalizedName(item.full_name) === normalizedName(input.full_name) && dateOnly(item.dob) === inputDob) reasons.push('Same name and date of birth');
+    return { ...patientSearchView(item), match_strength: reasons.some(reason => reason === 'Same contact number' || reason === 'Same email') ? 'strong' : 'possible', match_reasons: reasons };
+  }).filter(item => item.match_reasons.length);
+  return { has_matches: candidates.length > 0, email_conflict: Boolean(emailConflict), continue_allowed: !emailConflict, candidates };
 }
 function doctorView(item) { return { id: id(item), display_name: item?.user_profile_id?.display_name ?? null, specialty: item?.specialty ?? null }; }
-function tier(appointment, patient, date) { if (appointment.priority === 'urgent') return 0; return patient.is_pwd || ageAt(patient.dob, date) >= 60 ? 1 : 2; }
+function tier(appointment, patient, date) { if (appointment.priority === 'urgent') return 0; return patient?.pwd_verification?.status === 'verified' || ageAt(patient.dob, date) >= 60 ? 1 : 2; }
 function queueView(item, date) {
   const priorityTier = tier(item, item.patient_id, date);
   return { appointment_id: id(item), patient: patientView(item.patient_id, date), doctor: doctorView(item.doctor_id), appointment_at: iso(item.appointment_at), check_in_at: iso(item.check_in_at), status: item.status, visit_type: item.visit_type, priority: item.priority, queue_tier: priorityTier, queue_priority: ['urgent', 'senior_pwd', 'normal'][priorityTier] };
@@ -70,7 +109,7 @@ function appointmentHighlights(items, current) {
   return { latest_appointment: past.at(-1) ?? null, upcoming_appointment: upcoming };
 }
 
-export function createStaffOperationsService({ repository, clinic, bookingAvailabilityService, notificationTriggers, smsReminders, now = () => new Date() }) {
+export function createStaffOperationsService({ repository, clinic, bookingAvailabilityService, notificationTriggers, smsReminders, portalInvitations, now = () => new Date() }) {
   return {
     async appointments(dateValue) {
       const date = dateValue || clinicDate(now(), clinic.timeZone);
@@ -102,27 +141,62 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
       const patient = await repository.findPatientById(patientId);
       if (!patient) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
       const appointments = (await repository.listAppointmentsForPatient(patientId)).map((item) => patientAppointmentView(item, patient, clinic.timeZone)).sort((left, right) => new Date(right.appointment_at) - new Date(left.appointment_at));
-      return { patient: patientView(patient, clinicDate(now(), clinic.timeZone)), appointments };
+      const followUps = repository.listOperationalFollowUps
+        ? await Promise.all((await repository.listOperationalFollowUps(patientId)).map(async (record) => ({
+          medical_record_id: id(record),
+          recommended_date: dateOnly(record.follow_up_recommended_date),
+          doctor: doctorView(record.doctor_id),
+          appointment: repository.findLatestLinkedFollowUp
+            ? await repository.findLatestLinkedFollowUp(id(record))
+            : null,
+        })))
+        : [];
+      return {
+        patient: patientView(patient, clinicDate(now(), clinic.timeZone)),
+        appointments,
+        follow_up_recommendations: followUps.map((item) => ({
+          ...item,
+          appointment: item.appointment ? {
+            id: id(item.appointment),
+            appointment_at: iso(item.appointment.appointment_at),
+            status: item.appointment.status,
+          } : null,
+        })),
+      };
     },
     async searchPatients(search = '') {
-      const today = clinicDate(now(), clinic.timeZone);
       const patients = await repository.searchPatients(search);
       const appointments = patients.length ? await repository.listAppointmentsForPatients(patients.map((item) => item._id ?? item.id)) : [];
-      const byPatient = new Map();
+      const lastVisitByPatient = new Map();
       for (const appointment of appointments) {
         const patientId = id(appointment.patient_id);
-        const patient = patients.find((item) => id(item) === patientId);
-        if (!patient) continue;
-        const list = byPatient.get(patientId) ?? [];
-        list.push(patientAppointmentView(appointment, patient, clinic.timeZone));
-        byPatient.set(patientId, list);
+        if (new Date(appointment.appointment_at) > now()) continue;
+        if (!lastVisitByPatient.has(patientId)) lastVisitByPatient.set(patientId, appointment.appointment_at);
       }
-      return patients.map((item) => ({ ...patientView(item, today), ...appointmentHighlights(byPatient.get(id(item)) ?? [], now()) }));
+      return patients.map(item => patientSearchView(item, lastVisitByPatient.get(id(item)) ?? null));
+    },
+    async walkInDuplicateReview(body) {
+      const input = validateWalkInPatient(body, now());
+      const accountConflict = input.portal_email ? await repository.findAuthAccountByEmail(input.portal_email) : null;
+      const matches = await repository.findPotentialDuplicates(input);
+      const emailConflict = accountConflict || (input.portal_email && matches.some(item => (item.account_email ?? item.portal_email) === input.portal_email));
+      return duplicateReviewView(matches, input, emailConflict);
     },
     async registerWalkIn(body) {
       const input = validateWalkInPatient(body, now());
-      if (await repository.findPotentialDuplicate(input)) throw httpError(409, 'PATIENT_MATCH_FOUND', 'An existing Patient may match this person. Search and select the existing Patient.');
-      return patientView(await repository.createPatient(input), clinicDate(now(), clinic.timeZone));
+      const accountConflict = input.portal_email ? await repository.findAuthAccountByEmail(input.portal_email) : null;
+      const matches = await repository.findPotentialDuplicates(input);
+      const emailConflict = accountConflict || (input.portal_email && matches.some(item => (item.account_email ?? item.portal_email) === input.portal_email));
+      const review = duplicateReviewView(matches, input, emailConflict);
+      if (review.email_conflict) throw httpError(409, 'PORTAL_EMAIL_IN_USE', 'That email is already connected to an existing portal account. Use the existing Patient record or enter a different email.', review);
+      if (review.has_matches && !input.duplicate_confirmation) throw httpError(409, 'PATIENT_MATCH_FOUND', 'A similar Patient already exists. Please review before creating a new Patient.', review);
+      const { duplicate_confirmation: _confirmation, ...patientData } = input;
+      try {
+        return patientView(await repository.createPatient(patientData), clinicDate(now(), clinic.timeZone));
+      } catch (error) {
+        if (duplicateKey(error)) throw httpError(409, 'PORTAL_EMAIL_IN_USE', 'That email is already connected to another Patient. Use the existing Patient record or enter a different email.');
+        throw error;
+      }
     },
     async createWalkInAppointment(staffProfileId, patientId, body) {
       validateObjectId(patientId, 'patientId');
@@ -130,6 +204,16 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
       const input = validateWalkInAppointment(body, current, clinic.timeZone);
       if (!(await repository.findPatientById(patientId))) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
       if (!(await repository.doctorExists(input.doctor_id))) throw httpError(404, 'DOCTOR_NOT_FOUND', 'Doctor was not found.');
+      if (input.source_medical_record_id) {
+        const record = await repository.findFollowUpRecordForPatient(input.source_medical_record_id, patientId);
+        if (!record || record.follow_up_required !== true) throw httpError(404, 'FOLLOW_UP_RECOMMENDATION_NOT_FOUND', 'The follow-up recommendation was not found.');
+        if (id(record.doctor_id) !== id(input.doctor_id) || input.visit_type !== 'follow_up' || input.reason !== 'Follow-up consultation') {
+          throw httpError(409, 'FOLLOW_UP_CONTEXT_MISMATCH', 'This appointment must use the recommended Doctor and follow-up visit type.');
+        }
+        const actualDate = appointmentLocalParts(input.appointment_at, clinic.timeZone).date;
+        if (actualDate < dateOnly(record.follow_up_recommended_date)) throw httpError(409, 'FOLLOW_UP_BEFORE_RECOMMENDED_DATE', 'Choose a slot on or after the recommended follow-up date.');
+        if (await repository.findActiveLinkedFollowUp(input.source_medical_record_id)) throw httpError(409, 'FOLLOW_UP_ALREADY_SCHEDULED', 'This follow-up recommendation already has an active appointment.');
+      }
       if (!bookingAvailabilityService) throw new Error('Staff booking availability service is not configured.');
       await bookingAvailabilityService.assertBookable(input.doctor_id, input.appointment_at);
       try {
@@ -138,11 +222,26 @@ export function createStaffOperationsService({ repository, clinic, bookingAvaila
           appointmentId: created._id ?? created.id,
           doctorId: created.doctor_id?._id ?? created.doctor_id,
         });
-        return { id: id(created), patient_id: id(created.patient_id), doctor_id: id(created.doctor_id), appointment_at: iso(created.appointment_at), visit_type: created.visit_type, reason: created.reason, priority: created.priority, status: created.status, check_in_at: null };
+        let portal_invitation = { status: 'not_requested' };
+        const patient = await repository.findPatientById(patientId);
+        if (patient?.portal_email && !patient.user_profile_id && portalInvitations) {
+          try { const issued = await portalInvitations.issue(patientId, patient.portal_email); portal_invitation = { status: 'sent', masked_email: issued.masked_email }; }
+          catch { portal_invitation = { status: 'failed', message: 'Patient registered successfully, but the portal invitation could not be sent.' }; }
+        } else if (patient?.user_profile_id) portal_invitation = { status: 'active' };
+        return { id: id(created), patient_id: id(created.patient_id), doctor_id: id(created.doctor_id), appointment_at: iso(created.appointment_at), visit_type: created.visit_type, reason: created.reason, priority: created.priority, status: created.status, check_in_at: null, source_medical_record_id: id(created.source_medical_record_id), portal_invitation };
       } catch (error) {
         if (duplicateKey(error)) throw httpError(409, 'APPOINTMENT_SLOT_CONFLICT', 'That Doctor and time slot is no longer available.');
         throw error;
       }
+    },
+    async resendPortalInvitation(patientId, body = {}) {
+      validateObjectId(patientId, 'patientId');
+      const patient = await repository.findPatientById(patientId);
+      if (!patient) throw httpError(404, 'PATIENT_NOT_FOUND', 'Patient was not found.');
+      if (patient.user_profile_id) throw httpError(409, 'PORTAL_ACCOUNT_ACTIVE', 'This Patient already has an active portal account.');
+      const email = body.email == null ? patient.portal_email : String(body.email).trim().toLowerCase();
+      if (!email) throw httpError(400, 'EMAIL_REQUIRED', 'An email address is required to send an invitation.');
+      return portalInvitations.issue(patientId, email);
     },
     async checkIn(appointmentId) {
       validateObjectId(appointmentId, 'appointmentId');

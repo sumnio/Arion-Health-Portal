@@ -8,6 +8,7 @@ const doctorCreateFields = new Set(['email', 'password', 'display_name', 'contac
 const doctorUpdateFields = new Set(['display_name', 'contact_number', 'specialty', 'license_number', 'ptr_number']);
 const staffCreateFields = new Set(['email', 'password', 'display_name', 'contact_number']);
 const staffUpdateFields = new Set(['display_name', 'contact_number']);
+const passwordResetFields = new Set(['password']);
 
 function object(body) { if (!body || typeof body !== 'object' || Array.isArray(body)) throw httpError(400, 'INVALID_INPUT', 'Request body must be an object.'); }
 function unknown(body, allowed) { const key = Object.keys(body).find((item) => !allowed.has(item)); if (key) throw httpError(400, 'UNSUPPORTED_FIELD', `${key} is not accepted.`); }
@@ -22,5 +23,6 @@ export function validateDoctorCreate(body = {}) { object(body); unknown(body, do
 export function validateDoctorUpdate(body = {}) { object(body); unknown(body, doctorUpdateFields); if (!Object.keys(body).length) throw httpError(400, 'VALIDATION_ERROR', 'At least one approved field is required.'); const output = {}; for (const key of Object.keys(body)) output[key] = key === 'contact_number' ? validatePhilippineMobile(body[key], key) : required(body[key], key); return output; }
 export function validateStaffCreate(body = {}) { object(body); unknown(body, staffCreateFields); return { email: email(body.email), password: password(body.password), display_name: required(body.display_name, 'display_name'), contact_number: validatePhilippineMobile(body.contact_number, 'contact_number') }; }
 export function validateStaffUpdate(body = {}) { object(body); unknown(body, staffUpdateFields); if (!Object.keys(body).length) throw httpError(400, 'VALIDATION_ERROR', 'At least one approved field is required.'); return Object.fromEntries(Object.keys(body).map((key) => [key, key === 'contact_number' ? validatePhilippineMobile(body[key], key) : required(body[key], key)])); }
+export function validateAdminPasswordReset(body = {}) { object(body); unknown(body, passwordResetFields); return { password: password(body.password) }; }
 export function validateAdminListQuery(query = {}) { validateQueryKeys(query, new Set(['search', 'page', 'limit'])); const paging = page(query); return { ...paging, search: queryText(query.search, 'search') }; }
 export function validatePatientListQuery(query = {}) { validateQueryKeys(query, new Set(['search', 'status', 'page', 'limit'])); const paging = page(query); const search = queryText(query.search, 'search'); const status = query.status ?? 'all'; if (Array.isArray(status) || typeof status !== 'string' || !['all', 'active', 'inactive', 'no_account'].includes(status)) throw httpError(400, 'VALIDATION_ERROR', 'status must be active, inactive, no_account, or all.'); return { ...paging, search, status }; }

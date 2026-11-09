@@ -189,6 +189,9 @@ export function createSmsReminderService({
     async appointmentArrived({ appointmentId }) {
       return repository.invalidateUnsent(appointmentId, now());
     },
+    async appointmentDoctorUnavailable({ appointmentId }) {
+      return repository.invalidateUnsent(appointmentId, now());
+    },
     async appointmentNoShow({ appointmentId }) {
       return repository.invalidateUnsent(appointmentId, now());
     },

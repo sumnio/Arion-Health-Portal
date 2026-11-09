@@ -14,22 +14,22 @@ test('Admin repository uses credentialed API routes and approved HTTP methods', 
   await repository.getDoctors({ search: 'Santos', page: 2, limit: 5 });
   await repository.getStaff({ search: 'Reception', page: 1, limit: 5 });
   await repository.getPatients({ search: 'Ana', status: 'inactive', page: 1, limit: 5 });
-  await repository.createDoctor({ email: 'doctor@example.com' }); await repository.updateDoctor('doctor/1', { display_name: 'Doctor' }); await repository.deactivateDoctor('doctor/1'); await repository.reactivateDoctor('doctor/1');
-  await repository.createStaff({ email: 'staff@example.com' }); await repository.updateStaff('staff/1', { display_name: 'Staff' }); await repository.deactivatePatient('patient/1'); await repository.reactivatePatient('patient/1');
+  await repository.createDoctor({ email: 'doctor@example.com' }); await repository.updateDoctor('doctor/1', { display_name: 'Doctor' }); await repository.resetDoctorPassword('doctor/1', { password: 'Permanent123!' }); await repository.deactivateDoctor('doctor/1'); await repository.reactivateDoctor('doctor/1');
+  await repository.createStaff({ email: 'staff@example.com' }); await repository.updateStaff('staff/1', { display_name: 'Staff' }); await repository.resetStaffPassword('staff/1', { password: 'Permanent123!' }); await repository.deactivatePatient('patient/1'); await repository.reactivatePatient('patient/1');
   assert.match(calls[0].path, /search=Santos.*page=2.*limit=5/);
   assert.match(calls[1].path, /search=Reception/);
   assert.match(calls[2].path, /status=inactive/);
   assert.equal(calls[3].options.method, 'POST'); assert.equal(calls[4].options.method, 'PATCH');
-  assert.match(calls[4].path, /doctor%2F1$/); assert.match(calls[5].path, /deactivate$/); assert.match(calls[6].path, /reactivate$/);
-  assert.equal(calls[7].options.method, 'POST'); assert.equal(calls[8].options.method, 'PATCH'); assert.match(calls[9].path, /deactivate$/); assert.match(calls[10].path, /reactivate$/);
+  assert.match(calls[4].path, /doctor%2F1$/); assert.match(calls[5].path, /reset-password$/); assert.match(calls[6].path, /deactivate$/); assert.match(calls[7].path, /reactivate$/);
+  assert.equal(calls[8].options.method, 'POST'); assert.equal(calls[9].options.method, 'PATCH'); assert.match(calls[10].path, /reset-password$/); assert.match(calls[11].path, /deactivate$/); assert.match(calls[12].path, /reactivate$/);
 });
 
 test('Admin service normalizes pages and sends only approved create/update fields', async () => {
   const captured = {};
   const repository = {
     async getDoctors() { return page([{ id: 'doctor-1' }]); }, async getStaff() { return page([{ id: 'staff-1' }]); }, async getPatients() { return page([{ id: 'patient-1' }]); },
-    async createDoctor(payload) { captured.doctorCreate = payload; return { id: 'doctor-2', status: 'active' }; }, async updateDoctor(id, payload) { captured.doctorUpdate = { id, payload }; return { id }; },
-    async createStaff(payload) { captured.staffCreate = payload; return { id: 'staff-2', status: 'active' }; }, async updateStaff(id, payload) { captured.staffUpdate = { id, payload }; return { id }; },
+    async createDoctor(payload) { captured.doctorCreate = payload; return { id: 'doctor-2', status: 'active' }; }, async updateDoctor(id, payload) { captured.doctorUpdate = { id, payload }; return { id }; }, async resetDoctorPassword(id, payload) { captured.doctorPasswordReset = { id, payload }; return { id }; },
+    async createStaff(payload) { captured.staffCreate = payload; return { id: 'staff-2', status: 'active' }; }, async updateStaff(id, payload) { captured.staffUpdate = { id, payload }; return { id }; }, async resetStaffPassword(id, payload) { captured.staffPasswordReset = { id, payload }; return { id }; },
     async deactivateDoctor() {}, async reactivateDoctor() {}, async deactivateStaff() {}, async reactivateStaff() {}, async deactivatePatient() {}, async reactivatePatient() {},
   };
   const service = createAdminApiService(repository); const dashboard = await service.getDashboard();
@@ -38,6 +38,7 @@ test('Admin service normalizes pages and sends only approved create/update field
   await service.updateDoctor('doctor-1', { email: 'ignored@example.com', password: 'ignored', display_name: ' Doctor ', contact_number: '0917 123 4567', specialty: ' GP ', license_number: ' L-1 ', ptr_number: ' P-1 ', signature_path: '' });
   await service.createStaff({ email: ' staff@example.com ', password: 'password123', display_name: ' Staff ', contact_number: '0918 123 4567', role: 'admin', username: 'ignored' });
   await service.updateStaff('staff-1', { email: 'ignored@example.com', display_name: ' Staff ', contact_number: '0918 123 4567' });
+  await service.resetDoctorPassword('doctor-1', 'PermanentDoctor123!'); await service.resetStaffPassword('staff-1', 'PermanentStaff123!');
   assert.deepEqual(Object.keys(captured.doctorCreate), ['email', 'password', 'display_name', 'contact_number', 'specialty', 'license_number', 'ptr_number']);
   assert.equal(captured.doctorCreate.signature_path, undefined);
   assert.equal(captured.doctorCreate.email, 'doctor@example.com'); assert.equal(captured.doctorCreate.role, undefined);
@@ -46,6 +47,8 @@ test('Admin service normalizes pages and sends only approved create/update field
   assert.deepEqual(Object.keys(captured.staffCreate), ['email', 'password', 'display_name', 'contact_number']); assert.equal(captured.staffCreate.username, undefined);
   assert.equal(captured.staffCreate.contact_number, '09181234567'); assert.equal(captured.staffUpdate.payload.contact_number, '09181234567');
   assert.deepEqual(Object.keys(captured.staffUpdate.payload), ['display_name', 'contact_number']);
+  assert.deepEqual(captured.doctorPasswordReset, { id: 'doctor-1', payload: { password: 'PermanentDoctor123!' } });
+  assert.deepEqual(captured.staffPasswordReset, { id: 'staff-1', payload: { password: 'PermanentStaff123!' } });
 });
 
 test('Admin pages use the live service without mock service imports or destructive actions', async () => {

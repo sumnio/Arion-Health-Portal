@@ -25,10 +25,10 @@ const certificate = {
 test('professional A4 PDF renders trusted certificate content and embedded signature', () => {
   const pdf = buildCertificatePdf(certificate, { signatureBuffer: signaturePng() }); const source = pdf.toString('binary');
   assert.match(source, /^%PDF-1\.4/); assert.match(source, /Arion Health Clinic/); assert.match(source, /MEDICAL CERTIFICATE/);
-  for (const value of ['AHC-MC-2026-0001', 'Synthetic Patient', 'Sick Leave', 'DIAGNOSIS SUMMARY', 'RECOMMENDATION', 'Dr. Synthetic Physician', 'PRC License No. PRC-TEST-100', 'PTR No. PTR-TEST-200']) assert.ok(source.includes(value));
+  for (const value of ['AHC-MC-2026-0001', 'Synthetic Patient', 'Sick Leave', 'DIAGNOSIS SUMMARY', 'RECOMMENDATION', 'VALID UNTIL', 'October 18, 2026', 'Valid only until the date stated above and for the stated purpose.', 'Dr. Synthetic Physician', 'PRC License No. PRC-TEST-100', 'PTR No. PTR-TEST-200']) assert.ok(source.includes(value));
   assert.match(source, /\/MediaBox \[0 0 595\.28 841\.89\]/); assert.match(source, /\/Logo Do/); assert.match(source, /\/FlateDecode/); assert.match(source, /\/SMask/); assert.match(source, /\/Sig Do/);
   assert.doesNotMatch(source, /Primary Care|Family Medicine|Wellness|prescription|supporting.document|storage_file_id|GridFS/iu);
-  assert.equal(CERTIFICATE_PDF_RENDER_VERSION, 'arion-certificate-v2');
+  assert.equal(CERTIFICATE_PDF_RENDER_VERSION, 'arion-certificate-v3');
 });
 
 test('renderer bundles the actual Arion logo locally without a public image URL or generic cross', async () => {

@@ -18,7 +18,6 @@ function presentPatient(patient) {
     emergency_contact_number: patient.emergency_contact_number ?? null,
     emergency_contact_relationship: patient.emergency_contact_relationship ?? null,
     allergies: [...(patient.allergies ?? [])],
-    is_pwd: patient.is_pwd === true,
   };
 }
 

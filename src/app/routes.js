@@ -26,6 +26,10 @@ export const routeGroups = {
       "title": "Reset Password"
     },
     {
+      "path": "/claim-account",
+      "title": "Claim Portal Account"
+    },
+    {
       "path": "/unauthorized",
       "title": "Unauthorized"
     }

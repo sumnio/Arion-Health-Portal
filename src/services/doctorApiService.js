@@ -42,6 +42,19 @@ function normalizeRecord(item) {
   };
 }
 
+function normalizePrescriptionHistory(result) {
+  const pagination = result.pagination ?? {};
+  return {
+    items: result.prescriptions ?? [],
+    pagination: {
+      page: pagination.page ?? 1,
+      pageSize: pagination.page_size ?? 5,
+      total: pagination.total ?? 0,
+      pageCount: pagination.page_count ?? 1,
+    },
+  };
+}
+
 function normalizeCertificate(item, patientName = '') {
   return {
     ...item, patientName,
@@ -50,6 +63,20 @@ function normalizeCertificate(item, patientName = '') {
     license_number: item.doctor?.license_number ?? 'Not available',
     ptr_number: item.doctor?.ptr_number ?? 'Not available',
     signature_available: item.doctor?.signature_available === true,
+  };
+}
+
+function normalizeDoctorCertificates(history, patientName = '') {
+  const pagination = history.certificate_pagination ?? {};
+  return {
+    items: (history.medical_certificates ?? []).map((item) => normalizeCertificate(item, patientName)),
+    filter: history.certificate_filter ?? 'all',
+    pagination: {
+      page: Number.isInteger(pagination.page) && pagination.page > 0 ? pagination.page : 1,
+      pageSize: Number.isInteger(pagination.page_size) && pagination.page_size > 0 ? pagination.page_size : 5,
+      total: Number.isInteger(pagination.total) && pagination.total >= 0 ? pagination.total : 0,
+      pageCount: Number.isInteger(pagination.page_count) && pagination.page_count > 0 ? pagination.page_count : 1,
+    },
   };
 }
 
@@ -96,7 +123,8 @@ export function createDoctorApiService(repository = doctorApiRepository) {
         || appointments.find((item) => ['confirmed', 'pending'].includes(item.status)) || appointments.at(-1);
       if (!appointment || appointment.patient?.id !== patientId) return null;
       const records = (history.medical_records ?? []).map(normalizeRecord);
-      const certificates = (history.medical_certificates ?? []).map((item) => normalizeCertificate(item, appointment.patient.full_name));
+      const certificateResult = normalizeDoctorCertificates(history, appointment.patient.full_name);
+      const certificates = certificateResult.items;
       const existingRecord = records.find((item) => item.appointment_id === appointment.id) ?? null;
       const priorityHistory = await repository.getPriorityHistory(appointment.id);
       const canAddRecord = appointment.status === 'confirmed' && !existingRecord;
@@ -107,21 +135,44 @@ export function createDoctorApiService(repository = doctorApiRepository) {
             : appointment.status === 'no_show' ? 'The patient did not attend this appointment. Medical record creation is unavailable.'
               : appointment.status === 'pending' ? 'This appointment is awaiting confirmation.'
                 : canAddRecord ? 'Review the patient information before adding a medical record.' : 'This appointment is not eligible for a medical record.';
-      return { patient: appointment.patient, appointment, records, certificates, priorityHistory, existingRecord, canAddRecord, canComplete, consultationMessage };
+      return { patient: appointment.patient, appointment, records, certificates, certificateFilter: certificateResult.filter, certificatePagination: certificateResult.pagination, priorityHistory, existingRecord, canAddRecord, canComplete, consultationMessage };
+    },
+    async getPatientPrescriptions(patientId, { page = 1 } = {}) {
+      return normalizePrescriptionHistory(await repository.getPatientPrescriptions(patientId, { page }));
+    },
+    async getPatientCertificates(patientId, options = {}, patientName = '') {
+      return normalizeDoctorCertificates(await repository.getPatientHistory(patientId, options), patientName);
     },
     async createMedicalRecord(appointmentId, values) {
-      return normalizeRecord(await repository.createMedicalRecord(appointmentId, {
+      const attachments = [];
+      const payload = {
         diagnosis: values.diagnosis.trim(), notes: values.notes?.trim() || null, follow_up: values.follow_up?.trim() || null,
-        prescriptions: (values.prescriptions ?? []).map(({ medicine, dosage, instructions }) => ({ medicine: medicine.trim(), dosage: dosage.trim(), instructions: instructions?.trim() || null })),
-      }));
+        follow_up_required: values.follow_up_required === true,
+        follow_up_recommended_date: values.follow_up_required ? values.follow_up_recommended_date : null,
+        follow_up_reason: values.follow_up_required ? values.follow_up_reason.trim() : null,
+        prescriptions: (values.prescriptions ?? []).map(({ medicine, dosage, instructions, attachment }) => {
+          const item = { medicine: medicine.trim() || null, dosage: dosage.trim() || null, instructions: instructions?.trim() || null };
+          if (attachment) {
+            item.attachment_index = attachments.length;
+            attachments.push(attachment);
+          }
+          return item;
+        }),
+      };
+      if (!attachments.length) return normalizeRecord(await repository.createMedicalRecord(appointmentId, payload));
+      const formData = new FormData();
+      formData.append('payload', JSON.stringify(payload));
+      attachments.forEach((file) => formData.append('attachments', file, file.name));
+      return normalizeRecord(await repository.createMedicalRecord(appointmentId, formData));
     },
     async getRecord(id) { return normalizeRecord(await repository.getRecord(id)); },
+    downloadPrescriptionAttachment: (id, options) => repository.downloadPrescriptionAttachment(id, options),
     async issueCertificate(recordId, values, patientName = '') {
       const created = await repository.createCertificate(recordId, {
         purpose: values.purpose,
         ...(values.purpose === 'Other' ? { custom_purpose: values.custom_purpose.trim() } : {}),
         diagnosis_summary: values.diagnosis_summary.trim(), recommendation: values.recommendation.trim(),
-        valid_until: values.valid_until || null,
+        valid_until: values.valid_until,
       });
       return normalizeCertificate(await repository.getCertificate(created.id), patientName);
     },
@@ -131,7 +182,7 @@ export function createDoctorApiService(repository = doctorApiRepository) {
         ...(values.purpose === 'Other' ? { custom_purpose: values.custom_purpose.trim() } : {}),
         diagnosis_summary: values.diagnosis_summary.trim(),
         recommendation: values.recommendation.trim(),
-        valid_until: values.valid_until || null,
+        valid_until: values.valid_until,
       }, options);
     },
     async getCertificate(id) { return normalizeCertificate(await repository.getCertificate(id)); },

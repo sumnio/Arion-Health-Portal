@@ -15,6 +15,8 @@ export function createPatientClinicalRouter({ authModule, clinicalModule }) {
   );
   router.get('/records', controller.records);
   router.get('/records/:recordId', controller.record);
+  router.get('/prescriptions', controller.prescriptions);
+  router.get('/prescriptions/:prescriptionId/attachment', controller.prescriptionAttachment);
   router.get('/certificates', controller.certificates);
   router.get('/certificates/:certificateId', controller.certificate);
   router.get('/certificates/:certificateId/pdf', controller.certificatePdf);

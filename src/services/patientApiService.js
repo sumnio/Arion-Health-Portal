@@ -107,7 +107,6 @@ export function normalizePatientProfile(patient) {
     emergencyNumber: nullableText(patient.emergency_contact_number),
     relationship: nullableText(patient.emergency_contact_relationship),
     allergies: [...(patient.allergies ?? [])],
-    isPwd: patient.is_pwd === true,
   };
 }
 
@@ -121,7 +120,6 @@ function profilePatch(values) {
     emergency_contact_name: values.emergencyName.trim() || null,
     emergency_contact_number: canonicalizePhilippineMobile(values.emergencyNumber) || null,
     emergency_contact_relationship: values.relationship.trim() || null,
-    is_pwd: values.isPwd === true,
   };
 }
 
@@ -186,6 +184,8 @@ export function createPatientApiService(repository = patientApiRepository) {
   const service = {
     async getProfile() { return normalizePatientProfile(await repository.getProfile()); },
     async updateProfile(values) { return normalizePatientProfile(await repository.updateProfile(profilePatch(values))); },
+    getPwdVerification: () => repository.getPwdVerification(),
+    submitPwdVerification: (values) => repository.submitPwdVerification(values),
     async getDoctors() { return (await repository.getDoctors()).map((doctor) => ({ id: doctor.id, name: doctor.display_name, specialty: doctor.specialty ?? '' })); },
     async getAvailableSlots(doctorId, date) {
       const result = await repository.getAvailableSlots(doctorId, date);
@@ -207,6 +207,7 @@ export function createPatientApiService(repository = patientApiRepository) {
         appointment_at: appointmentAt,
         visit_type: values.service,
         reason: formatPatientVisitReason(values.reason, values.otherReason),
+        ...(values.sourceMedicalRecordId ? { source_medical_record_id: values.sourceMedicalRecordId } : {}),
       }));
     },
     async getAppointments() { return (await repository.getAppointments()).map(normalizeAppointment); },
@@ -219,19 +220,37 @@ export function createPatientApiService(repository = patientApiRepository) {
     },
     async getRecords() { return (await repository.getRecords()).map(normalizeRecord); },
     async getRecord(id) {
-      const [rawRecord, certificates] = await Promise.all([repository.getRecord(id), repository.getCertificates()]);
+      const [rawRecord, certificateResult] = await Promise.all([repository.getRecord(id), repository.getCertificates({ view: 'active', page: 1 })]);
       const record = normalizeRecord(rawRecord);
-      record.certificates = certificates.filter((item) => item.medical_record_id === record.id).map((item) => normalizeCertificate(item));
+      record.certificates = (certificateResult.medical_certificates ?? []).filter((item) => item.medical_record_id === record.id).map((item) => normalizeCertificate(item));
       return record;
     },
-    async getCertificates() {
-      const [items, profile] = await Promise.all([repository.getCertificates(), repository.getProfile()]);
-      return items.map((item) => normalizeCertificate(item, { patientName: profile.full_name }));
+    async getPrescriptions({ page = 1 } = {}) {
+      const result = await repository.getPrescriptions({ page });
+      const pagination = result.pagination ?? {};
+      return {
+        items: result.prescriptions ?? [],
+        pagination: {
+          page: pagination.page ?? 1,
+          pageSize: pagination.page_size ?? 5,
+          total: pagination.total ?? 0,
+          pageCount: pagination.page_count ?? 1,
+        },
+      };
+    },
+    downloadPrescriptionAttachment: (id, options) => repository.downloadPrescriptionAttachment(id, options),
+    async getCertificates(options = {}) {
+      const [result, profile] = await Promise.all([repository.getCertificates(options), repository.getProfile()]);
+      return {
+        items: (result.medical_certificates ?? []).map((item) => normalizeCertificate(item, { patientName: profile.full_name })),
+        view: result.view ?? options.view ?? 'active',
+        pagination: result.pagination ?? { page: 1, page_size: PATIENT_LIST_PAGE_SIZE, total: 0, page_count: 1 },
+      };
     },
     async getCertificate(id) {
       const [item, profile] = await Promise.all([repository.getCertificate(id), repository.getProfile()]);
       let relatedRecord = null;
-      if (item.medical_record_id) {
+      if (item.validity_status !== 'expired' && item.medical_record_id) {
         const record = normalizeRecord(await repository.getRecord(item.medical_record_id));
         relatedRecord = { id: record.id, encounter_at: record.encounter_at, visitType: record.visitType };
       }

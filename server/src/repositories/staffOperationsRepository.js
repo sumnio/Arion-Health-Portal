@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
-import { Appointment, AppointmentPriorityAudit, Doctor, MedicalRecord, Patient } from '../models/index.js';
+import { Appointment, AppointmentPriorityAudit, AuthAccount, Doctor, MedicalRecord, Patient } from '../models/index.js';
 
 const doctorPopulation = { path: 'doctor_id', select: 'specialty user_profile_id', populate: { path: 'user_profile_id', select: 'display_name' } };
+const pwdVerificationPopulation = { path: 'pwd_verification', select: 'patient_id status' };
 const queuePopulation = [
-  { path: 'patient_id', select: 'full_name dob is_pwd sex contact_number' },
+  { path: 'patient_id', select: 'full_name dob sex contact_number', populate: pwdVerificationPopulation },
   doctorPopulation,
 ];
 const auditActorPopulation = { path: 'staff_actor_user_profile_id', select: 'display_name' };
@@ -30,7 +31,7 @@ export const staffOperationsRepository = {
       query.patient_id = { $in: patientIds };
     }
     const population = [
-      { path: 'patient_id', select: 'full_name dob is_pwd user_profile_id' },
+      { path: 'patient_id', select: 'full_name dob user_profile_id', populate: pwdVerificationPopulation },
       doctorPopulation,
       { path: 'created_by', select: 'role' },
     ];
@@ -56,10 +57,25 @@ export const staffOperationsRepository = {
   },
   async searchPatients(search) {
     const query = search.trim();
-    if (!query) return Patient.find({}).sort({ full_name: 1 }).limit(50).lean();
-    const pattern = new RegExp(escapeRegex(query), 'i');
-    const phonePattern = flexiblePhoneRegex(query);
-    return Patient.find({ $or: [{ full_name: pattern }, { contact_number: phonePattern ?? pattern }] }).sort({ full_name: 1 }).limit(50).lean();
+    let patients;
+    if (!query) patients = await Patient.find({}).sort({ full_name: 1 }).limit(50).lean();
+    else {
+      const pattern = new RegExp(escapeRegex(query), 'i');
+      const phonePattern = flexiblePhoneRegex(query);
+      const accountProfileIds = await AuthAccount.find({ email: pattern }).distinct('user_profile_id');
+      patients = await Patient.find({ $or: [
+        { full_name: pattern },
+        { contact_number: phonePattern ?? pattern },
+        { portal_email: pattern },
+        ...(accountProfileIds.length ? [{ user_profile_id: { $in: accountProfileIds } }] : []),
+      ] }).sort({ full_name: 1 }).limit(50).lean();
+    }
+    const profileIds = patients.map(item => item.user_profile_id).filter(Boolean);
+    const accounts = profileIds.length
+      ? await AuthAccount.find({ user_profile_id: { $in: profileIds } }).select('user_profile_id email').lean()
+      : [];
+    const accountEmails = new Map(accounts.map(item => [String(item.user_profile_id), item.email]));
+    return patients.map(item => ({ ...item, account_email: item.user_profile_id ? accountEmails.get(String(item.user_profile_id)) ?? null : null }));
   },
   async listAppointmentsForPatients(patientIds) {
     return Appointment.find({ patient_id: { $in: patientIds } })
@@ -73,16 +89,53 @@ export const staffOperationsRepository = {
       .populate(doctorPopulation)
       .lean();
   },
-  async findPotentialDuplicate({ full_name, contact_number, dob }) {
-    return Patient.findOne({ $or: [
+  async findPotentialDuplicates({ full_name, contact_number, portal_email, dob }) {
+    const account = portal_email ? await AuthAccount.findOne({ email: portal_email }).select('user_profile_id email').lean() : null;
+    const query = { $or: [
       { contact_number: flexiblePhoneRegex(contact_number, true) },
       { full_name: new RegExp(`^${escapeRegex(full_name)}$`, 'i'), dob },
-    ] }).lean();
+      ...(portal_email ? [{ portal_email }] : []),
+      ...(account?.user_profile_id ? [{ user_profile_id: account.user_profile_id }] : []),
+    ] };
+    const patients = await Patient.find(query).limit(10).lean();
+    const profileIds = patients.map(item => item.user_profile_id).filter(Boolean);
+    const accounts = profileIds.length
+      ? await AuthAccount.find({ user_profile_id: { $in: profileIds } }).select('user_profile_id email').lean()
+      : [];
+    const accountEmails = new Map(accounts.map(item => [String(item.user_profile_id), item.email]));
+    return patients.map(item => ({ ...item, account_email: item.user_profile_id ? accountEmails.get(String(item.user_profile_id)) ?? null : null }));
   },
+  async findAuthAccountByEmail(email) { return email ? AuthAccount.findOne({ email }).select('_id user_profile_id').lean() : null; },
   async createPatient(data) { return (await Patient.create(data)).toObject(); },
-  async findPatientById(id) { return Patient.findById(id).lean(); },
+  async findPatientById(id) {
+    const patient = await Patient.findById(id).populate(pwdVerificationPopulation).lean();
+    if (!patient?.user_profile_id) return patient;
+    const account = await AuthAccount.findOne({ user_profile_id: patient.user_profile_id }).select('email').lean();
+    return { ...patient, account_email: account?.email ?? null };
+  },
   async doctorExists(id) { return Boolean(await Doctor.exists({ _id: id })); },
   async createAppointment(data) { return (await Appointment.create(data)).toObject(); },
+  async findFollowUpRecordForPatient(recordId, patientId) {
+    return MedicalRecord.findOne({ _id: recordId, patient_id: patientId })
+      .select('patient_id doctor_id follow_up_required follow_up_recommended_date')
+      .lean();
+  },
+  async findActiveLinkedFollowUp(recordId) {
+    return Appointment.findOne({ source_medical_record_id: recordId, status: { $in: ['pending', 'confirmed'] } }).lean();
+  },
+  async listOperationalFollowUps(patientId) {
+    return MedicalRecord.find({ patient_id: patientId, follow_up_required: true })
+      .select('doctor_id follow_up_required follow_up_recommended_date created_at')
+      .sort({ follow_up_recommended_date: 1, _id: 1 })
+      .populate(doctorPopulation)
+      .lean();
+  },
+  async findLatestLinkedFollowUp(recordId) {
+    return Appointment.findOne({ source_medical_record_id: recordId })
+      .select('appointment_at status doctor_id visit_type source_medical_record_id')
+      .sort({ created_at: -1, _id: -1 })
+      .lean();
+  },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },
   async confirmArrivalEligible(id, timestamp, start, end, expectedAppointmentAt) {
     return Appointment.findOneAndUpdate(

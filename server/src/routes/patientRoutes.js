@@ -3,6 +3,8 @@ import { createPatientController } from '../controllers/patientController.js';
 import { createPatientAssistantController } from '../controllers/patientAssistantController.js';
 import { createPatientSupportingDocumentController } from '../controllers/supportingDocumentController.js';
 import { supportingDocumentUpload } from '../middleware/supportingDocumentUpload.js';
+import { createPwdVerificationController } from '../controllers/pwdVerificationController.js';
+import { pwdVerificationUpload } from '../middleware/pwdVerificationUpload.js';
 import { createRequireAuth } from '../middleware/authenticate.js';
 import {
   requireActiveUser,
@@ -11,11 +13,12 @@ import {
 } from '../middleware/authorization.js';
 import { PERMISSIONS } from '../services/authorizationPolicy.js';
 
-export function createPatientRouter({ authModule, patientAppointmentModule, assistantModule, supportingDocumentModule, rateLimiters }) {
+export function createPatientRouter({ authModule, patientAppointmentModule, assistantModule, supportingDocumentModule, pwdVerificationModule, rateLimiters }) {
   const router = Router();
   const controller = createPatientController(patientAppointmentModule);
   const assistantController = createPatientAssistantController(assistantModule);
   const supportingDocumentController = createPatientSupportingDocumentController(supportingDocumentModule);
+  const pwdVerificationController = createPwdVerificationController(pwdVerificationModule);
 
   router.use(
     createRequireAuth({ tokens: authModule.tokens, service: authModule.service }),
@@ -26,6 +29,8 @@ export function createPatientRouter({ authModule, patientAppointmentModule, assi
 
   router.get('/profile', controller.profile);
   router.patch('/profile', controller.updateProfile);
+  router.get('/pwd-verification', pwdVerificationController.status);
+  router.post('/pwd-verification', pwdVerificationUpload, pwdVerificationController.submit);
   router.get('/doctors', controller.doctors);
   router.get('/doctors/:doctorId/available-slots', controller.availableSlots);
   router.post('/appointments', controller.createAppointment);

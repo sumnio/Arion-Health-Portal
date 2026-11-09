@@ -4,7 +4,7 @@ import { observeBrowser } from '../helpers/browserAssertions.js';
 
 test('Staff Analytics shows safe aggregate clinic metrics and period controls', async ({ page, staffScenario, seededStaff }) => {
   const assertBrowserClean = observeBrowser(page);
-  const patient = await staffScenario.createPatient({ full_name: 'E2E Hidden Analytics Patient', dob: new Date('1950-01-01T00:00:00.000Z'), is_pwd: true });
+  const patient = await staffScenario.createPatient({ full_name: 'E2E Hidden Analytics Patient', dob: new Date('1950-01-01T00:00:00.000Z'), pwd_verified: true });
   const doctor = await staffScenario.createDoctor();
   await staffScenario.createAppointment({ patient, doctor, slot: staffScenario.slotFor(staffScenario.today(), '09:00'), status: 'completed', reason: 'General health concern' });
   await staffScenario.createAppointment({ patient, doctor, slot: staffScenario.slotFor(staffScenario.today(), '10:00'), status: 'pending', priority: 'urgent', reason: 'E2E private legacy reason' });

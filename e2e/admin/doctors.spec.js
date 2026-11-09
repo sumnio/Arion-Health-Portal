@@ -21,7 +21,7 @@ test('Admin provisions, updates, deactivates, and reactivates a real Doctor acco
   await page.goto('/admin/doctors');
   await page.getByRole('button', { name: 'Add Doctor' }).click();
   await page.getByRole('textbox', { name: 'Email', exact: true }).fill(values.email);
-  await page.getByRole('textbox', { name: 'Temporary password', exact: true }).fill(values.password);
+  await page.getByRole('textbox', { name: 'Account password', exact: true }).fill(values.password);
   await page.getByRole('textbox', { name: 'Doctor name', exact: true }).fill(values.name);
   await page.getByRole('textbox', { name: 'Contact number', exact: true }).fill(values.contact);
   await page.getByRole('textbox', { name: 'Specialty', exact: true }).fill(values.specialty);
@@ -72,6 +72,18 @@ test('Admin provisions, updates, deactivates, and reactivates a real Doctor acco
   await expect(page.getByText(`${updatedName}'s account is now active.`)).toBeVisible();
   expect((await UserProfile.findById(created.profileId).lean()).status).toBe('active');
   await loginAsDoctor(doctorPage, values);
+  await expect(doctorPage).toHaveURL('/doctor/dashboard');
+  const replacementPassword = `E2e!DoctorReset-${adminScenario.marker}`;
+  await panel.getByRole('button', { name: 'Replace Password' }).click();
+  await page.getByRole('textbox', { name: 'New account password', exact: true }).fill(replacementPassword);
+  await page.getByRole('textbox', { name: 'Confirm account password', exact: true }).fill(replacementPassword);
+  await page.getByRole('button', { name: 'Replace Password' }).click();
+  await expect(page.getByText(`${updatedName}'s password was replaced. Existing sessions were signed out.`)).toBeVisible();
+  await doctorPage.reload();
+  await expect(doctorPage).toHaveURL('/login');
+  await loginThroughUi(doctorPage, values);
+  await expect(doctorPage.getByRole('alert')).toContainText('Invalid email or password.');
+  await loginAsDoctor(doctorPage, { ...values, password: replacementPassword });
   await expect(doctorPage).toHaveURL('/doctor/dashboard');
   await doctorContext.close();
   expect(String((await Doctor.findById(created.roleProfileId).lean())._id)).toBe(created.roleProfileId);

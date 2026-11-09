@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [qrImage, setQrImage] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -66,6 +67,7 @@ export default function LoginPage() {
 
   async function returnToLogin() {
     setError('');
+    setMfaCode('');
     setBusy(true);
     try { await cancelMfa(); }
     finally { setBusy(false); }
@@ -88,13 +90,17 @@ export default function LoginPage() {
       </div>}
       <form onSubmit={submitMfa}>
         <FormField
+          key="admin-mfa-code"
           label="6-digit verification code"
           name="code"
+          value={mfaCode}
+          onChange={event => setMfaCode(/^[0-9]*$/.test(event.target.value) ? event.target.value.slice(0, 6) : '')}
           inputMode="numeric"
-          autoComplete="one-time-code"
+          autoComplete="off"
           pattern="[0-9]{6}"
           maxLength="6"
           placeholder="000000"
+          autoFocus
           required
         />
         {error && <p className="form-error" role="alert">{error}</p>}
@@ -108,7 +114,7 @@ export default function LoginPage() {
   }
 
   return <AuthCard title="Login to Your Account" subtitle="Welcome back. Access your health portal.">
-    <div className="auth-notice"><strong>Secure account access</strong><p>Use your Arion Health Portal email and password. Your account role determines which portal opens.</p></div>
+    <div className="auth-notice"><strong>Secure sign in</strong><p>Enter your registered email and password to continue.</p></div>
     <form onSubmit={submitLogin}>
       <FormField label="Email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
       <FormField label="Password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" required />

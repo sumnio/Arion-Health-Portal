@@ -13,14 +13,18 @@ function logChange(request, action, recordId) {
   });
 }
 
-export function createStaffSchedulingController({ doctorAvailabilityService, bookingAvailabilityService }) {
+export function createStaffSchedulingController({ doctorAvailabilityService, bookingAvailabilityService, doctorUnavailabilityService }) {
   return {
     async availableSlots(request, response) {
       const date = validateSlotQueryParameters(request.query);
       response.json(await bookingAvailabilityService.getPatientSlots(request.params.doctorId, date));
     },
     async schedule(request, response) {
-      response.json({ schedule: await doctorAvailabilityService.getStaffSchedule(request.params.doctorId) });
+      const [schedule, affected] = await Promise.all([
+        doctorAvailabilityService.getStaffSchedule(request.params.doctorId),
+        doctorUnavailabilityService?.listAffectedForDoctor(request.params.doctorId) ?? [],
+      ]);
+      response.json({ schedule: { ...schedule, affected_appointments: affected } });
     },
     async createRecurring(request, response) {
       const availability = await doctorAvailabilityService.createRecurringForDoctor(request.params.doctorId, request.body);
@@ -43,22 +47,47 @@ export function createStaffSchedulingController({ doctorAvailabilityService, boo
       logChange(request, 'published_availability_created', published.id);
       response.status(201).json({ published_availability: published });
     },
+    async updatePublished(request, response) {
+      const published = await doctorAvailabilityService.updatePublishedForDoctor(
+        request.params.doctorId,
+        request.params.publishedId,
+        request.body,
+      );
+      logChange(request, 'published_availability_updated', published.id);
+      response.json({ published_availability: published });
+    },
     async deletePublished(request, response) {
       validateEmptyBody(request.body);
       const result = await doctorAvailabilityService.deletePublishedForDoctor(request.params.doctorId, request.params.publishedId);
       logChange(request, 'published_availability_deleted', result.id);
       response.json(result);
     },
+    async excludePublishedOccurrence(request, response) {
+      const result = await doctorAvailabilityService.excludePublishedOccurrenceForDoctor(
+        request.params.doctorId,
+        request.params.publishedId,
+        request.body,
+      );
+      logChange(request, 'published_availability_occurrence_excluded', result.id);
+      response.json(result);
+    },
     async createBlocked(request, response) {
       const blocked = await doctorAvailabilityService.createBlockedForDoctor(request.params.doctorId, request.body);
+      const affected = await doctorUnavailabilityService?.blockedTimeCreated({ ...blocked, doctor_id: request.params.doctorId }) ?? [];
       logChange(request, 'blocked_time_created', blocked.id);
-      response.status(201).json({ blocked_time: blocked });
+      response.status(201).json({ blocked_time: blocked, affected_appointments: affected, affected_count: affected.length });
     },
     async deleteBlocked(request, response) {
       validateEmptyBody(request.body);
       const result = await doctorAvailabilityService.deleteBlockedForDoctor(request.params.doctorId, request.params.blockedTimeId);
+      await doctorUnavailabilityService?.blockedTimeDeleted(result.id);
       logChange(request, 'blocked_time_deleted', result.id);
       response.json(result);
+    },
+    async rescheduleAffected(request, response) {
+      const appointment = await doctorUnavailabilityService.rescheduleForStaff(request.params.appointmentId, request.body);
+      logChange(request, 'affected_appointment_rescheduled', appointment.id);
+      response.json({ appointment });
     },
   };
 }

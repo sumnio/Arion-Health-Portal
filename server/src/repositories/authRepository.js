@@ -36,7 +36,6 @@ async function createWithSession(data, session) {
         emergency_contact_number: data.emergency_contact_number,
         emergency_contact_relationship: data.emergency_contact_relationship,
         allergies: data.allergies,
-        is_pwd: data.is_pwd,
       },
     ],
     { session },

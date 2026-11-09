@@ -1,40 +1,50 @@
 @import "tailwindcss";
 
-:root { font-family: Arial, Helvetica, sans-serif; color: #152d4b; background: #f5f8fb; font-synthesis: none; --accent: #165ec0; --active: #e7f0ff; }
+:root { font-family: Arial, Helvetica, sans-serif; color: #152d4b; background: #f5f8fb; font-synthesis: none; --accent: #165ec0; --active: #e7f0ff; --surface: #fff; --surface-muted: #f7f9fb; --border: #dfe7ee; --radius-control: 6px; --radius-card: 9px; --radius-dialog: 12px; --space-card: 20px; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
 a { color: inherit; text-decoration: none; }
 a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .portal-shell { min-height: 100dvh; display: grid; grid-template-columns: 245px minmax(0, 1fr); grid-template-rows: auto 1fr auto; }
 .theme-doctor, .theme-admin { --accent: #22674f; --active: #e3f0ea; }
-.portal-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 28px; background: white; border-bottom: 1px solid #dfe7ee; }
+.portal-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 24px; background: white; border-bottom: 1px solid var(--border); }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
 .brand-mark { font-size: 36px; color: #284764; line-height: 1; }
 .brand > .brand-logo { display: block; width: 42px; height: 42px; max-width: 42px; max-height: 42px; object-fit: contain; flex: 0 0 42px; }
 .brand small, .identity small { display: block; font-size: 12px; font-weight: 400; margin-top: 5px; color: #52657b; }
 .identity { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .avatar { display: grid; place-items: center; background: var(--active); color: var(--accent); width: 40px; height: 40px; border-radius: 50%; font-weight: 700; }
-.sidebar { padding: 24px 14px; background: #fbfcfe; border-right: 1px solid #e5ebf1; display: flex; flex-direction: column; gap: 32px; }
+.sidebar { padding: 18px 14px; background: #fbfcfe; border-right: 1px solid #e5ebf1; display: flex; flex-direction: column; gap: 24px; }
 .sidebar nav { display: grid; gap: 8px; }
-.nav-link { display: block; padding: 13px 16px; border-radius: 8px; font-size: 14px; }
+.nav-link { display: block; padding: 11px 14px; border-radius: var(--radius-control); font-size: 14px; }
 .nav-link:hover { background: #eef3f7; }
 .nav-link.active { background: var(--active); color: var(--accent); font-weight: 700; }
 .exit-link { padding: 20px 16px; border: 0; border-top: 1px solid #dfe7ee; background: transparent; color: inherit; text-align: left; font: inherit; font-size: 14px; cursor: pointer; }
 .exit-link:hover { background: #eef3f7; }
 .auth-loading { min-height: 100dvh; display: grid; place-items: center; padding: 24px; color: #52657b; background: #f5f8fb; }
-main { padding: 36px; min-width: 0; outline: none; }
-.page-heading { margin-bottom: 26px; }
+main { padding: 30px; min-width: 0; outline: none; }
+.page-heading { margin-bottom: 22px; }
 .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: #607087; margin: 0 0 10px; }
-h1 { font-size: clamp(26px, 3vw, 36px); font-weight: 700; line-height: 1.2; margin: 0; }
-h2 { font-size: 20px; font-weight: 600; margin: 24px 0 12px; }
+h1 { font-size: clamp(26px, 3vw, 32px); font-weight: 700; line-height: 1.2; margin: 0; }
+h2 { font-size: 19px; font-weight: 600; margin: 20px 0 10px; }
 .placeholder { border-color: #dfe7ee; max-width: 1100px; min-height: 280px; }
 .placeholder p { color: #52657b; line-height: 1.7; }
 .badge { display: inline-flex; min-height: 28px; align-items: center; justify-content: center; border-radius: 5px; padding: 6px 10px; background: var(--active); color: var(--accent); font-size: 12px; line-height: 1.2; text-align: center; }
 .record-id { overflow-wrap: anywhere; font-size: 13px; }
 .context-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-.action-link { border: 1px solid #c6d4e1; padding: 12px 16px; border-radius: 7px; font-size: 14px; color: var(--accent); }
+.action-link { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; border: 1px solid #c6d4e1; padding: 10px 15px; border-radius: var(--radius-control); font-size: 14px; color: var(--accent); }
 .action-link:hover { background: var(--active); }
-.portal-footer { grid-column: 1 / -1; padding: 20px 28px; border-top: 1px solid #dfe7ee; background: white; font-size: 12px; color: #52657b; }
+.portal-footer { grid-column: 1 / -1; padding: 16px 24px; border-top: 1px solid var(--border); background: white; font-size: 12px; color: #52657b; }
+.dashboard-card { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); padding: var(--space-card); }
+.portal-shell :is(button, input, select, textarea, a):focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, white); outline-offset: 2px; }
+.portal-shell :is(input, select, textarea) { border-radius: var(--radius-control); }
+.portal-shell :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select) { min-height: 42px; }
+.portal-shell button { font-family: inherit; }
+.badge.status-pending { background: #fff3d9; color: #825400; }
+.badge.status-confirmed, .badge.status-active, .badge.status-verified { background: #ddf4e9; color: #166447; }
+.badge.status-completed, .badge.status-issued { background: #e2edff; color: #165ec0; }
+.badge.status-cancelled, .badge.status-rejected, .badge.status-expired { background: #ffe4e7; color: #a33434; }
+.badge.status-no_show, .badge.status-archived, .badge.status-legacy { background: #e7ebf0; color: #44536a; }
 .public-shell { min-height: 100dvh; display: flex; flex-direction: column; }
 .public-shell main { width: min(1100px, 100%); margin: auto; flex: 1; padding-top: 60px; }
 .public-shell .portal-header nav { display: flex; flex-wrap: wrap; }
@@ -48,7 +58,7 @@ h2 { font-size: 20px; font-weight: 600; margin: 24px 0 12px; }
   .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; }
   .nav-link { padding: 10px; }
   .exit-link { padding: 12px 10px; }
-  main { padding: 24px 18px; }
+  main { padding: 22px 16px; }
   .public-shell main { padding: 30px 18px; }
   .brand { font-size: 18px; }
   .identity { font-size: 12px; }

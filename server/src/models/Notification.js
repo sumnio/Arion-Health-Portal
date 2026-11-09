@@ -6,6 +6,7 @@ export const NOTIFICATION_TYPES = Object.freeze([
   'appointment_created',
   'appointment_confirmed',
   'appointment_rescheduled',
+  'doctor_unavailable',
   'appointment_cancelled',
   'appointment_completed',
   'appointment_reminder',
@@ -15,6 +16,9 @@ export const NOTIFICATION_TYPES = Object.freeze([
   'assigned_appointment_created',
   'security_notice',
   'account_status_notice',
+  'pwd_verification_verified',
+  'pwd_verification_rejected',
+  'pwd_verification_submitted',
 ]);
 export const NOTIFICATION_RESOURCE_TYPES = Object.freeze(['appointment', 'patient', 'doctor']);
 export const NOTIFICATION_TITLE_MAX = 120;

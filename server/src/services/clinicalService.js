@@ -5,15 +5,20 @@ import {
   validateCertificateCreate,
   validateDoctorAppointmentHistoryQuery,
   validateDoctorAppointmentQuery,
+  validateDoctorCertificateQuery,
   validateClinicalObjectId,
   validateMedicalRecordCreate,
+  validatePatientCertificateQuery,
+  validatePrescriptionHistoryQuery,
 } from '../validation/clinicalValidation.js';
 import { addDays, clinicDate, dateOnlyToUtc, isValidDateOnly, zonedDateTimeToUtc } from '../utils/schedulingTime.js';
 import { appointmentHistoryDateRange } from '../utils/appointmentHistory.js';
 import { buildCertificateStatement, certificatePurposeDisplay } from './certificateContent.js';
+import { certificateValidityStatus } from './certificateValidity.js';
 import { invokeNotificationTrigger } from './notificationTriggerService.js';
 import { invokeSmsReminderWorkflow } from './smsReminderWorkflow.js';
 import { CERTIFICATE_PDF_RENDER_VERSION, buildCertificatePdf } from './certificatePdfService.js';
+import { validatePrescriptionAttachmentFiles } from '../validation/prescriptionAttachmentValidation.js';
 
 function id(value) {
   const resolved = value?._id ?? value?.id ?? value;
@@ -57,7 +62,7 @@ function patientView(patient) {
     id: id(patient), full_name: patient?.full_name ?? null,
     dob: patient?.dob ? new Date(patient.dob).toISOString().slice(0, 10) : null,
     sex: patient?.sex ?? null, contact_number: patient?.contact_number ?? null,
-    allergies: patient?.allergies ?? [], is_pwd: patient?.is_pwd === true,
+    allergies: patient?.allergies ?? [], is_pwd: patient?.pwd_verification?.status === 'verified',
   };
 }
 
@@ -72,20 +77,53 @@ function appointmentView(appointment) {
 export const doctorHistoryDateRange = appointmentHistoryDateRange;
 
 function prescriptionView(item) {
-  return { id: id(item), medicine: item.medicine, dosage: item.dosage, instructions: item.instructions ?? null };
+  return {
+    id: id(item),
+    medicine: item.medicine ?? null,
+    dosage: item.dosage ?? null,
+    instructions: item.instructions ?? null,
+    attachment_available: Boolean(item.attachment_storage_file_id || item.attachment_uploaded_at),
+    attachment: item.attachment_uploaded_at ? {
+      filename: item.attachment_original_filename,
+      mime_type: item.attachment_mime_type,
+      size: item.attachment_file_size,
+    } : null,
+  };
+}
+
+function prescriptionHistoryView(item) {
+  const record = item.medical_record_id;
+  return {
+    ...prescriptionView(item),
+    issued_at: iso(item.created_at),
+    status: 'issued',
+    doctor: doctorView(record?.doctor_id),
+    medical_record: record ? {
+      id: id(record),
+      encounter_at: iso(record.encounter_at),
+      appointment: appointmentView(record.appointment_id),
+    } : null,
+  };
 }
 
 async function presentRecord(repository, record, suppliedPrescriptions) {
   const prescriptions = suppliedPrescriptions ?? await repository.listPrescriptions(id(record));
+  const linkedFollowUp = repository.findLatestLinkedFollowUp
+    ? await repository.findLatestLinkedFollowUp(id(record))
+    : null;
   return {
     id: id(record), patient: patientView(record.patient_id), doctor: doctorView(record.doctor_id),
     appointment: appointmentView(record.appointment_id), encounter_at: iso(record.encounter_at),
     diagnosis: record.diagnosis, notes: record.notes ?? null, follow_up: record.follow_up ?? null,
+    follow_up_required: record.follow_up_required === true,
+    follow_up_recommended_date: date(record.follow_up_recommended_date),
+    follow_up_reason: record.follow_up_reason ?? null,
+    follow_up_appointment: appointmentView(linkedFollowUp),
     prescriptions: prescriptions.map(prescriptionView), created_at: iso(record.created_at), updated_at: iso(record.updated_at),
   };
 }
 
-function presentCertificate(item, clinic) {
+function presentCertificate(item, clinic, currentTime) {
   const medicalRecord = item.medical_record_id;
   const appointment = medicalRecord?.appointment_id;
   const timeZone = clinic.timeZone ?? 'Asia/Manila';
@@ -98,9 +136,23 @@ function presentCertificate(item, clinic) {
     recommendation: item.recommendation ?? null,
     statement: buildCertificateStatement({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose }),
     consultation_date: appointment?.appointment_at ? clinicDate(new Date(appointment.appointment_at), timeZone) : null,
-    valid_until: date(item.valid_until), status: item.status, clinic,
+    valid_until: date(item.valid_until), status: item.status,
+    validity_status: certificateValidityStatus(item.valid_until, { now: currentTime, timeZone }),
+    clinic,
     pdf_available: Boolean(item.pdf_storage_file_id), legacy_pdf: !item.pdf_storage_file_id,
     created_at: iso(item.created_at), updated_at: iso(item.updated_at),
+  };
+}
+
+function presentPatientCertificateMetadata(item, clinic, currentTime) {
+  return {
+    id: id(item),
+    medical_certificate_number: item.medical_certificate_number,
+    purpose: certificatePurposeDisplay({ purposeCode: item.purpose_code, customPurpose: item.custom_purpose, legacyPurpose: item.purpose }),
+    doctor: { display_name: item.doctor_id?.user_profile_id?.display_name ?? null },
+    date_issued: date(item.date_issued),
+    valid_until: date(item.valid_until),
+    validity_status: certificateValidityStatus(item.valid_until, { now: currentTime, timeZone: clinic.timeZone ?? 'Asia/Manila' }),
   };
 }
 
@@ -123,7 +175,7 @@ function certificatePdfData(item, clinic) {
   };
 }
 
-export function createClinicalService({ repository, clinic, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, pdfRenderer = buildCertificatePdf, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
+export function createClinicalService({ repository, clinic, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, prescriptionAttachmentStorage, pdfRenderer = buildCertificatePdf, now = () => new Date(), numberGenerator = generateCertificateNumber, certificateIssuanceEnabled = true }) {
   async function doctorFor(profileId) {
     const doctor = await repository.findDoctorByUserProfileId(profileId);
     if (!doctor) throw httpError(403, 'DOCTOR_PROFILE_REQUIRED', 'An active Doctor profile is required.');
@@ -133,6 +185,28 @@ export function createClinicalService({ repository, clinic, notificationTriggers
     const patient = await repository.findPatientByUserProfileId(profileId);
     if (!patient) throw httpError(404, 'PATIENT_PROFILE_NOT_FOUND', 'Patient profile was not found.');
     return patient;
+  }
+  async function prescriptionAttachmentFor(prescriptionId, ownerField, ownerId) {
+    validateClinicalObjectId(prescriptionId, 'prescriptionId');
+    const prescription = await repository.findPrescriptionWithRecord(prescriptionId);
+    const record = prescription?.medical_record_id;
+    if (!prescription || !record || id(record[ownerField]) !== id(ownerId)) {
+      throw httpError(404, 'PRESCRIPTION_ATTACHMENT_NOT_FOUND', 'Prescription attachment was not found.');
+    }
+    if (!prescription.attachment_storage_file_id) {
+      throw httpError(404, 'PRESCRIPTION_ATTACHMENT_NOT_FOUND', 'Prescription attachment was not found.');
+    }
+    try {
+      return {
+        filename: prescription.attachment_original_filename,
+        mimeType: prescription.attachment_mime_type,
+        size: prescription.attachment_file_size,
+        sha256: prescription.attachment_sha256,
+        stream: prescriptionAttachmentStorage.openDownload(prescription.attachment_storage_file_id),
+      };
+    } catch {
+      throw httpError(503, 'PRESCRIPTION_ATTACHMENT_UNAVAILABLE', 'The prescription attachment is temporarily unavailable.');
+    }
   }
 
   return {
@@ -195,29 +269,64 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       if (id(appointment.doctor_id) !== id(doctor)) throw httpError(403, 'FORBIDDEN', 'This appointment is assigned to another Doctor.');
       return (await repository.listPriorityHistory(appointmentId)).map(priorityAuditView);
     },
-    async createRecord(profileId, appointmentId, body) {
+    async createRecord(profileId, appointmentId, body, files = []) {
       validateClinicalObjectId(appointmentId, 'appointmentId');
-      const input = validateMedicalRecordCreate(body);
+      const input = validateMedicalRecordCreate(body, { attachmentCount: files.length });
       const doctor = await doctorFor(profileId);
       const appointment = await repository.findAppointmentById(appointmentId);
       if (!appointment) throw httpError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment was not found.');
       if (id(appointment.doctor_id) !== id(doctor)) throw httpError(403, 'FORBIDDEN', 'This appointment is assigned to another Doctor.');
       if (appointment.status !== 'confirmed') throw httpError(409, 'APPOINTMENT_NOT_ELIGIBLE', 'Only a confirmed appointment can receive a medical record.');
+      const consultationDate = clinicDate(new Date(appointment.appointment_at), clinic.timeZone ?? 'Asia/Manila');
+      if (input.follow_up_required && input.follow_up_recommended_date < consultationDate) {
+        throw httpError(400, 'FOLLOW_UP_DATE_BEFORE_CONSULTATION', 'The recommended follow-up date cannot be before the consultation date.');
+      }
       if (await repository.findRecordByAppointmentId(appointmentId)) throw httpError(409, 'MEDICAL_RECORD_EXISTS', 'This appointment already has a medical record.');
+      const validatedFiles = validatePrescriptionAttachmentFiles(files);
+      const storedFileIds = [];
+      let created;
       try {
-        const created = await repository.createRecordWithPrescriptions({
+        const prescriptions = [];
+        for (const item of input.prescriptions) {
+          const { attachment_index: attachmentIndex, ...structured } = item;
+          if (attachmentIndex == null) {
+            prescriptions.push(structured);
+            continue;
+          }
+          const file = validatedFiles[attachmentIndex];
+          let stored;
+          try { stored = await prescriptionAttachmentStorage.upload(file); }
+          catch { throw httpError(503, 'PRESCRIPTION_ATTACHMENT_STORAGE_UNAVAILABLE', 'The prescription attachment could not be stored securely.'); }
+          storedFileIds.push(stored.storageFileId);
+          prescriptions.push({
+            ...structured,
+            attachment_storage_file_id: stored.storageFileId,
+            attachment_mime_type: file.mimeType,
+            attachment_file_size: file.size,
+            attachment_original_filename: file.originalFilename,
+            attachment_sha256: createHash('sha256').update(file.buffer).digest('hex'),
+            attachment_uploaded_at: now(),
+          });
+        }
+        created = await repository.createRecordWithPrescriptions({
           patient_id: appointment.patient_id, doctor_id: doctor._id ?? doctor.id,
           appointment_id: appointment._id ?? appointment.id, encounter_at: now(),
           diagnosis: input.diagnosis, notes: input.notes, follow_up: input.follow_up,
-        }, input.prescriptions);
-        created.record.patient_id = await repository.findPatientById(id(appointment.patient_id));
-        created.record.doctor_id = doctor;
-        created.record.appointment_id = appointment;
-        return presentRecord(repository, created.record, created.prescriptions);
+          follow_up_required: input.follow_up_required,
+          follow_up_recommended_date: input.follow_up_recommended_date
+            ? dateOnlyToUtc(input.follow_up_recommended_date)
+            : null,
+          follow_up_reason: input.follow_up_reason,
+        }, prescriptions);
       } catch (error) {
+        await Promise.allSettled(storedFileIds.map((storageFileId) => prescriptionAttachmentStorage.delete(storageFileId)));
         if (duplicateKey(error)) throw httpError(409, 'MEDICAL_RECORD_EXISTS', 'This appointment already has a medical record.');
         throw error;
       }
+      created.record.patient_id = await repository.findPatientById(id(appointment.patient_id));
+      created.record.doctor_id = doctor;
+      created.record.appointment_id = appointment;
+      return presentRecord(repository, created.record, created.prescriptions);
     },
 
     async listDoctorPatientRecords(profileId, patientId) {
@@ -225,14 +334,23 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const doctor = await doctorFor(profileId);
       return Promise.all((await repository.listRecordsForDoctorPatient(id(doctor), patientId)).map((item) => presentRecord(repository, item)));
     },
-    async listDoctorPatientCertificates(profileId, patientId) {
+    async listDoctorPatientCertificates(profileId, patientId, query = {}) {
       validateClinicalObjectId(patientId, 'patientId');
+      const filters = validateDoctorCertificateQuery(query);
       const doctor = await doctorFor(profileId);
-      const items = repository.listIssuedCertificatesForDoctorPatient
-        ? await repository.listIssuedCertificatesForDoctorPatient(id(doctor), patientId)
-        : [];
-      return items
-        .map((item) => presentCertificate(item, clinic));
+      const currentTime = now();
+      const boundary = dateOnlyToUtc(clinicDate(currentTime, clinic.timeZone ?? 'Asia/Manila'));
+      const result = repository.listIssuedCertificatesForDoctorPatient
+        ? await repository.listIssuedCertificatesForDoctorPatient(id(doctor), patientId, { ...filters, boundary })
+        : { items: [], total: 0 };
+      return {
+        items: result.items.map((item) => presentCertificate(item, clinic, currentTime)),
+        status: filters.status,
+        page: filters.page,
+        page_size: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+      };
     },
     async getDoctorRecord(profileId, recordId) {
       validateClinicalObjectId(recordId, 'recordId');
@@ -240,6 +358,23 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const record = await repository.findRecordForDoctor(recordId, id(doctor));
       if (!record) throw httpError(404, 'MEDICAL_RECORD_NOT_FOUND', 'Medical record was not found.');
       return presentRecord(repository, record);
+    },
+    async getDoctorPrescriptionAttachment(profileId, prescriptionId) {
+      const doctor = await doctorFor(profileId);
+      return prescriptionAttachmentFor(prescriptionId, 'doctor_id', doctor);
+    },
+    async listDoctorPatientPrescriptions(profileId, patientId, query = {}) {
+      validateClinicalObjectId(patientId, 'patientId');
+      const filters = validatePrescriptionHistoryQuery(query);
+      const doctor = await doctorFor(profileId);
+      const result = await repository.listPrescriptionsForDoctorPatient(id(doctor), patientId, filters);
+      return {
+        items: result.items.map(prescriptionHistoryView),
+        page: filters.page,
+        page_size: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+      };
     },
     async listPatientRecords(profileId) {
       const patient = await patientFor(profileId);
@@ -251,6 +386,22 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const record = await repository.findRecordForPatient(recordId, id(patient));
       if (!record) throw httpError(404, 'MEDICAL_RECORD_NOT_FOUND', 'Medical record was not found.');
       return presentRecord(repository, record);
+    },
+    async getPatientPrescriptionAttachment(profileId, prescriptionId) {
+      const patient = await patientFor(profileId);
+      return prescriptionAttachmentFor(prescriptionId, 'patient_id', patient);
+    },
+    async listPatientPrescriptions(profileId, query = {}) {
+      const filters = validatePrescriptionHistoryQuery(query);
+      const patient = await patientFor(profileId);
+      const result = await repository.listPrescriptionsForPatient(id(patient), filters);
+      return {
+        items: result.items.map(prescriptionHistoryView),
+        page: filters.page,
+        page_size: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+      };
     },
 
     async previewCertificate(profileId, recordId, body) {
@@ -323,7 +474,7 @@ export function createClinicalService({ repository, clinic, notificationTriggers
           created.doctor_id = doctor;
           created.patient_id = record.patient_id;
           created.medical_record_id = record;
-          return presentCertificate(created, clinic);
+          return presentCertificate(created, clinic, now());
         } catch (error) {
           if (storedArtifact?.storageFileId) await certificateArtifactStorage.delete(storedArtifact.storageFileId).catch(() => {});
           if (!duplicateKey(error)) throw error;
@@ -336,18 +487,36 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const doctor = await doctorFor(profileId);
       const certificate = await repository.findCertificateForDoctor(certificateId, id(doctor));
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
-      return presentCertificate(certificate, clinic);
+      return presentCertificate(certificate, clinic, now());
     },
-    async listPatientCertificates(profileId) {
+    async listPatientCertificates(profileId, query = {}) {
+      const filters = validatePatientCertificateQuery(query);
       const patient = await patientFor(profileId);
-      return (await repository.listIssuedCertificatesForPatient(id(patient))).map((item) => presentCertificate(item, clinic));
+      const currentTime = now();
+      const boundary = dateOnlyToUtc(clinicDate(currentTime, clinic.timeZone ?? 'Asia/Manila'));
+      const result = await repository.listIssuedCertificatesForPatient(id(patient), { ...filters, boundary });
+      return {
+        items: result.items.map((item) => {
+          const metadata = presentPatientCertificateMetadata(item, clinic, currentTime);
+          return filters.view === 'active' ? { ...metadata, medical_record_id: id(item.medical_record_id) } : metadata;
+        }),
+        view: filters.view,
+        page: filters.page,
+        page_size: filters.limit,
+        total: result.total,
+        page_count: Math.max(1, Math.ceil(result.total / filters.limit)),
+      };
     },
     async getPatientCertificate(profileId, certificateId) {
       validateClinicalObjectId(certificateId, 'certificateId');
       const patient = await patientFor(profileId);
       const certificate = await repository.findIssuedCertificateForPatient(certificateId, id(patient));
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
-      return presentCertificate(certificate, clinic);
+      const currentTime = now();
+      if (certificateValidityStatus(certificate.valid_until, { now: currentTime, timeZone: clinic.timeZone ?? 'Asia/Manila' }) === 'expired') {
+        return presentPatientCertificateMetadata(certificate, clinic, currentTime);
+      }
+      return presentCertificate(certificate, clinic, currentTime);
     },
     async getDoctorCertificatePdf(profileId, certificateId) {
       validateClinicalObjectId(certificateId, 'certificateId');
@@ -361,6 +530,10 @@ export function createClinicalService({ repository, clinic, notificationTriggers
       const patient = await patientFor(profileId);
       const certificate = await repository.findIssuedCertificateForPatient(certificateId, id(patient));
       if (!certificate) throw httpError(404, 'CERTIFICATE_NOT_FOUND', 'Medical certificate was not found.');
+      const currentTime = now();
+      if (certificateValidityStatus(certificate.valid_until, { now: currentTime, timeZone: clinic.timeZone ?? 'Asia/Manila' }) === 'expired') {
+        throw httpError(403, 'CERTIFICATE_EXPIRED', 'Expired certificates are archived and their PDF is no longer available to Patients.');
+      }
       return certificatePdf(certificate);
     },
 

@@ -48,3 +48,20 @@ test('Patient profile validates Philippine mobile fields only in Edit mode', asy
   await expect(page.getByRole('status')).toContainText('Changes saved successfully.');
   await expect(contact).toHaveValue('09991234567');
 });
+
+test('Patient submits private front and back PWD ID images and sees Pending Verification after reload', async ({ page, seededPatient }) => {
+  await loginAsPatient(page, seededPatient);
+  await page.goto('/patient/profile');
+  await expect(page.getByRole('heading', { name: 'PWD Verification' })).toBeVisible();
+  await expect(page.getByText('Not Submitted')).toBeVisible();
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+  await expect(page.getByText(/name printed on the ID must match the name on your Patient profile/)).toBeVisible();
+  await page.getByLabel('Front of PWD ID *').setInputFiles({ name: 'pwd-front.png', mimeType: 'image/png', buffer: png });
+  await page.getByLabel('Back of PWD ID *').setInputFiles({ name: 'pwd-back.png', mimeType: 'image/png', buffer: png });
+  await page.getByRole('button', { name: 'Submit for Verification' }).click();
+  await expect(page.getByText('Pending Verification')).toBeVisible();
+  await expect(page.getByText('Your submission is awaiting clinic review.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Submit for Verification' })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText('Pending Verification')).toBeVisible();
+});

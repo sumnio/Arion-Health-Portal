@@ -8,7 +8,7 @@ import { certificateService } from '../src/services/certificateService.js';
 import { nextMockCertificateNumber } from '../src/services/certificateNumberService.js';
 import { clinicConfig } from '../src/config/clinicConfig.js';
 const id='80000000-0000-4000-8000-000000000001';
-const values={purpose:'Fit to Work',diagnosis_summary:'Routine examination',date_issued:clinicToday(),valid_until:''};
+const values={purpose:'Fit to Work',diagnosis_summary:'Routine examination',date_issued:clinicToday(),valid_until:'2099-12-31'};
 test('invalid record and incomplete context are rejected',()=>{
  assert(service.context('missing').error);
  doctorRecordStore.push({id:'broken-context',patient_id:'missing',doctor_id:'missing'});
@@ -26,7 +26,7 @@ test('issue uses schema links and prevents repeated submission and duplicate cas
  assert.equal(result.certificate.status,'issued');
  assert.match(result.certificate.medical_certificate_number,/^MC-MOCK-\d{8}-\d{3}$/);
  assert.equal(result.certificate.medical_record_id,id);
- assert.equal(result.certificate.valid_until,null);
+ assert.equal(result.certificate.valid_until,'2099-12-31');
  assert(service.issue(id,{...values,purpose:'Different purpose'},'submission-1').errors.form);
  assert(service.issue(id,{...values,purpose:' FIT TO WORK '},'submission-2').errors.form);
  assert.equal(service.list(id).length,1);

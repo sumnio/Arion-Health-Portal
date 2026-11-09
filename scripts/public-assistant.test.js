@@ -42,7 +42,7 @@ test('public and authenticated Patient modes use distinct welcome text and categ
   assert.equal(PUBLIC_ASSISTANT_CONFIG.welcomeMessage, "Hi! I'm Arion Assistant. I can help you learn how to use the Arion Health Portal.");
   assert.equal(PATIENT_ASSISTANT_CONFIG.welcomeMessage, "Hi! I'm Arion Assistant. What can I help you with?");
   assert.equal(PUBLIC_ASSISTANT_CONFIG.categories.length, 6);
-  assert.equal(PATIENT_ASSISTANT_CONFIG.categories.length, 7);
+  assert.equal(PATIENT_ASSISTANT_CONFIG.categories.length, 6);
   const publicQuestions = PUBLIC_ASSISTANT_CONFIG.categories.flatMap(item => item.questions);
   const patientQuestions = PATIENT_ASSISTANT_CONFIG.categories.flatMap(item => item.questions);
   assert.ok(publicQuestions.some(item => item.question === 'How do I register?'));
@@ -51,7 +51,9 @@ test('public and authenticated Patient modes use distinct welcome text and categ
   assert.equal(publicQuestions.some(item => item.question === 'Who is my Doctor?'), false);
   assert.equal(publicQuestions.some(item => item.question === 'What are my recent notifications?'), false);
   assert.deepEqual(PUBLIC_ASSISTANT_CONFIG.categories.map(item => item.label), ['Getting Started', 'Appointments', 'Account Help', 'Records & Certificates', 'Queue & Clinic Process', 'About Arion Assistant']);
-  assert.deepEqual(PATIENT_ASSISTANT_CONFIG.categories.map(item => item.label), ['My Appointments', 'Medical Records', 'Certificates', 'Notifications', 'Account & Profile', 'Queue & Arrival', 'About Arion Assistant']);
+  assert.deepEqual(PATIENT_ASSISTANT_CONFIG.categories.map(item => item.label), ['My Appointments', 'Medical Records', 'Certificates', 'Account & Profile', 'Queue & Arrival', 'About Arion Assistant']);
+  assert.equal(PATIENT_ASSISTANT_CONFIG.categories.some(item => item.id === 'notifications'), false);
+  assert.equal(patientQuestions.some(item => item.label === 'What phone number format should I use?'), false);
 });
 
 test('shared chat stays session-only and renders responses as plain React text', async () => {

@@ -1,4 +1,4 @@
-import { passwordResetTemplate, registrationVerificationTemplate } from './emailTemplates.js';
+import { appointmentNeedsRescheduleTemplate, appointmentRescheduledTemplate, passwordResetTemplate, portalClaimCodeTemplate, portalInvitationTemplate, registrationVerificationTemplate } from './emailTemplates.js';
 
 export class EmailDeliveryError extends Error {
   constructor() {
@@ -12,6 +12,16 @@ function passwordResetUrl(appBaseUrl, token) {
   const url = new URL('/reset-password', appBaseUrl);
   url.searchParams.set('token', token);
   return url.toString();
+}
+
+function portalClaimUrl(appBaseUrl, token) {
+  const url = new URL('/claim-account', appBaseUrl);
+  url.searchParams.set('token', token);
+  return url.toString();
+}
+
+function appointmentUrl(appBaseUrl, appointmentId) {
+  return new URL(`/patient/appointments/${encodeURIComponent(appointmentId)}`, appBaseUrl).toString();
 }
 
 export function createEmailService({ provider, appBaseUrl }) {
@@ -29,6 +39,23 @@ export function createEmailService({ provider, appBaseUrl }) {
     },
     sendPasswordResetEmail({ to, token, expiresMinutes = 30 }) {
       return deliver(to, passwordResetTemplate({ resetUrl: passwordResetUrl(appBaseUrl, token), expiresMinutes }));
+    },
+    sendPortalInvitationEmail({ to, token, expiresHours = 24 }) {
+      return deliver(to, portalInvitationTemplate({ claimUrl: portalClaimUrl(appBaseUrl, token), expiresHours }));
+    },
+    sendPortalClaimCodeEmail({ to, code, expiresMinutes = 10 }) {
+      return deliver(to, portalClaimCodeTemplate({ code, expiresMinutes }));
+    },
+    sendAppointmentRescheduledEmail({ to, appointmentId, appointmentDate, appointmentTime, doctorName = null }) {
+      return deliver(to, appointmentRescheduledTemplate({
+        appointmentUrl: appointmentUrl(appBaseUrl, appointmentId),
+        appointmentDate,
+        appointmentTime,
+        doctorName,
+      }));
+    },
+    sendAppointmentNeedsRescheduleEmail({ to, appointmentId }) {
+      return deliver(to, appointmentNeedsRescheduleTemplate({ appointmentUrl: appointmentUrl(appBaseUrl, appointmentId) }));
     },
   });
 }

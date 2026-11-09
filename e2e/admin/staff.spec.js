@@ -18,7 +18,7 @@ test('Admin provisions, updates, deactivates, and reactivates a real Staff accou
   await page.goto('/admin/staff');
   await page.getByRole('button', { name: 'Add Staff' }).click();
   await page.getByRole('textbox', { name: 'Email', exact: true }).fill(values.email);
-  await page.getByRole('textbox', { name: 'Temporary password', exact: true }).fill(values.password);
+  await page.getByRole('textbox', { name: 'Account password', exact: true }).fill(values.password);
   await page.getByRole('textbox', { name: 'Staff name', exact: true }).fill(values.name);
   await page.getByRole('textbox', { name: 'Contact number', exact: true }).fill(values.contact);
   await page.getByRole('button', { name: 'Save Staff' }).click();
@@ -63,6 +63,18 @@ test('Admin provisions, updates, deactivates, and reactivates a real Staff accou
   await panel.getByRole('button', { name: 'Reactivate' }).click();
   await expect(page.getByText(`${updatedName}'s account is now active.`)).toBeVisible();
   await loginAsStaff(staffPage, values);
+  await expect(staffPage).toHaveURL('/staff/dashboard');
+  const replacementPassword = `E2e!StaffReset-${adminScenario.marker}`;
+  await panel.getByRole('button', { name: 'Replace Password' }).click();
+  await page.getByRole('textbox', { name: 'New account password', exact: true }).fill(replacementPassword);
+  await page.getByRole('textbox', { name: 'Confirm account password', exact: true }).fill(replacementPassword);
+  await page.getByRole('button', { name: 'Replace Password' }).click();
+  await expect(page.getByText(`${updatedName}'s password was replaced. Existing sessions were signed out.`)).toBeVisible();
+  await staffPage.reload();
+  await expect(staffPage).toHaveURL('/login');
+  await loginThroughUi(staffPage, values);
+  await expect(staffPage.getByRole('alert')).toContainText('Invalid email or password.');
+  await loginAsStaff(staffPage, { ...values, password: replacementPassword });
   await expect(staffPage).toHaveURL('/staff/dashboard');
   await staffContext.close();
   expect(String((await Staff.findById(created.roleProfileId).lean())._id)).toBe(created.roleProfileId);

@@ -17,7 +17,7 @@ test('Patient uses the session-only Arion Assistant for FAQ and live appointment
   await expect(panel.getByText("Hi! I'm Arion Assistant. What can I help you with?")).toBeVisible();
   await panel.getByRole('button', { name: 'My Appointments' }).click();
   await expect(panel.getByRole('button', { name: '← Back to topics' })).toBeVisible();
-  await panel.getByRole('button', { name: 'How do I reschedule?' }).click();
+  await panel.getByRole('button', { name: 'How do I reschedule an appointment?' }).click();
   await expect(panel.getByText(/60 minutes/)).toBeVisible();
   await panel.getByRole('button', { name: 'Browse topics' }).click();
   await expect(panel.getByRole('button', { name: 'My Appointments' })).toBeFocused();
@@ -54,7 +54,7 @@ test('Arion Assistant fits a narrow Patient viewport and switches from public to
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('button', { name: 'My Appointments' })).toBeVisible();
   await panel.getByRole('button', { name: 'About Arion Assistant' }).click();
-  await expect(panel.getByRole('button', { name: 'Can you access another Patient?' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Can you access another Patient’s information?' })).toBeVisible();
   expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   const box = await panel.boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0);

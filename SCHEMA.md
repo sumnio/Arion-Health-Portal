@@ -1,5 +1,13 @@
 # Arion Health Portal - Revised Database Schema
 
+## v1.2.9 Patient identity safeguards
+
+Nullable `Patient.portal_email` now has a unique partial index for string values. It protects pre-claim invitation identities from concurrent duplicate attachment while allowing any number of Patients with no email. `AuthAccount.email` remains independently unique. Duplicate review uses canonical `Patient.contact_number`, normalized `portal_email`/AuthAccount email, and normalized full name plus DOB; it creates no merge table and never changes an existing relationship. Invitation replacement is transactional so concurrent resend/claim operations fail closed or leave one current invitation.
+
+## v1.2.8 schema addition
+
+`portal_invitations` stores an immutable `patient_id`, normalized `email`, unique protected `token_hash`, expiry/consumption/invalidation timestamps, protected OTP code/session hashes with expiry and attempts, and a protected short-lived claim-session hash. Patient adds nullable `portal_email` and `portal_invitation_expires_at`; neither field creates credentials. Successful claim creates one UserProfile/AuthAccount and links the existing Patient in the same transaction.
+
 This is the approved logical schema for the Arion Health Portal MVP. Relational type examples remain useful as a reference, while the selected MEN backend implements the same entities with Mongoose documents, generated `_id` ObjectIds, ObjectId references, and `created_at`/`updated_at` timestamps. The implementation must preserve the approved data, relationships, constraints, and access rules.
 
 Main revisions:
@@ -249,13 +257,16 @@ Represents a date-specific time range the Doctor has actually published for pati
 |---|---|---|
 | id | identifier, PK | MongoDB `_id` |
 | doctor_id | identifier, FK | References `Doctor.id` |
-| availability_date | date | Specific published calendar date |
+| availability_date | date | First published calendar date; the only date when `repeat_weekly` is false |
+| repeat_weekly | boolean | When true, applies on the same weekday until Staff stops the series |
+| excluded_dates | date[] | Weekly occurrence dates removed without stopping the series |
+| date_overrides | object[] | Per-date `availability_date`, `start_time`, and `end_time` overrides for weekly occurrences |
 | start_time | time | Start of the published range |
 | end_time | time | End of the published range; must be later than `start_time` |
 | created_at | timestamp | Managed by Mongoose timestamps |
 | updated_at | timestamp | Managed by Mongoose timestamps |
 
-A Doctor may publish multiple non-overlapping ranges for one date. The 30-day publication horizon and clinic-hours boundary are service rules; the 14-day patient booking window is a separate service rule.
+Staff may publish multiple non-overlapping ranges for one date. A publication may apply once or repeat weekly. Weekly removed dates and one-date time changes are stored on the publication so later weeks remain intact. The 30-day first-publication horizon and clinic-hours boundary are service rules; the 14-day Patient booking window is a separate service rule.
 
 ---
 
@@ -278,7 +289,7 @@ Represents one-time or temporary exceptions to the regular schedule. A block can
 - Appointment slots are fixed at 30 minutes.
 - Staff manages recurring availability, published availability, and blocked time for active Doctors. Doctor schedule views are read-only.
 - A doctor may publish multiple DoctorAvailability ranges for the same day. Gaps between ranges represent regular recurring breaks.
-- A doctor may publish availability up to 30 days ahead and is not required to publish all 30 days. Patients may see and book only dates/times actually published by the doctor; a recurring weekly row alone does not publish every matching future date.
+- Staff may publish one date or begin a weekly publication up to 30 days ahead. Weekly publication continues on the same weekday until Staff stops it. Patients see only effective published times after removed dates and one-date overrides are applied; Working Hours alone are never bookable.
 - Exact clinic operating hours are TBD and must be configurable. Do not hardcode clinic-hour values. Once configured, DoctorAvailability and every bookable 30-minute slot must remain within those hours.
 - DoctorBlockedTime overrides regular DoctorAvailability. Any slot overlapping blocked time is unavailable, including when only part of a day is blocked.
 - Already-booked slots are unavailable for new booking. The same doctor must not have two active appointments in the same time slot or overlapping appointment intervals. Different doctors may have appointments at the same time.
@@ -344,6 +355,9 @@ Replaces the previous `Schedule` entity.
 | reason | text | Reason for visit |
 | priority | enum | `normal`, `urgent` |
 | created_by | identifier, FK, nullable | References `UserProfile.id`; authenticated creator account, or null only for imported/system/legacy records without a known creator |
+| requires_reschedule_due_to_doctor_unavailability | boolean | Explicit unresolved operational flag; defaults to false and does not replace `status` |
+| doctor_unavailability_block_ids | ObjectId[] | DoctorBlockedTime references currently causing the unresolved flag |
+| doctor_unavailability_flagged_at | timestamptz, nullable | Server timestamp for the latest affected-state detection |
 | created_at | timestamptz | Defaults to `now()` |
 | updated_at | timestamptz | Updated when changed |
 
@@ -365,6 +379,14 @@ Staff appointment-history reads use the supporting compound index `(status, appo
 - Staff may confirm or cancel eligible Appointments and explicitly mark eligible unattended Appointments `no_show` only at or after the scheduled start plus five minutes, using trusted server time. No-show is never automatic, and Staff may not set `completed`.
 - `Appointment.status` is the single shared status read by Doctor, Staff, and Patient views. Do not add role-specific completion fields.
 - A completed Appointment is no longer part of the active waiting queue. Queue priority and check-in ordering remain unchanged.
+
+### Doctor-unavailability rescheduling rules (v1.2.12)
+
+- A Staff-created `DoctorBlockedTime` flags overlapping `pending` and `confirmed` Appointments without changing their normal status or schedule. Terminal Appointments are excluded.
+- The block-reference array supports overlapping time-off records. Removing one block clears only that reference; the flag clears only when no related block remains or a replacement is confirmed.
+- Patient or Staff confirmation clears the flag fields while atomically changing the existing Appointment's `appointment_at`. The final write requires the expected original instant, active and unchecked state, and authoritative availability.
+- The compound index `(doctor_id, requires_reschedule_due_to_doctor_unavailability, appointment_at)` supports the Staff affected list.
+- `source_medical_record_id`, visit context, creator, Patient, Doctor, priority, and the immutable Medical Record recommendation are not changed by this workflow.
 
 ### Queue priority
 
@@ -491,7 +513,7 @@ MedicalRecord
 | custom_purpose | text, nullable | Required, plain text, and at most 100 characters only when `purpose_code` is `Other` |
 | diagnosis_summary | text | Doctor-controlled certificate summary, at most 500 characters for new certificates |
 | recommendation | text, nullable | Doctor-controlled certificate recommendation, at most 500 characters; nullable for legacy records |
-| valid_until | date, nullable | Optional expiration date |
+| valid_until | date, nullable | Required for new issuance and on/after the server-generated issue date; nullable only for legacy certificates |
 | status | enum | `draft`, `issued` |
 | pdf_storage_file_id | ObjectId, nullable, immutable | Private GridFS object in `medical_certificate_files`; null only for legacy certificates |
 | pdf_sha256 | text, nullable, immutable | SHA-256 of the frozen PDF artifact; null on legacy certificates |
@@ -517,6 +539,8 @@ Certificate lifecycle rules:
 - Patients and Staff cannot edit certificates. Admin cannot edit certificate clinical content. Doctors issue certificates only through the approved creation flow.
 
 New certificate creation uses a controlled purpose allowlist and requires a concise Recommendation. The backend assigns `date_issued` from the configured clinic date and derives the consultation date from the linked MedicalRecord's Appointment. A centralized purpose-based helper generates the formal certification statement deterministically from `purpose_code` and `custom_purpose`; the statement is not accepted from the client and is not separately persisted. Legacy certificates with only `purpose` remain readable through a neutral generated statement. Certificate output excludes prescriptions, full Doctor notes, follow-up notes, supporting documents, allergies, emergency contacts, and queue data.
+
+New issuance also requires a Doctor-selected `valid_until` on or after `date_issued`; no fixed validity period is assigned automatically. Validity is not persisted as a mutable field. API responses derive `active` when the current Asia/Manila date is on or before `valid_until`, `expired` when it is later, and `legacy` when `valid_until` is null. Legacy values are not backfilled and legacy PDFs are not regenerated.
 - Issued certificates may be downloaded only through ownership-scoped authenticated Doctor and Patient PDF routes. New certificates stream the exact stored artifact. Legacy certificates without artifact metadata use a signature-free compatibility renderer and never adopt the Doctor's current signature.
 - QR verification, public certificate verification, external sharing, advanced cryptographic signing, and payment integration remain future scope.
 
@@ -556,7 +580,7 @@ Recipient-private, non-clinical operational messages are stored in the `notifica
 | created_at | timestamp | Server-generated creation time |
 | updated_at | timestamp | Server-maintained update time |
 
-The fixed type contract is: `appointment_created`, `appointment_confirmed`, `appointment_rescheduled`, `appointment_cancelled`, `appointment_completed`, `appointment_reminder`, `patient_booking_created`, `patient_arrived`, `appointment_marked_urgent`, `assigned_appointment_created`, `security_notice`, and `account_status_notice`. Current internal triggers generate only confirmation, reschedule, cancellation, completion, Patient booking, arrival, urgency, and assigned-appointment events after their source mutation succeeds. Appointment-created self-notices, reminders, security notices, and account-status notices remain reserved and are not generated.
+The fixed type contract includes the appointment/security types plus `pwd_verification_submitted`, `pwd_verification_verified`, and `pwd_verification_rejected`. A committed Patient submission sends active Staff a generic review notification, and a committed Staff decision sends the owning Patient a privacy-safe outcome notification. PWD notifications contain no ID number, filename, document metadata, rejection reason, or file URL.
 
 Creation is available only to trusted backend code through the notification service. There is no user-facing notification creation endpoint and no arbitrary metadata field. The three optional rich-context fields are resolved from the related Appointment and are role-minimized: Patient notifications may contain Doctor name and schedule, Staff notifications may contain Patient name, Doctor name, and schedule, and Doctor notifications may contain Patient name and schedule. Admin receives no routine Appointment context. Text must contain only short operational wording and must never include visit reason, diagnosis, MedicalRecord notes, Prescription or certificate clinical details, urgent explanations, contact details, DOB, address, private notes, credentials, MFA material, tokens, or environment values. A related-resource reference is navigation metadata only and does not grant resource access.
 
@@ -882,3 +906,56 @@ Collection: `doctor_signatures`
 | `created_at`, `updated_at` | Date | Mongoose timestamps |
 
 Unique `doctor_id` and `storage_file_id` values enforce one active signature per Doctor and one metadata owner per stored object. Binary bytes live only in the `doctor_signature_files` GridFS bucket. Metadata has no public URL, original filename, Doctor description, certificate snapshot, deletion flag, AI/OCR field, or external-provider identifier. The legacy nullable `Doctor.signature_path` remains only for backward compatibility and is not used by this service or Admin inputs.
+
+## PwdVerification (Milestone v1.2.5)
+
+Collection: `pwd_verifications`
+
+| Field | Type | Rules |
+|---|---|---|
+| `_id` | ObjectId | Primary identifier |
+| `patient_id` | ObjectId | Required, unique Patient reference; one current record per Patient |
+| `pwd_id_number` | String, nullable | Legacy compatibility only; new submissions do not collect a typed ID number; excluded from default query selection |
+| `storage_file_id`, `stored_filename`, `mime_type`, `file_size`, `document_sha256` | nullable legacy file metadata | Retained for existing one-file submissions and internal storage-index compatibility; excluded from default query selection |
+| `front_storage_file_id`, `front_stored_filename`, `front_mime_type`, `front_file_size`, `front_document_sha256` | private front-image metadata | New-submission front image; PNG or JPEG, maximum 5 MB, SHA-256 protected, excluded from default query selection |
+| `back_storage_file_id`, `back_stored_filename`, `back_mime_type`, `back_file_size`, `back_document_sha256` | private back-image metadata | New-submission back image; PNG or JPEG, maximum 5 MB, SHA-256 protected, excluded from default query selection |
+| `status` | enum | `pending`, `verified`, or `rejected`; absence of a record means `not_submitted` |
+| `submitted_at` | Date | Required server timestamp |
+| `verified_at` | Date, nullable | Successful verification timestamp |
+| `verified_by` | ObjectId, nullable | Staff UserProfile that verified the submission |
+| `reviewed_at` | Date, nullable | Timestamp of the current Verify or Reject decision |
+| `reviewed_by` | ObjectId, nullable | Staff UserProfile that made the current decision |
+| `rejection_reason` | String, nullable | Trimmed rejection reason, maximum 500 characters, excluded from default query selection |
+| `review_history` | Embedded array | Immutable append-only Verify/Reject decisions containing action, reviewer, time, and optional bounded reason; excluded from default query selection |
+| `created_at`, `updated_at` | Date | Mongoose timestamps |
+
+Indexes are unique `patient_id`, sparse unique legacy/front/back storage references, `(patient_id, status)` for safe status lookup, and `(status, submitted_at, _id)` for stable oldest-first Staff review pagination. New submissions require one front image and one back image and do not accept PDFs or a typed PWD ID number. Binary content lives only in the dedicated private GridFS bucket `pwd_verification_files`. Staff document access is authenticated, inline, and Pending-only; there is no public URL, original filename, Patient/Doctor/Admin document API, OCR/AI field, or external-provider identifier.
+
+Rejected resubmission updates the same Patient-owned record from Rejected to Pending only through an atomic status filter. It resets the current review fields and replaces both private images after safe upload, but preserves the append-only `review_history`. Superseded private binaries are deleted only after replacement metadata succeeds. Verified and Pending records cannot be reset by the Patient.
+
+`Patient.is_pwd` remains a legacy compatibility field but is not an authority. No migration converts legacy `true` values into PwdVerification records. Only a related PwdVerification with `status=verified` can affect PWD queue/analytics classification.
+# v1.2.11 follow-up recommendation fields and link
+
+`MedicalRecord` adds immutable `follow_up_required` (boolean), `follow_up_recommended_date` (nullable date-only value stored at UTC midnight), and `follow_up_reason` (nullable bounded clinical text, maximum 500 characters). When required is true, date and reason are required, and the date cannot be before the linked consultation's Asia/Manila clinic date. Existing `follow_up` remains readable for legacy records.
+
+`Appointment` adds nullable `source_medical_record_id -> MedicalRecord._id`. A linked Appointment must use the Medical Record's Patient and Doctor, `visit_type = follow_up`, and the fixed operational reason `Follow-up consultation`. A partial unique index permits only one `pending` or `confirmed` linked Appointment per Medical Record; terminal appointments do not prevent legitimate rebooking. The Appointment contains no copied follow-up reason.
+
+The recommendation and actual Appointment are deliberately separate: scheduling and rescheduling change only the Appointment. MedicalRecord has no update/delete route. Patient/Staff booking continues to use published availability, blocked-time and slot-conflict checks, and the existing 14-day horizon.
+# Prescription attachment fields (v1.2.16)
+
+Collection: `prescriptions` (extended; no new metadata collection)
+
+| Field | Type | Rules |
+|---|---|---|
+| `medical_record_id` | ObjectId | Existing required MedicalRecord reference |
+| `medicine` | String, nullable | Required with `dosage` when no attachment exists; optional for attachment-only rows |
+| `dosage` | String, nullable | Required with `medicine` when structured details are used |
+| `instructions` | String, nullable | Existing bounded optional instructions |
+| `attachment_storage_file_id` | ObjectId, nullable | Private GridFS reference; excluded from default selection |
+| `attachment_mime_type` | enum, nullable | `application/pdf`, `image/png`, or `image/jpeg` |
+| `attachment_file_size` | Number, nullable | 1 byte through 5 MB |
+| `attachment_original_filename` | String, nullable | Sanitized display/download filename, maximum 180 characters |
+| `attachment_sha256` | String, nullable | 64-character SHA-256 integrity hash; excluded from default selection |
+| `attachment_uploaded_at` | Date, nullable | Server-authoritative immutable upload timestamp |
+
+Binary bytes live only in the private GridFS bucket `prescription_files`, which creates the standard `prescription_files.files` and `prescription_files.chunks` collections. One Prescription has zero or one attachment. There is no public URL, external storage key, extracted text, OCR/AI field, mutable version, or deletion flag.

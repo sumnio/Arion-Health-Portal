@@ -206,6 +206,8 @@ test('future account-security limiters use distinct shared-store namespaces', ()
   for (const namespace of [
     'email_verification_attempt',
     'email_verification_resend',
+    'portal_invitation_send',
+    'portal_claim_code_send',
     'forgot_password',
     'password_reset',
     'patient_assistant',

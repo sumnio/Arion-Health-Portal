@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import { Appointment, ConsultationSupportingDocument, MedicalCertificate, MedicalRecord, Prescription } from '../../server/src/models/index.js';
+import { createGridFsPrescriptionAttachmentStorage } from '../../server/src/services/prescriptionAttachmentStorage.js';
 import { test, expect } from '../fixtures/test.js';
 import { loginAsDoctor, loginAsPatient, logoutThroughUi } from '../helpers/auth.js';
 import { observeBrowser } from '../helpers/browserAssertions.js';
@@ -6,6 +8,7 @@ import { DEFAULT_E2E_API_URL, loadE2eEnvironment } from '../../server/scripts/e2
 
 loadE2eEnvironment();
 const apiURL = process.env.E2E_API_URL || DEFAULT_E2E_API_URL;
+const formatBookingDateForTest = (value) => new Date(`${value}T00:00:00+08:00`).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
 async function browserApi(page, path, { method = 'GET', body } = {}) {
   return page.evaluate(async ({ origin, path: resource, method: verb, body: payload }) => {
@@ -23,6 +26,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   const assertBrowserClean = observeBrowser(page);
   await patientScenario.createDoctorSignature(seededDoctor);
   const patient = await patientScenario.createPatient();
+  const otherPatient = await patientScenario.createPatient();
   const appointment = await patientScenario.createAppointment({
     patient,
     doctor: seededDoctor,
@@ -31,6 +35,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
     check_in_at: new Date(),
     reason: 'Persistent cough',
   });
+  const followUpSlot = await patientScenario.createBookableSlot({ doctor: seededDoctor, offset: 3, startTime: '11:00', endTime: '12:00' });
   await loginAsDoctor(page, seededDoctor);
   await page.goto(`/doctor/patients/${patient.patientId}`);
   await expect(page.getByRole('heading', { name: patient.full_name })).toBeVisible();
@@ -41,18 +46,31 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
 
   await page.getByLabel('Diagnosis *').fill('E2E acute bronchitis');
   await page.getByLabel('Doctor’s notes (optional)').fill('E2E lungs clear on examination.');
-  await page.getByLabel('Follow-up instructions (optional)').fill('Return in seven days if symptoms persist.');
+  await page.getByLabel('Follow-up required').check();
+  await page.getByLabel('Recommended date *').fill(followUpSlot.date);
+  await page.getByLabel('Follow-up reason *').fill('Reassessment after treatment.');
   await page.getByRole('button', { name: 'Add Prescription' }).click();
   await page.getByLabel('Medicine *').fill('E2E Salbutamol');
   await page.getByLabel('Dosage *').fill('2 puffs');
   await page.getByLabel('Instructions (optional)', { exact: true }).fill('Use every six hours as needed.');
+  await page.getByLabel('Prescription attachment (optional)').setInputFiles({
+    name: 'e2e-prescription.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\nE2E prescription attachment\n%%EOF'),
+  });
+  await expect(page.getByText('e2e-prescription.pdf')).toBeVisible();
+  await expect(page.locator('iframe[title="Preview of e2e-prescription.pdf"]')).toBeVisible();
   await page.getByRole('button', { name: 'Save Medical Record' }).click();
   await expect(page.getByRole('heading', { name: 'Medical Record Saved' })).toBeVisible();
 
   const record = await MedicalRecord.findOne({ appointment_id: appointment.appointmentId }).lean();
-  expect(record).toMatchObject({ diagnosis: 'E2E acute bronchitis', doctor_id: expect.anything(), patient_id: expect.anything() });
-  const prescription = await Prescription.findOne({ medical_record_id: record._id }).lean();
+  expect(record).toMatchObject({ diagnosis: 'E2E acute bronchitis', doctor_id: expect.anything(), patient_id: expect.anything(), follow_up_required: true, follow_up_reason: 'Reassessment after treatment.' });
+  const prescription = await Prescription.findOne({ medical_record_id: record._id }).select('+attachment_storage_file_id +attachment_sha256').lean();
   expect(prescription).toMatchObject({ medicine: 'E2E Salbutamol', dosage: '2 puffs' });
+  expect(prescription.attachment_original_filename).toBe('e2e-prescription.pdf');
+  expect(prescription.attachment_mime_type).toBe('application/pdf');
+  expect(prescription.attachment_storage_file_id).toBeTruthy();
+  expect(prescription.attachment_sha256).toMatch(/^[a-f0-9]{64}$/);
 
   const duplicate = await browserApi(page, `/api/doctor/appointments/${appointment.appointmentId}/medical-record`, {
     method: 'POST',
@@ -65,6 +83,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.getByRole('link', { name: 'Issue Medical Certificate' }).click();
   await page.getByLabel('Purpose *').selectOption('Fit to Return');
   await page.getByLabel('Recommendation *').fill('May return to regular duties on the date stated.');
+  await page.getByLabel('Valid Until *').fill(patientScenario.futureDate(7));
   await expect(page.locator('iframe[title="Draft medical certificate PDF preview"]')).toBeVisible();
   page.once('dialog', async (dialog) => {
     expect(dialog.message()).toBe('You have unsaved certificate changes. Leave without issuing?');
@@ -76,6 +95,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.getByRole('link', { name: 'Issue Medical Certificate' }).click();
   await page.getByLabel('Purpose *').selectOption('Fit to Return');
   await page.getByLabel('Recommendation *').fill('May return to regular duties on the date stated.');
+  await page.getByLabel('Valid Until *').fill(patientScenario.futureDate(7));
   await page.getByRole('button', { name: 'Issue Certificate' }).click();
   await expect(page.getByRole('heading', { name: 'Medical Certificate Issued' })).toBeVisible();
   await expect(page.getByText('Successfully issued. This certificate cannot be edited, deleted, or reissued here.')).toBeVisible();
@@ -84,6 +104,7 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await expect(issuedPreview).toHaveAttribute('src', /^blob:/);
   const certificate = await MedicalCertificate.findOne({ medical_record_id: record._id }).lean();
   expect(certificate).toMatchObject({ purpose: 'Fit to Return', purpose_code: 'Fit to Return', recommendation: 'May return to regular duties on the date stated.', status: 'issued' });
+  expect(certificate.valid_until.toISOString().slice(0, 10)).toBe(patientScenario.futureDate(7));
   expect(certificate.medical_certificate_number).toBeTruthy();
   const storedPdf = await page.request.get(`${apiURL}/api/doctor/certificates/${certificate._id}/pdf`);
   expect(storedPdf.ok()).toBe(true);
@@ -103,11 +124,27 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.getByRole('tab', { name: 'Medical Records' }).click();
   await expect(page.getByText('E2E acute bronchitis').first()).toBeVisible();
   await page.getByText('View record').click();
-  await expect(page.getByText('E2E Salbutamol')).toBeVisible();
+  await expect(page.getByText('E2E Salbutamol').first()).toBeVisible();
+  const doctorAttachmentView = page.getByRole('button', { name: 'View', exact: true });
+  await doctorAttachmentView.click();
+  await expect(page.getByRole('dialog', { name: /Prescription attachment preview/ })).toBeVisible();
+  await expect(page.locator('iframe[title="Preview of e2e-prescription.pdf"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close prescription preview' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: /Prescription attachment preview/ })).toHaveCount(0);
+  await expect(doctorAttachmentView).toBeFocused();
+  const doctorAttachmentDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download', exact: true }).click();
+  expect((await doctorAttachmentDownload).suggestedFilename()).toBe('e2e-prescription.pdf');
   await expect(page.getByRole('button', { name: /edit|delete/i })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Prescriptions' }).click();
+  await expect(page.getByText('Attachment available')).toBeVisible();
+  await expect(page.getByText('Issued · Read-only')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'E2E Salbutamol' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /edit|replace|delete/i })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Certificates' }).click();
-  await page.getByText('View certificate').click();
-  await expect(page.getByText(`Certificate No. ${certificate.medical_certificate_number}`, { exact: true })).toBeVisible();
+  await page.getByText('View Certificate').click();
+  await expect(page.locator('iframe[title="Issued medical certificate PDF"]')).toBeVisible();
   await expect(page.getByRole('button', { name: /edit|delete|reissue/i })).toHaveCount(0);
 
   await page.getByRole('tab', { name: 'Consultation' }).click();
@@ -117,6 +154,124 @@ test('Doctor completes the assigned record, Prescription, certificate, PDF, and 
   await page.reload();
   await expect(page.getByText('Completed', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark Consultation Completed' })).toHaveCount(0);
+  await logoutThroughUi(page);
+  await loginAsPatient(page, patient);
+  await page.goto('/patient/records');
+  await page.getByRole('tab', { name: 'Prescriptions' }).click();
+  await expect(page.getByRole('heading', { name: 'E2E Salbutamol' })).toBeVisible();
+  await expect(page.getByText('Attachment available')).toBeVisible();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: /Prescription attachment preview/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Close prescription preview' }).click();
+  const patientHistoryDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download', exact: true }).click();
+  expect((await patientHistoryDownload).suggestedFilename()).toBe('e2e-prescription.pdf');
+  await page.goto(`/patient/records/${record._id}`);
+  await expect(page.getByText('E2E Salbutamol')).toBeVisible();
+  const patientAttachmentDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download', exact: true }).click();
+  expect((await patientAttachmentDownload).suggestedFilename()).toBe('e2e-prescription.pdf');
+  await expect(page.getByText('Reassessment after treatment.')).toBeVisible();
+  await expect(page.getByText('Follow-up recommended — Not yet scheduled.')).toBeVisible();
+  await page.getByRole('link', { name: 'Schedule Follow-up' }).click();
+  await expect(page.getByRole('heading', { name: 'Schedule Follow-up' })).toBeVisible();
+  await page.getByRole('button', { name: formatBookingDateForTest(followUpSlot.date) }).click();
+  await page.getByRole('radio', { name: /11:00 AM/ }).check();
+  await page.getByRole('button', { name: 'Confirm Appointment' }).click();
+  await expect(page.getByRole('heading', { name: 'Appointment request created' })).toBeVisible();
+  const linked = await Appointment.findOne({ source_medical_record_id: record._id }).lean();
+  expect(linked).toMatchObject({ patient_id: expect.anything(), doctor_id: expect.anything(), visit_type: 'follow_up', status: 'pending' });
+  expect((await MedicalRecord.findById(record._id).lean()).follow_up_recommended_date.toISOString().slice(0, 10)).toBe(followUpSlot.date);
+  await logoutThroughUi(page);
+  await loginAsPatient(page, otherPatient);
+  const deniedAttachment = await page.request.get(`${apiURL}/api/patient/prescriptions/${prescription._id}/attachment`);
+  expect(deniedAttachment.status()).toBe(404);
+  assertBrowserClean();
+});
+
+test('Doctor and Patient prescription history distinguish digital-only, attachment-only, and empty states', async ({ page, patientScenario, seededDoctor }) => {
+  const patient = await patientScenario.createPatient();
+  const appointment = await patientScenario.createAppointment({ patient, doctor: seededDoctor, slot: patientScenario.slotFor(patientScenario.futureDate(1), '14:00'), status: 'completed', check_in_at: new Date() });
+  const record = await patientScenario.createRecord({ patient, doctor: seededDoctor, appointment, diagnosis: 'Prescription history variants', prescriptions: false });
+  await Prescription.create({ medical_record_id: record.recordId, medicine: 'E2E Digital Medicine', dosage: '5 mg', instructions: 'Once daily.' });
+  const bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1]);
+  const storage = createGridFsPrescriptionAttachmentStorage();
+  const stored = await storage.upload({ buffer: bytes, originalname: 'attachment-only.png', mimetype: 'image/png', size: bytes.length });
+  await Prescription.create({ medical_record_id: record.recordId, medicine: null, dosage: null, instructions: null, attachment_storage_file_id: stored.storageFileId, attachment_mime_type: 'image/png', attachment_file_size: bytes.length, attachment_original_filename: 'attachment-only.png', attachment_sha256: createHash('sha256').update(bytes).digest('hex'), attachment_uploaded_at: new Date() });
+  const emptyPatient = await patientScenario.createPatient();
+  await patientScenario.createAppointment({ patient: emptyPatient, doctor: seededDoctor, slot: patientScenario.slotFor(patientScenario.futureDate(2), '14:00'), status: 'confirmed' });
+
+  await loginAsDoctor(page, seededDoctor);
+  await page.goto(`/doctor/patients/${patient.patientId}`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('tab', { name: 'Prescriptions' }).click();
+  await expect(page.getByRole('heading', { name: 'E2E Digital Medicine' })).toBeVisible();
+  await expect(page.getByText('Attached prescription')).toBeVisible();
+  await expect(page.getByText('Attachment available')).toBeVisible();
+  await page.goto(`/doctor/patients/${emptyPatient.patientId}`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('tab', { name: 'Prescriptions' }).click();
+  await expect(page.getByText('No prescriptions have been issued for this Patient.')).toBeVisible();
+
+  await logoutThroughUi(page);
+  await loginAsPatient(page, patient);
+  await page.goto('/patient/records', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('tab', { name: 'Prescriptions' }).click();
+  await expect(page.getByRole('heading', { name: 'E2E Digital Medicine' })).toBeVisible();
+  await expect(page.getByText('Attached prescription')).toBeVisible();
+});
+
+test('Doctor filters Active and Expired certificate history while retaining read-only preview access', async ({ page, patientScenario, seededDoctor }) => {
+  const assertBrowserClean = observeBrowser(page);
+  const patient = await patientScenario.createPatient();
+  const certificates = [];
+  for (const [index, purpose, dateIssued, validUntil] of [
+    [0, 'Active Doctor history', patientScenario.futureDate(-3), patientScenario.futureDate(3)],
+    [1, 'Expired Doctor history', patientScenario.futureDate(-8), patientScenario.futureDate(-1)],
+    [2, 'Legacy Doctor history', patientScenario.futureDate(-12), null],
+  ]) {
+    const appointment = await patientScenario.createAppointment({
+      patient,
+      doctor: seededDoctor,
+      slot: patientScenario.slotFor(patientScenario.futureDate(index + 1), `${10 + index}:00`),
+      status: 'completed',
+      check_in_at: new Date(),
+    });
+    const record = await patientScenario.createRecord({ patient, doctor: seededDoctor, appointment, diagnosis: `${purpose} diagnosis`, prescriptions: false });
+    certificates.push(await patientScenario.createCertificate({ patient, doctor: seededDoctor, record, purpose, dateIssued, validUntil }));
+  }
+
+  await loginAsDoctor(page, seededDoctor);
+  await page.goto(`/doctor/patients/${patient.patientId}`);
+  await page.getByRole('tab', { name: 'Certificates' }).click();
+  await expect(page.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+  for (const purpose of ['Active Doctor history', 'Expired Doctor history', 'Legacy Doctor history']) await expect(page.getByText(purpose)).toBeVisible();
+
+  for (const [filter, visible, hidden] of [
+    ['Active', 'Active Doctor history', 'Expired Doctor history'],
+    ['Expired', 'Expired Doctor history', 'Legacy Doctor history'],
+  ]) {
+    await page.getByRole('button', { name: filter, exact: true }).click();
+    await expect(page.getByRole('button', { name: filter, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText(visible)).toBeVisible();
+    await expect(page.getByText(hidden)).toHaveCount(0);
+  }
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page.getByText('No validity date recorded')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Legacy', exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Expired', exact: true }).click();
+  await page.getByText('View Certificate').click();
+  await expect(page.locator('iframe[title="Issued medical certificate PDF"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download PDF' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /edit|extend|delete|reissue/i })).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 720 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  const otherDoctor = await patientScenario.createDoctor();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await logoutThroughUi(page);
+  await loginAsDoctor(page, otherDoctor);
+  const denied = await page.request.get(`${apiURL}/api/doctor/certificates/${certificates[1].certificateId}/pdf`);
+  expect(denied.status()).toBe(404);
   assertBrowserClean();
 });
 

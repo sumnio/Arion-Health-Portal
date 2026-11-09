@@ -39,6 +39,7 @@ export function errorHandler(error, request, response, _next) {
     error: {
       code: error.code || (status === 500 ? 'INTERNAL_SERVER_ERROR' : 'REQUEST_ERROR'),
       message: status === 500 ? 'An unexpected server error occurred.' : error.message,
+      ...(status !== 500 && error.details !== undefined ? { details: error.details } : {}),
     },
   });
 }

@@ -17,6 +17,7 @@ import {
   Notification,
   PasswordResetToken,
   Patient,
+  PwdVerification,
   Prescription,
   Staff,
   UserProfile,
@@ -36,6 +37,7 @@ test('all domain models load with their intended collection names', () => {
       EmailVerificationChallenge,
       PasswordResetToken,
       Patient,
+      PwdVerification,
       Doctor,
       Staff,
       Appointment,
@@ -55,6 +57,7 @@ test('all domain models load with their intended collection names', () => {
       'email_verification_challenges',
       'password_reset_tokens',
       'patients',
+      'pwd_verifications',
       'doctors',
       'staff',
       'appointments',
@@ -195,6 +198,38 @@ test('supporting document metadata is bounded and declares appointment slot owne
   }).validate());
   assert.ok(indexByName(ConsultationSupportingDocument, 'unique_supporting_document_slot'));
   assert.ok(indexByName(ConsultationSupportingDocument, 'patient_appointment_supporting_documents'));
+});
+
+test('PWD verification keeps one private bounded record per Patient with review-ready states', async () => {
+  const valid = new PwdVerification({
+    patient_id: objectId(),
+    front_storage_file_id: objectId(),
+    front_stored_filename: 'front.png',
+    front_mime_type: 'image/png',
+    front_file_size: 128,
+    front_document_sha256: 'a'.repeat(64),
+    back_storage_file_id: objectId(),
+    back_stored_filename: 'back.jpg',
+    back_mime_type: 'image/jpeg',
+    back_file_size: 256,
+    back_document_sha256: 'b'.repeat(64),
+    status: 'pending',
+    submitted_at: new Date(),
+  });
+  await valid.validate();
+  valid.status = 'verified'; await valid.validate();
+  valid.status = 'rejected'; await valid.validate();
+  valid.review_history.push({ action: 'rejected', reviewed_by: objectId(), reviewed_at: new Date(), rejection_reason: 'Document unreadable.' });
+  await valid.validate();
+  valid.status = 'self_declared';
+  await assert.rejects(valid.validate(), /status/);
+  assert.equal(PwdVerification.schema.path('pwd_id_number').options.select, false);
+  assert.equal(PwdVerification.schema.path('storage_file_id').options.select, false);
+  assert.equal(PwdVerification.schema.path('front_storage_file_id').options.select, false);
+  assert.equal(PwdVerification.schema.path('back_storage_file_id').options.select, false);
+  assert.equal(PwdVerification.schema.path('review_history').options.select, false);
+  assert.ok(PwdVerification.schema.indexes().some(([fields, options]) => fields.patient_id === 1 && options.unique === true));
+  assert.ok(indexByName(PwdVerification, 'pwd_verification_pending_queue'));
 });
 
 test('UserProfile accepts approved roles and statuses', async () => {
@@ -347,11 +382,22 @@ test('MedicalRecord supports a null appointment for an exceptional manual record
   assert.equal(record.appointment_id, null);
 });
 
-test('Prescription requires its MedicalRecord relation, medicine, and dosage', async () => {
+test('Prescription requires its MedicalRecord relation and accepts structured details or a private attachment', async () => {
   await assert.rejects(
     new Prescription({ instructions: 'After meals' }).validate(),
     /required/i,
   );
+  const attachmentOnly = new Prescription({
+    medical_record_id: objectId(),
+    attachment_storage_file_id: objectId(),
+    attachment_mime_type: 'application/pdf',
+    attachment_file_size: 100,
+    attachment_original_filename: 'prescription.pdf',
+    attachment_sha256: 'a'.repeat(64),
+    attachment_uploaded_at: new Date(),
+  });
+  await attachmentOnly.validate();
+  assert.equal(attachmentOnly.medicine, null);
 });
 
 test('MedicalCertificate rejects valid_until before date_issued', async () => {

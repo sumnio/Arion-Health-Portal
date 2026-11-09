@@ -24,7 +24,7 @@ test('new records and certificates appear without allowing duplicate record crea
  const selection={appointmentId:'70000000-0000-4000-8000-000000000011',date:clinicToday()};
  assert(doctorPatientService.get(patient(1),selection).canAddRecord);
  const record=doctorRecordService.save(patient(1),selection,{diagnosis:'Mock diagnosis',notes:'Mock notes',follow_up:'Mock follow-up',encounter_at:clinicToday()+'T13:00',prescriptions:[{medicine:'Mock medicine',dosage:'Mock dosage',instructions:'Mock instructions'}]}).record;
- const certificate=doctorCertificateService.issue(record.id,{purpose:'Mock purpose',diagnosis_summary:record.diagnosis,date_issued:clinicToday(),valid_until:''},'history-test').certificate;
+ const certificate=doctorCertificateService.issue(record.id,{purpose:'Mock purpose',diagnosis_summary:record.diagnosis,date_issued:clinicToday(),valid_until:'2099-12-31'},'history-test').certificate;
  const data=history.get(patient(1));
  const saved=data.records.find(item=>item.id===record.id);
  assert.equal(saved.prescriptions[0].medical_record_id,record.id);

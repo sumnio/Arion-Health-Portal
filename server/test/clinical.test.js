@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { Readable } from 'node:stream';
 import { createApp } from '../src/app.js';
@@ -19,7 +20,7 @@ const ids = {
 
 function clone(value) { return value == null ? value : structuredClone(value); }
 
-function createContext({ certificateIssuanceEnabled = true, notificationTriggers, smsReminders, doctorStatus = 'active', missingSignature = false } = {}) {
+function createContext({ certificateIssuanceEnabled = true, notificationTriggers, smsReminders, doctorStatus = 'active', missingSignature = false, prescriptionStorageFailure = false } = {}) {
   const profiles = new Map([
     [ids.patientProfile, { user_profile_id: ids.patientProfile, display_name: 'Alex Patient', role: 'patient', status: 'active' }],
     [ids.otherPatientProfile, { user_profile_id: ids.otherPatientProfile, display_name: 'Other Patient', role: 'patient', status: 'active' }],
@@ -53,6 +54,7 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
   const prescriptions = new Map();
   const certificates = new Map();
   const certificateArtifacts = new Map();
+  const prescriptionAttachments = new Map();
   const certificateRuntime = { numberCalls: 0, renders: [] };
   const priorityAudits = [{ _id: '800000000000000000000001', appointment_id: ids.confirmed, previous_priority: 'normal', new_priority: 'urgent', urgency_reason: 'Severe pain or discomfort', explanation: null, correction_reason: null, staff_actor_user_profile_id: { _id: ids.staffProfile, display_name: 'Staff' }, created_at: new Date('2026-09-25T01:50:00Z') }];
   let sequence = 100;
@@ -92,7 +94,7 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
       if ([...records.values()].some((item) => item.appointment_id === String(data.appointment_id))) throw Object.assign(new Error('duplicate'), { code: 11000 });
       const record = { _id: nextId(), ...clone(data), patient_id: String(data.patient_id), doctor_id: String(data.doctor_id), appointment_id: String(data.appointment_id), created_at: new Date(), updated_at: new Date() };
       records.set(record._id, record);
-      const made = inputs.map((item) => { const value = { _id: nextId(), medical_record_id: record._id, ...clone(item) }; prescriptions.set(value._id, value); return value; });
+      const made = inputs.map((item) => { const value = { _id: nextId(), medical_record_id: record._id, ...clone(item), created_at: new Date(), updated_at: new Date() }; prescriptions.set(value._id, value); return value; });
       return { record: clone(record), prescriptions: clone(made) };
     },
     async listRecordsForPatient(patientId) { return [...records.values()].filter((item) => item.patient_id === String(patientId)).map(populateRecord); },
@@ -100,15 +102,49 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
     async listRecordsForDoctorPatient(doctorId, patientId) { return [...records.values()].filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId)).map(populateRecord); },
     async findRecordForDoctor(recordId, doctorId) { const item = records.get(String(recordId)); return item?.doctor_id === String(doctorId) ? populateRecord(item) : null; },
     async listPrescriptions(recordId) { return [...prescriptions.values()].filter((item) => item.medical_record_id === String(recordId)).map(clone); },
+    async findPrescriptionWithRecord(prescriptionId) {
+      const item = prescriptions.get(String(prescriptionId));
+      if (!item) return null;
+      const record = records.get(String(item.medical_record_id));
+      return { ...clone(item), medical_record_id: record ? { _id: record._id, patient_id: record.patient_id, doctor_id: record.doctor_id, appointment_id: record.appointment_id } : null };
+    },
+    async listPrescriptionsForDoctorPatient(doctorId, patientId, { page, limit }) {
+      const matchingRecordIds = new Set([...records.values()].filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId)).map((item) => item._id));
+      const matching = [...prescriptions.values()].filter((item) => matchingRecordIds.has(item.medical_record_id)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || String(b._id).localeCompare(String(a._id)));
+      return { items: matching.slice((page - 1) * limit, page * limit).map((item) => { const record = records.get(item.medical_record_id); return { ...clone(item), medical_record_id: { ...clone(record), appointment_id: clone(appointments.get(record.appointment_id)) } }; }), total: matching.length };
+    },
+    async listPrescriptionsForPatient(patientId, { page, limit }) {
+      const matchingRecordIds = new Set([...records.values()].filter((item) => item.patient_id === String(patientId)).map((item) => item._id));
+      const matching = [...prescriptions.values()].filter((item) => matchingRecordIds.has(item.medical_record_id)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || String(b._id).localeCompare(String(a._id)));
+      return { items: matching.slice((page - 1) * limit, page * limit).map((item) => { const record = records.get(item.medical_record_id); return { ...clone(item), medical_record_id: { ...clone(record), doctor_id: clone(doctors.get(record.doctor_id)), appointment_id: clone(appointments.get(record.appointment_id)) } }; }), total: matching.length };
+    },
     async createCertificate(data) {
       if (this.failCertificateDuplicates-- > 0 || [...certificates.values()].some((item) => item.medical_certificate_number === data.medical_certificate_number)) throw Object.assign(new Error('duplicate'), { code: 11000 });
       const value = { _id: nextId(), ...clone(data), patient_id: String(data.patient_id), doctor_id: String(data.doctor_id), medical_record_id: String(data.medical_record_id), created_at: new Date(), updated_at: new Date() };
       certificates.set(value._id, value); return clone(value);
     },
-    async listIssuedCertificatesForPatient(patientId) { return [...certificates.values()].filter((item) => item.patient_id === String(patientId) && item.status === 'issued').map(populateCertificate); },
+    async listIssuedCertificatesForPatient(patientId, { view, boundary, page, limit }) {
+      const matching = [...certificates.values()]
+        .filter((item) => item.patient_id === String(patientId) && item.status === 'issued')
+        .filter((item) => {
+          if (!item.valid_until) return view === 'active';
+          return view === 'archived' ? new Date(item.valid_until) < boundary : new Date(item.valid_until) >= boundary;
+        })
+        .sort((a, b) => new Date(b.date_issued) - new Date(a.date_issued) || String(b._id).localeCompare(String(a._id)));
+      return { items: matching.slice((page - 1) * limit, page * limit).map(populateCertificate), total: matching.length };
+    },
     async findIssuedCertificateForPatient(id, patientId) { const item = certificates.get(String(id)); return item?.patient_id === String(patientId) && item.status === 'issued' ? populateCertificate(item) : null; },
     async findCertificateForDoctor(id, doctorId) { const item = certificates.get(String(id)); return item?.doctor_id === String(doctorId) ? populateCertificate(item) : null; },
-    async listIssuedCertificatesForDoctorPatient(doctorId, patientId) { return [...certificates.values()].filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId) && item.status === 'issued').map(populateCertificate); },
+    async listIssuedCertificatesForDoctorPatient(doctorId, patientId, { status, boundary, page, limit }) {
+      const matching = [...certificates.values()]
+        .filter((item) => item.doctor_id === String(doctorId) && item.patient_id === String(patientId) && item.status === 'issued')
+        .filter((item) => status === 'all'
+          || (status === 'legacy' && !item.valid_until)
+          || (status === 'active' && item.valid_until && new Date(item.valid_until) >= boundary)
+          || (status === 'expired' && item.valid_until && new Date(item.valid_until) < boundary))
+        .sort((a, b) => new Date(b.date_issued) - new Date(a.date_issued) || String(b._id).localeCompare(String(a._id)));
+      return { items: matching.slice((page - 1) * limit, page * limit).map(populateCertificate), total: matching.length };
+    },
     async completeConfirmedCheckedIn(id, doctorId) { const item = appointments.get(String(id)); if (!item || item.doctor_id !== String(doctorId) || item.status !== 'confirmed' || !item.check_in_at) return null; item.status = 'completed'; return clone(item); },
   };
   const tokens = createTokenService(SECRET);
@@ -120,10 +156,20 @@ function createContext({ certificateIssuanceEnabled = true, notificationTriggers
     openDownload(storageFileId) { return Readable.from(certificateArtifacts.get(String(storageFileId))); },
     async delete(storageFileId) { certificateArtifacts.delete(String(storageFileId)); },
   };
-  const pdfRenderer = (certificate, { signatureBuffer, signatureMissingText }) => { certificateRuntime.renders.push(clone(certificate)); return Buffer.from(`%PDF-1.4\n${certificate.medical_certificate_number}\n${certificate.patient_name}\n${signatureBuffer?.toString() ?? signatureMissingText ?? 'legacy-no-signature'}\n%%EOF\n`); };
-  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City', timeZone: 'Asia/Manila' }, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, pdfRenderer, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => { certificateRuntime.numberCalls += 1; return 'AHC-20260925-ABCDEF12'; }, certificateIssuanceEnabled });
+  const prescriptionAttachmentStorage = {
+    async upload(file) {
+      if (prescriptionStorageFailure) throw new Error('storage unavailable');
+      const storageFileId = nextId();
+      prescriptionAttachments.set(storageFileId, Buffer.from(file.buffer));
+      return { storageFileId };
+    },
+    openDownload(storageFileId) { return Readable.from(prescriptionAttachments.get(String(storageFileId))); },
+    async delete(storageFileId) { prescriptionAttachments.delete(String(storageFileId)); },
+  };
+  const pdfRenderer = (certificate, { signatureBuffer, signatureMissingText }) => { certificateRuntime.renders.push(clone(certificate)); return Buffer.from(`%PDF-1.4\n${certificate.medical_certificate_number}\n${certificate.patient_name}\nValid Until: ${certificate.valid_until ?? 'legacy'}\n${signatureBuffer?.toString() ?? signatureMissingText ?? 'legacy-no-signature'}\n%%EOF\n`); };
+  const clinicalModule = createClinicalModule({ repository, clinic: { name: 'Arion Health Clinic', location: 'Quezon City', timeZone: 'Asia/Manila' }, notificationTriggers, smsReminders, doctorSignatureService, certificateArtifactStorage, prescriptionAttachmentStorage, pdfRenderer, now: () => new Date('2026-09-25T02:15:00Z'), numberGenerator: () => { certificateRuntime.numberCalls += 1; return 'AHC-20260925-ABCDEF12'; }, certificateIssuanceEnabled });
   const app = createApp({ nodeEnv: 'test', authSecret: SECRET }, { authModule, clinicalModule });
-  return { app, appointments, records, prescriptions, certificates, certificateArtifacts, certificateRuntime, signatureState, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
+  return { app, appointments, records, prescriptions, prescriptionAttachments, certificates, certificateArtifacts, certificateRuntime, signatureState, priorityAudits, repository, cookie: (profileId) => `arion_auth=${tokens.sign(profileId, { mfaVerified: profiles.get(String(profileId))?.role === 'admin' })}` };
 }
 
 async function withServer(app, callback) {
@@ -131,7 +177,7 @@ async function withServer(app, callback) {
   await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
   try { await callback(`http://127.0.0.1:${server.address().port}`); } finally { await new Promise((resolve) => server.close(resolve)); }
 }
-function request(base, path, { method = 'GET', cookie, body } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }); }
+function request(base, path, { method = 'GET', cookie, body, formData } = {}) { return fetch(`${base}${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: formData ?? (body ? JSON.stringify(body) : undefined) }); }
 const recordBody = { diagnosis: 'Viral upper respiratory infection', notes: 'Rest advised', follow_up: 'Return in seven days', prescriptions: [{ medicine: 'Paracetamol', dosage: '500 mg', instructions: 'Every six hours as needed' }] };
 const certificateBody = { purpose: 'Fit to Return', diagnosis_summary: 'Recovered from viral infection', recommendation: 'May return to regular duties.', valid_until: '2026-10-02' };
 
@@ -146,6 +192,160 @@ async function createRecord(context, base, appointmentId = ids.confirmed) {
 
 test('Doctor creates an assigned MedicalRecord and linked Prescription', async () => {
   const context = createContext(); await withServer(context.app, async (base) => { const { response, body } = await createRecord(context, base); assert.equal(response.status, 201); assert.equal(body.medical_record.diagnosis, recordBody.diagnosis); assert.equal(body.medical_record.prescriptions[0].medicine, 'Paracetamol'); assert.equal(context.records.size, 1); assert.equal(context.prescriptions.size, 1); });
+});
+
+function attachmentForm(payload, bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1]), { name = 'prescription.png', type = 'image/png' } = {}) {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+  formData.append('attachments', new Blob([bytes], { type }), name);
+  return formData;
+}
+
+test('Doctor saves an attachment-only prescription and owning Doctor and Patient can download it', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const payload = { diagnosis: 'Attachment prescription', prescriptions: [{ medicine: null, dosage: null, instructions: null, attachment_index: 0 }] };
+    const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), formData: attachmentForm(payload) });
+    const body = await response.json();
+    assert.equal(response.status, 201);
+    const prescription = body.medical_record.prescriptions[0];
+    assert.equal(prescription.medicine, null);
+    assert.equal(prescription.attachment_available, true);
+    assert.equal(prescription.attachment.filename, 'prescription.png');
+    assert.equal('attachment_storage_file_id' in prescription, false);
+    assert.equal('attachment_sha256' in prescription, false);
+    const doctorDownload = await request(base, `/api/doctor/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(ids.doctorProfile) });
+    assert.equal(doctorDownload.status, 200);
+    assert.equal(doctorDownload.headers.get('content-type'), 'image/png');
+    assert.equal((await doctorDownload.arrayBuffer()).byteLength, 9);
+    assert.equal((await request(base, `/api/doctor/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 404);
+    assert.equal((await request(base, `/api/patient/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(ids.patientProfile) })).status, 200);
+    assert.equal((await request(base, `/api/patient/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(ids.otherPatientProfile) })).status, 404);
+    for (const profile of [ids.staffProfile, ids.adminProfile]) {
+      assert.equal((await request(base, `/api/doctor/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(profile) })).status, 403);
+      assert.equal((await request(base, `/api/patient/prescriptions/${prescription.id}/attachment`, { cookie: context.cookie(profile) })).status, 403);
+    }
+  });
+});
+
+test('Doctor and Patient receive paginated newest-first prescription history without private storage references', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const payload = { diagnosis: 'Prescription history', prescriptions: [{ medicine: 'Newest medicine', dosage: '10 mg', instructions: 'Once daily', attachment_index: 0 }] };
+    const created = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), formData: attachmentForm(payload) });
+    assert.equal(created.status, 201);
+    const createdBody = await created.json();
+    const prescriptionId = createdBody.medical_record.prescriptions[0].id;
+    const recordId = createdBody.medical_record.id;
+    for (let index = 0; index < 5; index += 1) {
+      const itemId = (500 + index).toString(16).padStart(24, '0');
+      context.prescriptions.set(itemId, { _id: itemId, medical_record_id: recordId, medicine: `Older medicine ${index + 1}`, dosage: '5 mg', instructions: null, created_at: new Date(`2026-09-2${index}T02:00:00Z`), updated_at: new Date() });
+    }
+
+    const doctorResponse = await request(base, `/api/doctor/patients/${ids.patient}/prescriptions?page=1`, { cookie: context.cookie(ids.doctorProfile) });
+    const doctorBody = await doctorResponse.json();
+    assert.equal(doctorResponse.status, 200);
+    assert.equal(doctorBody.prescriptions.length, 5);
+    assert.equal(doctorBody.pagination.total, 6);
+    assert.equal(doctorBody.pagination.page_count, 2);
+    assert.equal(doctorBody.prescriptions[0].medicine, 'Newest medicine');
+    assert.equal(doctorBody.prescriptions[0].medical_record.id, recordId);
+    assert.equal(doctorBody.prescriptions[0].medical_record.appointment.id, ids.confirmed);
+    assert.equal(JSON.stringify(doctorBody).includes('attachment_storage_file_id'), false);
+    assert.equal(JSON.stringify(doctorBody).includes('attachment_sha256'), false);
+
+    const patientResponse = await request(base, '/api/patient/prescriptions?page=2', { cookie: context.cookie(ids.patientProfile) });
+    const patientBody = await patientResponse.json();
+    assert.equal(patientResponse.status, 200);
+    assert.equal(patientBody.prescriptions.length, 1);
+    assert.equal(patientBody.pagination.page, 2);
+    assert.equal(patientBody.prescriptions[0].doctor.display_name, 'Dr. Maria Santos');
+    assert.equal((await request(base, `/api/doctor/patients/${ids.patient}/prescriptions`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 200);
+    assert.equal((await (await request(base, `/api/doctor/patients/${ids.patient}/prescriptions`, { cookie: context.cookie(ids.otherDoctorProfile) })).json()).prescriptions.length, 0);
+    assert.equal((await request(base, '/api/patient/prescriptions', { cookie: context.cookie(ids.otherPatientProfile) })).status, 200);
+    assert.equal((await (await request(base, '/api/patient/prescriptions', { cookie: context.cookie(ids.otherPatientProfile) })).json()).prescriptions.length, 0);
+    assert.equal((await request(base, '/api/patient/prescriptions')).status, 401);
+    for (const profile of [ids.staffProfile, ids.adminProfile]) {
+      assert.equal((await request(base, '/api/patient/prescriptions', { cookie: context.cookie(profile) })).status, 403);
+    }
+
+    const inline = await request(base, `/api/patient/prescriptions/${prescriptionId}/attachment?disposition=inline`, { cookie: context.cookie(ids.patientProfile) });
+    assert.equal(inline.status, 200);
+    assert.equal(inline.headers.get('content-type'), 'image/png');
+    assert.match(inline.headers.get('content-disposition'), /^inline;/);
+    assert.match(inline.headers.get('content-disposition'), /prescription\.png/);
+    const download = await request(base, `/api/doctor/prescriptions/${prescriptionId}/attachment`, { cookie: context.cookie(ids.doctorProfile) });
+    assert.match(download.headers.get('content-disposition'), /^attachment;/);
+  });
+});
+
+test('prescription attachment validation rejects spoofed, empty, oversized, duplicate, and unreferenced files', async () => {
+  const cases = [
+    { expected: 400, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }] }, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), { name: 'fake.jpg', type: 'image/jpeg' }) },
+    { expected: 400, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }] }, Buffer.alloc(0), { name: 'empty.png', type: 'image/png' }) },
+    { expected: 413, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }] }, Buffer.alloc((5 * 1024 * 1024) + 1), { name: 'large.png', type: 'image/png' }) },
+    { expected: 400, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }, { attachment_index: 0 }] }) },
+    { expected: 400, form: () => attachmentForm({ diagnosis: 'Test', prescriptions: [{ medicine: 'Medicine', dosage: 'Dose' }] }) },
+  ];
+  for (const item of cases) {
+    const context = createContext();
+    await withServer(context.app, async (base) => {
+      const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), formData: item.form() });
+      assert.equal(response.status, item.expected);
+      assert.equal(context.records.size, 0);
+      assert.equal(context.prescriptionAttachments.size, 0);
+    });
+  }
+});
+
+test('prescription attachment storage and record failures clean up without partial clinical data', async () => {
+  for (const storageFailure of [true, false]) {
+    const context = createContext({ prescriptionStorageFailure: storageFailure });
+    if (!storageFailure) context.repository.createRecordWithPrescriptions = async () => { throw new Error('record failure'); };
+    await withServer(context.app, async (base) => {
+      const payload = { diagnosis: 'Test', prescriptions: [{ attachment_index: 0 }] };
+      const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), formData: attachmentForm(payload) });
+      assert.equal(response.status, storageFailure ? 503 : 500);
+      assert.equal(context.records.size, 0);
+      assert.equal(context.prescriptionAttachments.size, 0);
+    });
+  }
+});
+
+test('Doctor saves an immutable structured follow-up recommendation visible to the owning Patient', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const body = {
+      ...recordBody,
+      follow_up_required: true,
+      follow_up_recommended_date: '2026-09-26',
+      follow_up_reason: 'Reassessment after treatment.',
+    };
+    const created = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body });
+    assert.equal(created.status, 201);
+    const record = (await created.json()).medical_record;
+    assert.equal(record.follow_up_required, true);
+    assert.equal(record.follow_up_recommended_date, '2026-09-26');
+    assert.equal(record.follow_up_reason, 'Reassessment after treatment.');
+    const patientRead = await request(base, `/api/patient/records/${record.id}`, { cookie: context.cookie(ids.patientProfile) });
+    assert.equal(patientRead.status, 200);
+    assert.equal((await patientRead.json()).medical_record.follow_up_reason, 'Reassessment after treatment.');
+    assert.equal((await request(base, `/api/doctor/records/${record.id}`, { method: 'PATCH', cookie: context.cookie(ids.doctorProfile), body: { follow_up_reason: 'Changed' } })).status, 404);
+  });
+});
+
+test('follow-up recommendation requires a reason and a date on or after the consultation date', async () => {
+  for (const body of [
+    { ...recordBody, follow_up_required: true, follow_up_reason: 'Review' },
+    { ...recordBody, follow_up_required: true, follow_up_recommended_date: '2026-09-26' },
+    { ...recordBody, follow_up_required: true, follow_up_recommended_date: '2026-09-24', follow_up_reason: 'Review' },
+  ]) {
+    const context = createContext();
+    await withServer(context.app, async (base) => {
+      const response = await request(base, `/api/doctor/appointments/${ids.confirmed}/medical-record`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body });
+      assert.equal(response.status, 400);
+    });
+  }
 });
 
 test('record creation derives Patient and Doctor and rejects client ownership fields', async () => {
@@ -170,7 +370,7 @@ test('Patient reads own records with prescriptions but not another Patient recor
 
 test('Doctor reads only own consultation records', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const id = created.body.medical_record.id; assert.equal((await request(base, `/api/doctor/patients/${ids.patient}/records`, { cookie: context.cookie(ids.doctorProfile) })).status, 200); assert.equal((await request(base, `/api/doctor/records/${id}`, { cookie: context.cookie(ids.doctorProfile) })).status, 200); assert.equal((await request(base, `/api/doctor/records/${id}`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 404); }); });
 
-test('Doctor issues a server-numbered certificate with structured content and trusted dates', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: { ...certificateBody, medical_certificate_number: 'CLIENT' } }); assert.equal(response.status, 400); const issued = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody }); const body = await issued.json(); assert.equal(issued.status, 201); assert.equal(body.medical_certificate.medical_certificate_number, 'AHC-20260925-ABCDEF12'); assert.equal(body.medical_certificate.status, 'issued'); assert.equal(body.medical_certificate.date_issued, '2026-09-25'); assert.equal(body.medical_certificate.consultation_date, '2026-09-25'); assert.equal(body.medical_certificate.purpose_code, 'Fit to Return'); assert.equal(body.medical_certificate.recommendation, certificateBody.recommendation); assert.match(body.medical_certificate.statement, /may return to regular duties as stated in the recommendation below/); assert.equal(body.medical_certificate.doctor.license_number, 'LIC-100'); assert.equal(body.medical_certificate.doctor.ptr_number, 'PTR-100'); assert.equal(body.medical_certificate.doctor.signature_available, true); assert.equal('signature_path' in body.medical_certificate.doctor, false); assert.equal(body.medical_certificate.clinic.location, 'Quezon City'); for (const excluded of ['notes', 'prescriptions', 'supporting_documents']) assert.equal(excluded in body.medical_certificate, false); }); });
+test('Doctor issues a server-numbered certificate with structured content and trusted dates', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: { ...certificateBody, medical_certificate_number: 'CLIENT' } }); assert.equal(response.status, 400); const issued = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody }); const body = await issued.json(); assert.equal(issued.status, 201); assert.equal(body.medical_certificate.medical_certificate_number, 'AHC-20260925-ABCDEF12'); assert.equal(body.medical_certificate.status, 'issued'); assert.equal(body.medical_certificate.validity_status, 'active'); assert.equal(body.medical_certificate.date_issued, '2026-09-25'); assert.equal(body.medical_certificate.valid_until, '2026-10-02'); assert.equal(body.medical_certificate.consultation_date, '2026-09-25'); assert.equal(body.medical_certificate.purpose_code, 'Fit to Return'); assert.equal(body.medical_certificate.recommendation, certificateBody.recommendation); assert.match(body.medical_certificate.statement, /may return to regular duties as stated in the recommendation below/); assert.equal(body.medical_certificate.doctor.license_number, 'LIC-100'); assert.equal(body.medical_certificate.doctor.ptr_number, 'PTR-100'); assert.equal(body.medical_certificate.doctor.signature_available, true); assert.equal('signature_path' in body.medical_certificate.doctor, false); assert.equal(body.medical_certificate.clinic.location, 'Quezon City'); for (const excluded of ['notes', 'prescriptions', 'supporting_documents']) assert.equal(excluded in body.medical_certificate, false); }); });
 
 test('new issuance requires a configured Doctor signature and stores no partial artifact', async () => {
   const context = createContext({ missingSignature: true });
@@ -191,7 +391,7 @@ test('Doctor draft preview is owner-scoped, branded-state ready, and completely 
     const bytes = Buffer.from(await preview.arrayBuffer());
     assert.equal(preview.status, 200); assert.equal(preview.headers.get('content-type'), 'application/pdf');
     assert.match(preview.headers.get('cache-control'), /private/); assert.match(preview.headers.get('content-disposition'), /^inline/);
-    assert.match(bytes.toString(), /DRAFT PREVIEW/); assert.equal(context.certificateRuntime.renders.at(-1).doctor_name, 'Dr. Maria Santos'); assert.match(bytes.toString(), /immutable-signature-v1/);
+    assert.match(bytes.toString(), /DRAFT PREVIEW/); assert.match(bytes.toString(), /Valid Until: 2026-10-02/); assert.equal(context.certificateRuntime.renders.at(-1).doctor_name, 'Dr. Maria Santos'); assert.match(bytes.toString(), /immutable-signature-v1/);
     assert.equal(context.certificates.size, 0); assert.equal(context.certificateArtifacts.size, 0); assert.equal(context.certificateRuntime.numberCalls, 0);
     assert.equal((await request(base, path, { method: 'POST', cookie: context.cookie(ids.otherDoctorProfile), body: certificateBody })).status, 404);
     for (const profile of [ids.patientProfile, ids.staffProfile, ids.adminProfile]) assert.equal((await request(base, path, { method: 'POST', cookie: context.cookie(profile), body: certificateBody })).status, 403);
@@ -227,6 +427,7 @@ test('immutable PDF artifact is owner-scoped and survives current-signature repl
     const first = await request(base, `/api/doctor/certificates/${certificate.id}/pdf`, { cookie: context.cookie(ids.doctorProfile) });
     const original = Buffer.from(await first.arrayBuffer()); assert.equal(first.status, 200); assert.equal(first.headers.get('content-type'), 'application/pdf');
     assert.match(first.headers.get('cache-control'), /private/); assert.ok(first.headers.get('etag')?.startsWith('"sha256-'));
+    assert.equal(context.certificates.get(certificate.id).pdf_sha256, createHash('sha256').update(original).digest('hex'));
     context.signatureState.current = Buffer.from('immutable-signature-v2');
     const second = await request(base, `/api/patient/certificates/${certificate.id}/pdf`, { cookie: context.cookie(ids.patientProfile) });
     assert.deepEqual(Buffer.from(await second.arrayBuffer()), original);
@@ -252,6 +453,134 @@ test('restricted Production certificate issuance fails closed through the direct
 
 test('certificate number collisions retry and then return controlled conflict', async () => { const context = createContext(); context.repository.failCertificateDuplicates = 3; await withServer(context.app, async (base) => { const created = await createRecord(context, base); const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: certificateBody }); assert.equal(response.status, 409); assert.equal((await response.json()).error.code, 'CERTIFICATE_NUMBER_CONFLICT'); }); });
 test('valid_until before the server issue date is rejected', async () => { const context = createContext(); await withServer(context.app, async (base) => { const created = await createRecord(context, base); const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: { ...certificateBody, valid_until: '2026-09-24' } }); assert.equal(response.status, 400); }); });
+
+test('new certificate issuance requires valid_until and accepts the same clinic date', async () => {
+  for (const invalid of [undefined, null, '', '09/25/2026', '2026-02-30']) {
+    const context = createContext();
+    await withServer(context.app, async (base) => {
+      const created = await createRecord(context, base);
+      const body = { ...certificateBody };
+      if (invalid === undefined) delete body.valid_until; else body.valid_until = invalid;
+      const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body });
+      assert.equal(response.status, 400);
+      assert.equal(context.certificates.size, 0);
+    });
+  }
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const created = await createRecord(context, base);
+    const response = await request(base, `/api/doctor/records/${created.body.medical_record.id}/certificates`, { method: 'POST', cookie: context.cookie(ids.doctorProfile), body: { ...certificateBody, valid_until: '2026-09-25' } });
+    assert.equal(response.status, 201);
+    assert.equal((await response.json()).medical_certificate.validity_status, 'active');
+  });
+});
+
+test('patient certificate API separates active and legacy certificates from archived metadata', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const created = await createRecord(context, base);
+    const baseCertificate = {
+      patient_id: ids.patient, doctor_id: ids.doctor, medical_record_id: created.body.medical_record.id,
+      date_issued: new Date('2026-09-01T00:00:00.000Z'), purpose: 'Legacy purpose', diagnosis_summary: 'Historical summary',
+      recommendation: null, status: 'issued', created_at: new Date('2026-09-01T00:00:00.000Z'), updated_at: new Date('2026-09-01T00:00:00.000Z'),
+    };
+    context.certificates.set('aaaaaaaaaaaaaaaaaaaaaaa1', { _id: 'aaaaaaaaaaaaaaaaaaaaaaa1', ...baseCertificate, medical_certificate_number: 'LEGACY-1', valid_until: null });
+    context.certificates.set('aaaaaaaaaaaaaaaaaaaaaaa2', { _id: 'aaaaaaaaaaaaaaaaaaaaaaa2', ...baseCertificate, medical_certificate_number: 'EXPIRED-1', valid_until: new Date('2026-09-24T00:00:00.000Z') });
+    const activeResponse = await request(base, '/api/patient/certificates?view=active&page=1', { cookie: context.cookie(ids.patientProfile) });
+    const activeBody = await activeResponse.json();
+    assert.equal(activeResponse.status, 200);
+    assert.equal(activeBody.medical_certificates.length, 1);
+    assert.equal(activeBody.medical_certificates[0].validity_status, 'legacy');
+    assert.equal(activeBody.medical_certificates[0].valid_until, null);
+    assert.deepEqual(activeBody.pagination, { page: 1, page_size: 5, total: 1, page_count: 1 });
+    const archivedResponse = await request(base, '/api/patient/certificates?view=archived&page=1', { cookie: context.cookie(ids.patientProfile) });
+    const archivedBody = await archivedResponse.json();
+    assert.equal(archivedResponse.status, 200);
+    assert.equal(archivedBody.medical_certificates[0].validity_status, 'expired');
+    assert.equal(archivedBody.medical_certificates[0].medical_certificate_number, 'EXPIRED-1');
+    assert.deepEqual(Object.keys(archivedBody.medical_certificates[0]).sort(), ['date_issued', 'doctor', 'id', 'medical_certificate_number', 'purpose', 'valid_until', 'validity_status']);
+    assert.equal(context.certificates.get('aaaaaaaaaaaaaaaaaaaaaaa1').valid_until, null);
+  });
+});
+
+test('expired Patient certificate detail is metadata-only and PDF access fails before bytes are opened', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const created = await createRecord(context, base);
+    const certificateId = 'aaaaaaaaaaaaaaaaaaaaaaa3';
+    context.certificates.set(certificateId, {
+      _id: certificateId, patient_id: ids.patient, doctor_id: ids.doctor, medical_record_id: created.body.medical_record.id,
+      medical_certificate_number: 'EXPIRED-PRIVATE', date_issued: new Date('2026-09-01T00:00:00.000Z'),
+      valid_until: new Date('2026-09-24T00:00:00.000Z'), purpose: 'Sick Leave', diagnosis_summary: 'Must stay private',
+      recommendation: 'Must stay private', pdf_storage_file_id: 'aaaaaaaaaaaaaaaaaaaaaa99', status: 'issued',
+    });
+    context.certificateArtifacts.set('aaaaaaaaaaaaaaaaaaaaaa99', Buffer.from('%PDF-private'));
+    const detail = await request(base, `/api/patient/certificates/${certificateId}`, { cookie: context.cookie(ids.patientProfile) });
+    const detailBody = (await detail.json()).medical_certificate;
+    assert.equal(detail.status, 200);
+    assert.equal(detailBody.validity_status, 'expired');
+    for (const field of ['diagnosis_summary', 'recommendation', 'statement', 'clinic', 'pdf_available', 'medical_record_id']) assert.equal(field in detailBody, false);
+    const pdf = await request(base, `/api/patient/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.patientProfile) });
+    assert.equal(pdf.status, 403);
+    assert.equal((await pdf.json()).error.code, 'CERTIFICATE_EXPIRED');
+    assert.equal((await request(base, `/api/patient/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.otherPatientProfile) })).status, 404);
+    assert.equal((await request(base, `/api/doctor/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.doctorProfile) })).status, 200);
+  });
+});
+
+test('patient certificate query rejects unknown, repeated, and invalid filters', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    for (const query of ['view=all', 'view=active&view=archived', 'page=0', 'page=abc', 'sort=date_issued']) {
+      const response = await request(base, `/api/patient/certificates?${query}`, { cookie: context.cookie(ids.patientProfile) });
+      assert.equal(response.status, 400, query);
+    }
+  });
+});
+
+test('Doctor certificate history filters Active, Expired, and Legacy with stable pagination and role boundaries', async () => {
+  const context = createContext();
+  await withServer(context.app, async (base) => {
+    const created = await createRecord(context, base);
+    const common = {
+      patient_id: ids.patient, doctor_id: ids.doctor, medical_record_id: created.body.medical_record.id,
+      purpose: 'Certificate history', diagnosis_summary: 'Approved detail', recommendation: 'Read only', status: 'issued',
+    };
+    const values = [
+      ['aaaaaaaaaaaaaaaaaaaaa101', 'ACTIVE-HISTORY', '2026-09-25', '2026-09-25', 'aaaaaaaaaaaaaaaaaaaaa201'],
+      ['aaaaaaaaaaaaaaaaaaaaa102', 'EXPIRED-HISTORY', '2026-09-23', '2026-09-24', 'aaaaaaaaaaaaaaaaaaaaa202'],
+      ['aaaaaaaaaaaaaaaaaaaaa103', 'LEGACY-HISTORY', '2026-09-20', null, null],
+    ];
+    for (const [certificateId, number, dateIssued, validUntil, storageId] of values) {
+      context.certificates.set(certificateId, { _id: certificateId, ...common, medical_certificate_number: number, date_issued: new Date(`${dateIssued}T00:00:00.000Z`), valid_until: validUntil ? new Date(`${validUntil}T00:00:00.000Z`) : null, pdf_storage_file_id: storageId });
+      if (storageId) context.certificateArtifacts.set(storageId, Buffer.from(`%PDF-${number}`));
+    }
+    const path = `/api/doctor/patients/${ids.patient}/records`;
+    const all = await request(base, `${path}?certificate_status=all&certificate_page=1`, { cookie: context.cookie(ids.doctorProfile) });
+    const allBody = await all.json();
+    assert.equal(all.status, 200);
+    assert.deepEqual(allBody.medical_certificates.map((item) => item.validity_status), ['active', 'expired', 'legacy']);
+    assert.deepEqual(allBody.certificate_pagination, { page: 1, page_size: 5, total: 3, page_count: 1 });
+    for (const [filter, expected] of [['active', 'ACTIVE-HISTORY'], ['expired', 'EXPIRED-HISTORY'], ['legacy', 'LEGACY-HISTORY']]) {
+      const response = await request(base, `${path}?certificate_status=${filter}&certificate_page=1`, { cookie: context.cookie(ids.doctorProfile) });
+      const body = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(body.certificate_filter, filter);
+      assert.deepEqual(body.medical_certificates.map((item) => item.medical_certificate_number), [expected]);
+    }
+    for (const query of ['certificate_status=archived', 'certificate_status=all&certificate_status=active', 'certificate_page=0', 'status=active']) {
+      assert.equal((await request(base, `${path}?${query}`, { cookie: context.cookie(ids.doctorProfile) })).status, 400, query);
+    }
+    for (const [certificateId] of values) {
+      assert.equal((await request(base, `/api/doctor/certificates/${certificateId}`, { cookie: context.cookie(ids.doctorProfile) })).status, 200);
+      assert.equal((await request(base, `/api/doctor/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.doctorProfile) })).status, 200);
+      assert.equal((await request(base, `/api/doctor/certificates/${certificateId}/pdf`, { cookie: context.cookie(ids.otherDoctorProfile) })).status, 404);
+    }
+    for (const profile of [ids.patientProfile, ids.staffProfile, ids.adminProfile]) {
+      assert.equal((await request(base, path, { cookie: context.cookie(profile) })).status, 403);
+    }
+  });
+});
 
 test('certificate input enforces the purpose allowlist and server-owned issue date', async () => {
   const context = createContext();

@@ -4,7 +4,7 @@ import { canonicalizePhilippineMobile } from './phoneNumber.js';
 const registrationFields = [
   'email', 'password', 'display_name', 'full_name', 'contact_number', 'dob', 'sex',
   'address', 'emergency_contact_name', 'emergency_contact_number',
-  'emergency_contact_relationship', 'allergies', 'is_pwd',
+  'emergency_contact_relationship', 'allergies',
 ];
 
 function patientRegistrationPayload(values) {
@@ -16,7 +16,6 @@ function patientRegistrationPayload(values) {
   if (payload.contact_number != null) payload.contact_number = canonicalizePhilippineMobile(payload.contact_number);
   if (payload.emergency_contact_number != null) payload.emergency_contact_number = canonicalizePhilippineMobile(payload.emergency_contact_number) || null;
   payload.allergies = payload.allergies || [];
-  payload.is_pwd = payload.is_pwd ?? false;
   return payload;
 }
 
@@ -75,6 +74,10 @@ export function createAuthService(client = apiClient) {
         skipUnauthorizedHandling: true,
       });
     },
+    inspectPortalInvitation(token) { return client.request(`/api/auth/portal-invitations/${encodeURIComponent(token)}`, { skipUnauthorizedHandling: true }); },
+    sendPortalClaimCode(token) { return client.request(`/api/auth/portal-invitations/${encodeURIComponent(token)}/send-code`, { method: 'POST', skipUnauthorizedHandling: true }); },
+    verifyPortalClaimCode(token, otpSession, code) { return client.request(`/api/auth/portal-invitations/${encodeURIComponent(token)}/verify-code`, { method: 'POST', body: { otp_session: otpSession, code }, skipUnauthorizedHandling: true }); },
+    completePortalClaim(token, claimSession, password) { return client.request(`/api/auth/portal-invitations/${encodeURIComponent(token)}/complete`, { method: 'POST', body: { claim_session: claimSession, password }, skipUnauthorizedHandling: true }); },
     async logout() {
       return client.request('/api/auth/logout', { method: 'POST', skipUnauthorizedHandling: true });
     },

@@ -10,6 +10,8 @@ const patientSchema = new mongoose.Schema(
     },
     full_name: { type: String, required: true, trim: true },
     contact_number: { type: String, required: true, trim: true },
+    portal_email: { type: String, default: null, trim: true, lowercase: true },
+    portal_invitation_expires_at: { type: Date, default: null },
     dob: { type: Date, required: true },
     sex: { type: String, required: true, trim: true },
     address: { type: String, default: null, trim: true },
@@ -31,6 +33,20 @@ patientSchema.index(
   },
 );
 patientSchema.index({ contact_number: 1 }, { name: 'patient_contact_lookup' });
+patientSchema.index(
+  { portal_email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { portal_email: { $type: 'string' } },
+    name: 'unique_patient_portal_email',
+  },
+);
+patientSchema.virtual('pwd_verification', {
+  ref: 'PwdVerification',
+  localField: '_id',
+  foreignField: 'patient_id',
+  justOne: true,
+});
 
 export const Patient =
   mongoose.models.Patient ?? mongoose.model('Patient', patientSchema, 'patients');

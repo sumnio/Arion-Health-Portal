@@ -10,11 +10,12 @@ function ready(values) {
     values.purpose
     && (values.purpose !== 'Other' || values.custom_purpose.trim())
     && values.diagnosis_summary.trim()
-    && values.recommendation.trim(),
+    && values.recommendation.trim()
+    && values.valid_until,
   );
 }
 
-export default function CertificatePdfPreview({ recordId, values = {}, certificateId = null, service = doctorApiService, bare = false }) {
+export default function CertificatePdfPreview({ recordId, values = {}, certificateId = null, service = doctorApiService, bare = false, hideToolbar = false }) {
   const [state, setState] = useState(certificateId ? 'updating' : 'incomplete');
   const [previewUrl, setPreviewUrl] = useState('');
   const urlRef = useRef('');
@@ -65,7 +66,7 @@ export default function CertificatePdfPreview({ recordId, values = {}, certifica
     {state === 'incomplete' && <p className="certificate-preview-state">Complete the required certificate fields to generate the PDF preview.</p>}
     {state === 'updating' && <p className="certificate-preview-state" role="status">Updating certificate preview...</p>}
     {state === 'error' && <p className="certificate-error" role="alert">Certificate preview could not be generated.</p>}
-    {previewUrl && <iframe className="certificate-pdf-preview" src={previewUrl} title={certificateId ? 'Issued medical certificate PDF' : 'Draft medical certificate PDF preview'} />}
+    {previewUrl && <iframe className="certificate-pdf-preview" src={hideToolbar ? `${previewUrl}#toolbar=0&navpanes=0` : previewUrl} title={certificateId ? 'Issued medical certificate PDF' : 'Draft medical certificate PDF preview'} />}
   </>;
   return bare ? content : <RecordSection title={certificateId ? 'Issued Certificate' : 'Certificate Preview'}>{content}</RecordSection>;
 }

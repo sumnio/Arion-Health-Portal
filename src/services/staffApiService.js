@@ -114,7 +114,7 @@ export function createStaffApiService(repository = staffApiRepository) {
       const current = new Date();
       const upcomingAppointment = [...appointments].reverse().find((item) => ['pending', 'confirmed'].includes(item.status) && new Date(item.appointment_at) > current) ?? null;
       const latestAppointment = appointments.find((item) => new Date(item.appointment_at) <= current) ?? null;
-      return { patient: normalizeStaffPatient(detail.patient), appointments, latestAppointment, upcomingAppointment };
+      return { patient: normalizeStaffPatient(detail.patient), appointments, latestAppointment, upcomingAppointment, followUpRecommendations: detail.follow_up_recommendations ?? [] };
     },
     async getPatientContext(id) { const [patient, records] = await Promise.all([repository.getPatient(id), repository.getRecordSummary(id)]); return { patient: normalizeStaffPatient(patient), records }; },
     getDoctors: () => repository.getDoctors(),
@@ -134,18 +134,38 @@ export function createStaffApiService(repository = staffApiRepository) {
     },
     async getDoctorSchedule(id) {
       const [doctors, schedule] = await Promise.all([repository.getDoctors(), repository.getDoctorSchedule(id)]);
-      return { doctor: doctors.find(item => String(item.id) === String(id)) ?? null, schedule };
+      return {
+        doctor: doctors.find(item => String(item.id) === String(id)) ?? null,
+        schedule: {
+          ...schedule,
+          affected_appointments: (schedule.affected_appointments ?? []).map((item) => ({ ...item, suggested_slots: item.suggested_slots ?? [] })),
+        },
+      };
     },
     createDoctorAvailability: (id, payload) => repository.createDoctorAvailability(id, payload),
     updateDoctorAvailability: (id, availabilityId, payload) => repository.updateDoctorAvailability(id, availabilityId, payload),
     deleteDoctorAvailability: (id, availabilityId) => repository.deleteDoctorAvailability(id, availabilityId),
     createPublishedAvailability: (id, payload) => repository.createPublishedAvailability(id, payload),
+    excludePublishedAvailabilityDate: (id, publishedId, availabilityDate) => repository.excludePublishedAvailabilityDate(id, publishedId, availabilityDate),
+    updatePublishedAvailability: (id, publishedId, payload) => repository.updatePublishedAvailability(id, publishedId, payload),
     deletePublishedAvailability: (id, publishedId) => repository.deletePublishedAvailability(id, publishedId),
     createBlockedTime: (id, values) => repository.createBlockedTime(id, staffBlockedTimePayload(values)),
     deleteBlockedTime: (id, blockedId) => repository.deleteBlockedTime(id, blockedId),
-    registerWalkIn(values) { return repository.registerWalkIn({ ...values, contact_number: canonicalizePhilippineMobile(values.contact_number), address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: canonicalizePhilippineMobile(values.emergency_contact_number) || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean) }); },
-    createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: 'normal' }); },
+    rescheduleAffectedAppointment: (id, appointmentAt) => repository.rescheduleAffectedAppointment(id, appointmentAt),
+    walkInPatientPayload(values, duplicateConfirmation = false) { return { ...values, email: values.email?.trim().toLowerCase() || null, contact_number: canonicalizePhilippineMobile(values.contact_number), address: values.address?.trim() || null, emergency_contact_name: values.emergency_contact_name?.trim() || null, emergency_contact_number: canonicalizePhilippineMobile(values.emergency_contact_number) || null, emergency_contact_relationship: values.emergency_contact_relationship?.trim() || null, allergies: (values.allergies ?? '').split(/[\n,]/).map((value) => value.trim()).filter(Boolean), duplicate_confirmation: duplicateConfirmation }; },
+    checkWalkInDuplicates(values) { return repository.checkWalkInDuplicates(this.walkInPatientPayload(values)); },
+    registerWalkIn(values, { duplicateConfirmation = false } = {}) { return repository.registerWalkIn(this.walkInPatientPayload(values, duplicateConfirmation)); },
+    createWalkInAppointment(patientId, values) { return repository.createWalkInAppointment(patientId, { doctor_id: values.doctor, appointment_at: `${values.date}T${values.time}:00+08:00`, visit_type: values.service, reason: values.reason.trim(), priority: 'normal', ...(values.sourceMedicalRecordId ? { source_medical_record_id: values.sourceMedicalRecordId } : {}) }); },
+    resendPortalInvitation: (patientId, email) => repository.resendPortalInvitation(patientId, email?.trim().toLowerCase()),
     confirm: (id) => repository.confirmAppointment(id), checkIn: (id) => repository.checkIn(id), updatePriority: (id, payload) => repository.updatePriority(id, payload), getPriorityHistory: (id) => repository.getPriorityHistory(id), noShow: (id) => repository.markNoShow(id), cancel: (id) => repository.cancelAppointment(id),
+    async getPwdVerifications(page = 1) {
+      const result = await repository.getPwdVerifications(page);
+      return { ...result, items: (result.items ?? []).map(item => ({ ...item, patientName: item.patient_name })) };
+    },
+    getPwdVerification: (id) => repository.getPwdVerification(id),
+    getPwdVerificationDocument: (id, side) => repository.getPwdVerificationDocument(id, side),
+    verifyPwdVerification: (id) => repository.verifyPwdVerification(id),
+    rejectPwdVerification: (id, reason) => repository.rejectPwdVerification(id, reason.trim()),
   };
   return service;
 }

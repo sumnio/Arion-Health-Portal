@@ -24,8 +24,17 @@ test('E2E runtime keeps test-only security and local CORS configuration isolated
     E2E_MONGODB_URI: 'mongodb://localhost:27017/arion_health_e2e',
     E2E_BASE_URL: 'http://127.0.0.1:5173',
     E2E_API_URL: 'http://127.0.0.1:5000',
+    EMAIL_PROVIDER: 'resend',
+    SMS_ENABLED: 'true',
+    SMS_PROVIDER: 'unisms',
+    AI_EXTERNAL_ENABLED: 'true',
   });
   assert.equal(config.nodeEnv, 'test');
   assert.equal(config.port, 5000);
   assert.deepEqual(config.corsOrigins, ['http://127.0.0.1:5173']);
+  assert.equal(config.emailProvider, 'fake');
+  assert.equal(config.smsEnabled, false);
+  assert.equal(config.smsProvider, 'fake');
+  assert.equal(config.aiExternalEnabled, false);
+  assert.equal(config.certificateIssuanceEnabled, true);
 });

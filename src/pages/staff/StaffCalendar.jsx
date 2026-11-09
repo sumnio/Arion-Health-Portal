@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../../components/dashboard/StatusBadge.jsx';
 import { clinicToday, formatBookingDate, newestAppointmentsFirst, shiftCalendarDate } from '../../services/dateTimeService.js';
@@ -17,8 +17,8 @@ function arrivalLabel(item){
   return 'Scheduled';
 }
 export default function StaffCalendar() {
-  const today=clinicToday(); const [date,setDate]=useState(today); const [doctor,setDoctor]=useState(''); const [mobileDoctor,setMobileDoctor]=useState(null); const [status,setStatus]=useState(''); const [selectedId,setSelectedId]=useState(null); const [message,setMessage]=useState(''); const [error,setError]=useState(''); const [cancelling,setCancelling]=useState(false); const [confirmingNoShow,setConfirmingNoShow]=useState(false); const [loading,setLoading]=useState(true); const [submitting,setSubmitting]=useState(false); const [appointments,setAppointments]=useState([]); const [currentTime,setCurrentTime]=useState(()=>new Date());
-  const load=useCallback(async()=>{setLoading(true);setError('');try{setAppointments(await staffApiService.getAppointments(date));}catch(reason){setAppointments([]);setError(staffApiErrorMessage(reason,'Unable to load appointments for this date.'));}finally{setLoading(false);}},[date]);
+  const today=clinicToday(); const [date,setDate]=useState(today); const [doctor,setDoctor]=useState(''); const [mobileDoctor,setMobileDoctor]=useState(null); const [status,setStatus]=useState(''); const [selectedId,setSelectedId]=useState(null); const [message,setMessage]=useState(''); const [error,setError]=useState(''); const [cancelling,setCancelling]=useState(false); const [confirmingNoShow,setConfirmingNoShow]=useState(false); const [loading,setLoading]=useState(true); const [submitting,setSubmitting]=useState(false); const [appointments,setAppointments]=useState([]); const [currentTime,setCurrentTime]=useState(()=>new Date()); const loadRequest=useRef(0);
+  const load=useCallback(async()=>{const requestId=++loadRequest.current;setLoading(true);setError('');try{const next=await staffApiService.getAppointments(date);if(requestId===loadRequest.current)setAppointments(next);}catch(reason){if(requestId===loadRequest.current){setAppointments([]);setError(staffApiErrorMessage(reason,'Unable to load appointments for this date.'));}}finally{if(requestId===loadRequest.current)setLoading(false);}},[date]);
   useEffect(()=>{load();},[load]);
   useEffect(()=>{const timer=setInterval(()=>setCurrentTime(new Date()),1000);return()=>clearInterval(timer);},[]);
   const doctors=[...new Map(appointments.map(item=>[item.doctor_id,item.doctorName])).entries()]; const shown=newestAppointmentsFirst(appointments.filter(item=>(!doctor||item.doctor_id===doctor)&&(!status||item.status===status))); const visibleDoctors=doctors.filter(([id])=>shown.some(item=>item.doctor_id===id)); const mobileIndex=Math.max(0,visibleDoctors.findIndex(([id])=>id===mobileDoctor)); const selected=appointments.find(item=>item.id===selectedId); const actions=staffCalendarActions(selected,today,currentTime);

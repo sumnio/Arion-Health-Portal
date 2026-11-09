@@ -7,18 +7,25 @@ export function AuthLoading() {
 }
 
 export function ProtectedRoute({ role }) {
-  const { user, status } = useAuth();
+  const { user, status, explicitLogout } = useAuth();
   const location = useLocation();
   if (status === 'initializing') return <AuthLoading />;
   const decision = getProtectedRouteDecision(user, role);
-  if (decision === 'login') return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (decision === 'login') return <Navigate to="/login" replace state={explicitLogout ? null : { from: location.pathname }} />;
   if (decision === 'unauthorized') return <Navigate to="/unauthorized" replace />;
   return <Outlet />;
 }
 
 export function GuestOnlyRoute() {
   const { user, status } = useAuth();
+  const location = useLocation();
   if (status === 'initializing') return <AuthLoading />;
-  if (user) return <Navigate to={getRoleDashboard(user.role)} replace />;
+  if (user) {
+    const requestedPath = location.state?.from;
+    const destination = requestedPath?.startsWith(`/${user.role}/`)
+      ? requestedPath
+      : getRoleDashboard(user.role);
+    return <Navigate to={destination} replace />;
+  }
   return <Outlet />;
 }

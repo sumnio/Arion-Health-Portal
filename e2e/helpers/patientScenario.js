@@ -14,6 +14,8 @@ import {
   MedicalRecord,
   Notification,
   Patient,
+  PortalInvitation,
+  PwdVerification,
   Prescription,
   Staff,
   UserProfile,
@@ -21,6 +23,8 @@ import {
 import { createGridFsSupportingDocumentStorage } from '../../server/src/services/supportingDocumentStorage.js';
 import { createGridFsDoctorSignatureStorage } from '../../server/src/services/doctorSignatureStorage.js';
 import { createGridFsCertificateArtifactStorage } from '../../server/src/services/certificateArtifactStorage.js';
+import { createGridFsPwdVerificationStorage } from '../../server/src/services/pwdVerificationStorage.js';
+import { createGridFsPrescriptionAttachmentStorage } from '../../server/src/services/prescriptionAttachmentStorage.js';
 import { authRepository } from '../../server/src/repositories/authRepository.js';
 import { passwordService } from '../../server/src/services/passwordService.js';
 import {
@@ -92,9 +96,10 @@ export class PatientScenario {
       emergency_contact_number: null,
       emergency_contact_relationship: null,
       allergies: [],
-      is_pwd: false,
       ...overrides,
     };
+    const pwdVerified = data.pwd_verified === true;
+    delete data.pwd_verified;
     const registration = await authRepository.createPatientRegistration({
       ...data,
       password_hash: await passwordService.hash(password),
@@ -103,6 +108,20 @@ export class PatientScenario {
     const patientId = String(registration.patient._id);
     this.profileIds.push(profileId);
     this.patientIds.push(patientId);
+    if (pwdVerified) {
+      await PwdVerification.create({
+        patient_id: patientId,
+        pwd_id_number: `E2E-PWD-${suffix}`,
+        storage_file_id: randomUUID().replaceAll('-', '').slice(0, 24),
+        stored_filename: `e2e-${suffix}.pdf`,
+        mime_type: 'application/pdf',
+        file_size: 12,
+        document_sha256: 'a'.repeat(64),
+        status: 'verified',
+        submitted_at: new Date(),
+        verified_at: new Date(),
+      });
+    }
     return {
       email: data.email,
       password,
@@ -244,17 +263,16 @@ export class PatientScenario {
     return { recordId: String(record._id), ...record.toObject() };
   }
 
-  async createCertificate({ patient, doctor, record, purpose = 'Fitness for work' }) {
-    const dateIssued = dateOnlyToUtc(this.today());
+  async createCertificate({ patient, doctor, record, purpose = 'Fitness for work', validUntil = undefined, dateIssued = this.today() }) {
     const certificate = await MedicalCertificate.create({
       medical_certificate_number: `E2E-MC-${this.marker}-${Date.now()}`,
       patient_id: patient.patientId,
       doctor_id: doctor.doctorId,
       medical_record_id: record?.recordId ?? null,
-      date_issued: dateIssued,
+      date_issued: dateOnlyToUtc(dateIssued),
       purpose,
       diagnosis_summary: record?.diagnosis ?? 'E2E diagnosis summary',
-      valid_until: dateOnlyToUtc(addDays(this.today(), 7)),
+      valid_until: validUntil === null ? null : dateOnlyToUtc(validUntil ?? addDays(this.today(), 7)),
       status: 'issued',
     });
     return { certificateId: String(certificate._id), ...certificate.toObject() };
@@ -305,7 +323,12 @@ export class PatientScenario {
       await Promise.allSettled(certificates.filter(item => item.pdf_storage_file_id).map(item => certificateStorage.delete(item.pdf_storage_file_id)));
       await MedicalCertificate.deleteMany(certificateQuery);
     }
-    if (recordIds.length) await Prescription.deleteMany({ medical_record_id: { $in: recordIds } });
+    if (recordIds.length) {
+      const prescriptions = await Prescription.find({ medical_record_id: { $in: recordIds } }).select('+attachment_storage_file_id').lean();
+      const prescriptionStorage = createGridFsPrescriptionAttachmentStorage();
+      await Promise.allSettled(prescriptions.filter((item) => item.attachment_storage_file_id).map((item) => prescriptionStorage.delete(item.attachment_storage_file_id)));
+      await Prescription.deleteMany({ medical_record_id: { $in: recordIds } });
+    }
     if (recordQuery.$or.length) await MedicalRecord.deleteMany(recordQuery);
     if (appointmentIds.length) {
       const supportingDocuments = await ConsultationSupportingDocument.find({ appointment_id: { $in: appointmentIds } }).lean();
@@ -325,7 +348,22 @@ export class PatientScenario {
       await DoctorAvailability.deleteMany({ doctor_id: { $in: doctorIds } });
       await Doctor.deleteMany({ _id: { $in: doctorIds } });
     }
-    if (patientIds.length) await Patient.deleteMany({ _id: { $in: patientIds } });
+    const linkedPatientProfileIds = patientIds.length
+      ? (await Patient.find({ _id: { $in: patientIds }, user_profile_id: { $ne: null } }).distinct('user_profile_id')).map(String)
+      : [];
+    for (const profileId of linkedPatientProfileIds) {
+      if (!profileIds.includes(profileId)) profileIds.push(profileId);
+    }
+    if (patientIds.length) {
+      await PortalInvitation.deleteMany({ patient_id: { $in: patientIds } });
+      const pwdVerifications = await PwdVerification.find({ patient_id: { $in: patientIds } })
+        .select('+storage_file_id')
+        .lean();
+      const pwdStorage = createGridFsPwdVerificationStorage();
+      await Promise.allSettled(pwdVerifications.map(item => pwdStorage.delete(item.storage_file_id)));
+      await PwdVerification.deleteMany({ patient_id: { $in: patientIds } });
+      await Patient.deleteMany({ _id: { $in: patientIds } });
+    }
     if (profileIds.length) {
       await AuthAccount.deleteMany({ user_profile_id: { $in: profileIds } });
       await Staff.deleteMany({ user_profile_id: { $in: profileIds } });

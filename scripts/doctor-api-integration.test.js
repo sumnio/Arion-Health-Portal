@@ -12,12 +12,13 @@ const record = { id: 'r1', patient, doctor, appointment, encounter_at: '2026-09-
 const certificate = { id: 'c1', medical_certificate_number: 'AHC-1', patient_id: 'p1', doctor, medical_record_id: 'r1', date_issued: '2026-09-25', purpose: 'Medical leave', diagnosis_summary: 'Migraine', valid_until: null, status: 'issued', clinic: { name: 'Arion Health Clinic', location: 'Quezon City' } };
 
 test('Doctor repository uses approved live endpoints and keeps scheduling read-only', async () => {
-  const calls = []; const client = { async request(path, options = {}) { calls.push([path, options]); if (path.startsWith('/api/doctor/appointments/history?')) return { history: { items: [{ ...appointment, status: 'completed' }], page: 1, limit: 10, total: 1, page_count: 1 } }; if (path.startsWith('/api/doctor/appointments?')) return { appointments: [appointment] }; if (path.endsWith('/priority-history')) return { priority_history: [] }; if (path === '/api/doctor/availability') return { availability: [] }; if (path === '/api/doctor/published-availability') return { published_availability: [] }; if (path === '/api/doctor/blocked-times') return { blocked_times: [] }; if (path.includes('/patients/')) return { medical_records: [], medical_certificates: [] }; if (path.includes('/medical-record')) return { medical_record: record }; if (path.includes('/certificates') && options.method === 'POST') return { medical_certificate: certificate }; if (path.includes('/certificates/')) return { medical_certificate: certificate }; if (path.endsWith('/complete')) return { appointment: { ...appointment, status: 'completed' } }; throw new Error(path); }, async download(path, options = {}) { calls.push([path, options]); return { blob: new Blob(['pdf'], { type: 'application/pdf' }) }; } };
+  const calls = []; const client = { async request(path, options = {}) { calls.push([path, options]); if (path.startsWith('/api/doctor/appointments/history?')) return { history: { items: [{ ...appointment, status: 'completed' }], page: 1, limit: 10, total: 1, page_count: 1 } }; if (path.startsWith('/api/doctor/appointments?')) return { appointments: [appointment] }; if (path.endsWith('/priority-history')) return { priority_history: [] }; if (path === '/api/doctor/availability') return { availability: [] }; if (path === '/api/doctor/published-availability') return { published_availability: [] }; if (path === '/api/doctor/blocked-times') return { blocked_times: [] }; if (path.includes('/patients/')) return { medical_records: [], medical_certificates: [], certificate_filter: 'all', certificate_pagination: { page: 1, page_size: 5, total: 0, page_count: 1 } }; if (path.includes('/medical-record')) return { medical_record: record }; if (path.includes('/certificates') && options.method === 'POST') return { medical_certificate: certificate }; if (path.includes('/certificates/')) return { medical_certificate: certificate }; if (path.endsWith('/complete')) return { appointment: { ...appointment, status: 'completed' } }; throw new Error(path); }, async download(path, options = {}) { calls.push([path, options]); return { blob: new Blob(['pdf'], { type: 'application/pdf' }) }; } };
   const repository = createDoctorApiRepository(client);
   await repository.getAppointments({ date: '2026-09-25', patientId: 'p1' }); await repository.getAppointmentHistory({ range: 'custom', from: '2026-09-01', to: '2026-09-25', status: 'completed', visitType: 'follow_up', patientSearch: 'Alex Patient', page: 2 }); await repository.getPriorityHistory('a1'); await repository.getRecurringAvailability(); await repository.getPublishedAvailability(); await repository.getBlockedTimes(); await repository.getPatientHistory('p1'); await repository.createMedicalRecord('a1', { diagnosis: 'A' }); await repository.createCertificate('r1', { purpose: 'A' }); await repository.previewCertificatePdf('r1', { purpose: 'A' }); await repository.getCertificate('c1'); await repository.completeAppointment('a1');
   assert(calls.every(([, options]) => !options.body || !('doctor_id' in options.body)));
   assert(calls.some(([path]) => path === '/api/doctor/appointments?date=2026-09-25&patient_id=p1'));
   assert(calls.some(([path]) => path === '/api/doctor/appointments/history?range=custom&status=completed&visit_type=follow_up&page=2&patient_search=Alex+Patient&from=2026-09-01&to=2026-09-25'));
+  assert(calls.some(([path]) => path === '/api/doctor/patients/p1/records?certificate_status=all&certificate_page=1'));
   assert(calls.filter(([path]) => path.includes('/api/doctor/availability') || path.includes('/published-availability') || path.includes('/blocked-times')).every(([, options]) => !options.method || options.method === 'GET'));
   assert(calls.some(([path, options]) => path === '/api/doctor/appointments/a1/complete' && options.method === 'PATCH'));
   assert(calls.some(([path, options]) => path === '/api/doctor/records/r1/certificates/preview' && options.method === 'POST'));
@@ -28,15 +29,64 @@ test('Doctor service normalizes consultation context and submits prescriptions w
   const repository = { async getAppointments() { return [appointment]; }, async getPriorityHistory() { return [{ id: 'pa1', urgency_reason: 'Severe pain or discomfort' }]; }, async getPatientHistory() { return { medical_records: [], medical_certificates: [] }; }, async createMedicalRecord(_id, payload) { recordPayload = payload; return record; }, async createCertificate(_id, payload) { certificatePayload = payload; return certificate; }, async previewCertificatePdf(_id, payload) { previewPayload = payload; return { blob: new Blob(['pdf']) }; }, async getCertificate() { refreshedCertificate = true; return certificate; } };
   const service = createDoctorApiService(repository); const context = await service.getPatientContext('p1', { appointmentId: 'a1' }); assert.equal(context.patient.full_name, 'Alex Patient'); assert.equal(context.canAddRecord, true); assert.equal(context.priorityHistory[0].urgency_reason,'Severe pain or discomfort');
   await service.createMedicalRecord('a1', { diagnosis: ' Migraine ', notes: '', follow_up: '', prescriptions: [{ medicine: ' Drug ', dosage: ' 5 mg ', instructions: '' }] });
-  assert.deepEqual(recordPayload, { diagnosis: 'Migraine', notes: null, follow_up: null, prescriptions: [{ medicine: 'Drug', dosage: '5 mg', instructions: null }] });
-  const issued = await service.issueCertificate('r1', { purpose: 'Work Clearance', custom_purpose: '', diagnosis_summary: ' Well ', recommendation: ' Rest ', valid_until: '' }, 'Alex Patient');
-  assert.deepEqual(certificatePayload, { purpose: 'Work Clearance', diagnosis_summary: 'Well', recommendation: 'Rest', valid_until: null });
+  assert.deepEqual(recordPayload, { diagnosis: 'Migraine', notes: null, follow_up: null, follow_up_required: false, follow_up_recommended_date: null, follow_up_reason: null, prescriptions: [{ medicine: 'Drug', dosage: '5 mg', instructions: null }] });
+  const issued = await service.issueCertificate('r1', { purpose: 'Work Clearance', custom_purpose: '', diagnosis_summary: ' Well ', recommendation: ' Rest ', valid_until: '2026-10-31' }, 'Alex Patient');
+  assert.deepEqual(certificatePayload, { purpose: 'Work Clearance', diagnosis_summary: 'Well', recommendation: 'Rest', valid_until: '2026-10-31' });
   assert.equal(certificatePayload.medical_certificate_number, undefined); assert.equal(certificatePayload.status, undefined); assert.equal(refreshedCertificate, true); assert.equal(issued.medical_certificate_number, 'AHC-1'); assert.equal('signature_path' in issued, false);
-  await service.previewCertificatePdf('r1', { purpose: 'Other', custom_purpose: ' Insurance ', diagnosis_summary: ' Well ', recommendation: ' Rest ', valid_until: '' });
-  assert.deepEqual(previewPayload, { purpose: 'Other', custom_purpose: 'Insurance', diagnosis_summary: 'Well', recommendation: 'Rest', valid_until: null });
+  await service.previewCertificatePdf('r1', { purpose: 'Other', custom_purpose: ' Insurance ', diagnosis_summary: ' Well ', recommendation: ' Rest ', valid_until: '2026-11-01' });
+  assert.deepEqual(previewPayload, { purpose: 'Other', custom_purpose: 'Insurance', diagnosis_summary: 'Well', recommendation: 'Rest', valid_until: '2026-11-01' });
+});
+
+test('Doctor service sends optional prescription attachments with indexed immutable metadata payload', async () => {
+  let recordPayload;
+  const repository = { async createMedicalRecord(_id, payload) { recordPayload = payload; return record; } };
+  const attachment = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'prescription.png', { type: 'image/png' });
+  await createDoctorApiService(repository).createMedicalRecord('a1', {
+    diagnosis: 'Attachment prescription', notes: '', follow_up: '',
+    prescriptions: [{ medicine: '', dosage: '', instructions: '', attachment }],
+  });
+  assert.ok(recordPayload instanceof FormData);
+  const payload = JSON.parse(recordPayload.get('payload'));
+  assert.deepEqual(payload.prescriptions, [{ medicine: null, dosage: null, instructions: null, attachment_index: 0 }]);
+  assert.equal(recordPayload.getAll('attachments').length, 1);
+  assert.equal(recordPayload.get('attachments').name, 'prescription.png');
 });
 
 test('Doctor API errors expose safe backend business messages', () => { assert.equal(doctorApiErrorMessage(new ApiError('Blocked time overlaps an existing active appointment.', { status: 409, code: 'BLOCK_OVERLAPS_APPOINTMENT' })), 'Blocked time overlaps an existing active appointment.'); });
+
+test('Doctor certificate history normalizes backend filters and resets filtering to explicit pages', async () => {
+  const expired = { ...certificate, id: 'c-expired', validity_status: 'expired', valid_until: '2026-09-24' };
+  const calls = [];
+  const repository = {
+    async getPatientHistory(patientId, options) {
+      calls.push([patientId, options]);
+      return { medical_certificates: [expired], certificate_filter: 'expired', certificate_pagination: { page: 2, page_size: 5, total: 6, page_count: 2 } };
+    },
+  };
+  const result = await createDoctorApiService(repository).getPatientCertificates('p1', { certificateStatus: 'expired', certificatePage: 2 }, 'Alex Patient');
+  assert.deepEqual(calls, [['p1', { certificateStatus: 'expired', certificatePage: 2 }]]);
+  assert.equal(result.filter, 'expired');
+  assert.equal(result.items[0].validity_status, 'expired');
+  assert.equal(result.items[0].patientName, 'Alex Patient');
+  assert.deepEqual(result.pagination, { page: 2, pageSize: 5, total: 6, pageCount: 2 });
+});
+
+test('Doctor Certificates tab exposes concise validity filters, read-only PDF preview, empty states, and no mutation controls', async () => {
+  const history = await readFile(new URL('../src/components/records/ConsultationHistory.jsx', import.meta.url), 'utf8');
+  const detail = await readFile(new URL('../src/pages/doctor/DoctorPatientDetail.jsx', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../src/styles/doctor-patient.css', import.meta.url), 'utf8');
+  for (const label of ['all', 'active', 'expired']) assert.match(history, new RegExp(`'${label}'`));
+  for (const text of ['No certificates have been issued for this Patient.', 'No active certificates.', 'No expired certificates.', 'No validity date recorded']) assert.match(history, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.doesNotMatch(history, /'legacy'/);
+  assert.match(history, /aria-pressed/);
+  assert.match(history, /CertificatePdfPreview[^>]+hideToolbar/);
+  assert.doesNotMatch(history, /CertificatePdfButton|Download PDF/);
+  assert.match(history, /issue a new certificate/);
+  assert.doesNotMatch(history, /Edit Certificate|Extend Validity|Update PDF|Replace Signature/);
+  assert.match(detail, /loadCertificates\(filter, 1\)/);
+  assert.match(styles, /max-width: 500px/);
+  assert.match(styles, /overflow-wrap: anywhere/);
+});
 
 test('Doctor service derives a unique related-Patient list only from assigned appointments', async () => {
   const future = { ...appointment, id: 'a2', appointment_at: '2026-09-26T02:00:00.000Z', status: 'pending' };

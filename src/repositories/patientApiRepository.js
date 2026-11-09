@@ -4,6 +4,13 @@ export function createPatientApiRepository(client = apiClient) {
   return {
     async getProfile() { return (await client.request('/api/patient/profile')).patient; },
     async updateProfile(payload) { return (await client.request('/api/patient/profile', { method: 'PATCH', body: payload })).patient; },
+    async getPwdVerification() { return (await client.request('/api/patient/pwd-verification')).pwd_verification; },
+    async submitPwdVerification({ frontDocument, backDocument }) {
+      const formData = new FormData();
+      formData.append('front_document', frontDocument, frontDocument.name);
+      formData.append('back_document', backDocument, backDocument.name);
+      return (await client.upload('/api/patient/pwd-verification', formData, { method: 'POST' })).pwd_verification;
+    },
     async getDoctors() { return (await client.request('/api/patient/doctors')).doctors; },
     async getAvailableSlots(doctorId, date) {
       return client.request(`/api/patient/doctors/${encodeURIComponent(doctorId)}/available-slots?date=${encodeURIComponent(date)}`);
@@ -26,7 +33,14 @@ export function createPatientApiRepository(client = apiClient) {
     },
     async getRecords() { return (await client.request('/api/patient/records')).medical_records; },
     async getRecord(id) { return (await client.request(`/api/patient/records/${encodeURIComponent(id)}`)).medical_record; },
-    async getCertificates() { return (await client.request('/api/patient/certificates')).medical_certificates; },
+    async getPrescriptions({ page = 1 } = {}) { return client.request(`/api/patient/prescriptions?page=${encodeURIComponent(page)}`); },
+    async downloadPrescriptionAttachment(prescriptionId, { inline = false } = {}) {
+      const suffix = inline ? '?disposition=inline' : '';
+      return client.download(`/api/patient/prescriptions/${encodeURIComponent(prescriptionId)}/attachment${suffix}`);
+    },
+    async getCertificates({ view = 'active', page = 1 } = {}) {
+      return client.request(`/api/patient/certificates?view=${encodeURIComponent(view)}&page=${encodeURIComponent(page)}`);
+    },
     async getCertificate(id) { return (await client.request(`/api/patient/certificates/${encodeURIComponent(id)}`)).medical_certificate; },
     async downloadCertificatePdf(id, options = {}) { return client.download(`/api/patient/certificates/${encodeURIComponent(id)}/pdf`, options); },
   };

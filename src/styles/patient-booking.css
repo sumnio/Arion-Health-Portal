@@ -2,14 +2,14 @@
 .patient-booking .booking-back { display: inline-block; font-size: 13px; color: #165ec0; margin-bottom: 18px; }
 .patient-booking .booking-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 .patient-booking .booking-main { min-width: 0; }
-.patient-booking .booking-intro { display: flex; gap: 20px; align-items: center; justify-content: space-between; background: linear-gradient(110deg, white, #edf4fb); border: 1px solid #dfe7ee; border-radius: 10px; padding: 26px; }
+.patient-booking .booking-intro { display: flex; gap: 18px; align-items: center; justify-content: space-between; background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 22px; }
 .patient-booking h1 { font-size: clamp(25px, 3vw, 32px); }
 .patient-booking .booking-intro p { color: #52657b; font-size: 14px; line-height: 1.7; margin: 10px 0 0; }
 .patient-booking .booking-intro > span { flex-shrink: 0; color: #7892ad; }
 .patient-booking .booking-intro svg { width: 65px; height: 65px; }
 .patient-booking .booking-notice { font-size: 12px; color: #52657b; margin: 16px 0; }
 .patient-booking .booking-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.patient-booking .booking-card { border-color: #dfe7ee; }
+.patient-booking .booking-card { border: 1px solid #dfe7ee; border-radius: 9px; background: white; }
 .patient-booking .booking-step { padding: 20px; min-width: 0; }
 .patient-booking .booking-step header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
 .patient-booking .step-number { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 50%; background: #e7f0ff; color: #165ec0; font-weight: 700; flex-shrink: 0; }

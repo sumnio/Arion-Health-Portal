@@ -57,7 +57,10 @@ export const doctorSchedulingRepository = {
       .lean();
   },
   async listPublishedActive(doctorId, earliestDate) {
-    return DoctorPublishedAvailability.find({ doctor_id: doctorId, availability_date: { $gte: earliestDate } })
+    return DoctorPublishedAvailability.find({
+      doctor_id: doctorId,
+      $or: [{ repeat_weekly: true }, { availability_date: { $gte: earliestDate } }],
+    })
       .sort({ availability_date: 1, start_time: 1 })
       .lean();
   },
@@ -70,11 +73,50 @@ export const doctorSchedulingRepository = {
     }));
   },
   async createPublished(data) { return (await DoctorPublishedAvailability.create(data)).toObject(); },
+  async findPublishedOwned(id, doctorId) {
+    return DoctorPublishedAvailability.findOne({ _id: id, doctor_id: doctorId }).lean();
+  },
+  async excludePublishedDateOwned(id, doctorId, date) {
+    return DoctorPublishedAvailability.findOneAndUpdate(
+      { _id: id, doctor_id: doctorId, repeat_weekly: true },
+      { $addToSet: { excluded_dates: date } },
+      { new: true, runValidators: true },
+    ).lean();
+  },
+  async updatePublishedRangeOwned(id, doctorId, updates) {
+    return DoctorPublishedAvailability.findOneAndUpdate(
+      { _id: id, doctor_id: doctorId },
+      { $set: updates },
+      { new: true, runValidators: true },
+    ).lean();
+  },
+  async upsertPublishedDateOverrideOwned(id, doctorId, override) {
+    const record = await DoctorPublishedAvailability.findOne({ _id: id, doctor_id: doctorId });
+    if (!record) return null;
+    const date = override.availability_date.toISOString().slice(0, 10);
+    const index = record.date_overrides.findIndex(
+      (item) => item.availability_date.toISOString().slice(0, 10) === date,
+    );
+    if (index >= 0) {
+      record.date_overrides[index].start_time = override.start_time;
+      record.date_overrides[index].end_time = override.end_time;
+    } else {
+      record.date_overrides.push(override);
+    }
+    await record.save();
+    return record.toObject();
+  },
   async deletePublishedOwned(id, doctorId) {
     return DoctorPublishedAvailability.findOneAndDelete({ _id: id, doctor_id: doctorId }).lean();
   },
   async listPublishedForDate(doctorId, date) {
-    return DoctorPublishedAvailability.find({ doctor_id: doctorId, availability_date: date })
+    return DoctorPublishedAvailability.find({
+      doctor_id: doctorId,
+      $or: [
+        { repeat_weekly: { $ne: true }, availability_date: date },
+        { repeat_weekly: true, availability_date: { $lte: date }, excluded_dates: { $ne: date } },
+      ],
+    })
       .sort({ start_time: 1 })
       .lean();
   },

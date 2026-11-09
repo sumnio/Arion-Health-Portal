@@ -14,7 +14,11 @@ const doctorPopulation = {
   select: 'specialty license_number ptr_number signature_path user_profile_id',
   populate: { path: 'user_profile_id', select: 'display_name' },
 };
-const patientPopulation = { path: 'patient_id', select: 'full_name dob sex contact_number allergies is_pwd' };
+const patientPopulation = {
+  path: 'patient_id',
+  select: 'full_name dob sex contact_number allergies',
+  populate: { path: 'pwd_verification', select: 'patient_id status' },
+};
 const recordPopulation = [doctorPopulation, patientPopulation, { path: 'appointment_id', select: 'appointment_at status visit_type reason check_in_at' }];
 const certificatePopulation = [
   doctorPopulation,
@@ -31,7 +35,11 @@ export const clinicalRepository = {
   async findPatientByUserProfileId(userProfileId) {
     return Patient.findOne({ user_profile_id: userProfileId }).lean();
   },
-  async findPatientById(patientId) { return Patient.findById(patientId).lean(); },
+  async findPatientById(patientId) {
+    return Patient.findById(patientId)
+      .populate({ path: 'pwd_verification', select: 'patient_id status' })
+      .lean();
+  },
   async findAppointmentById(id) { return Appointment.findById(id).lean(); },
   async listPriorityHistory(id) {
     return AppointmentPriorityAudit.find({ appointment_id: id })
@@ -126,10 +134,74 @@ export const clinicalRepository = {
   async listPrescriptions(recordId) {
     return Prescription.find({ medical_record_id: recordId }).sort({ created_at: 1 }).lean();
   },
+  async findPrescriptionWithRecord(prescriptionId) {
+    return Prescription.findById(prescriptionId)
+      .select('+attachment_storage_file_id +attachment_sha256')
+      .populate({ path: 'medical_record_id', select: 'patient_id doctor_id appointment_id' })
+      .lean();
+  },
+  async listPrescriptionsForDoctorPatient(doctorId, patientId, { page, limit }) {
+    const recordIds = await MedicalRecord.find({ doctor_id: doctorId, patient_id: patientId }).distinct('_id');
+    const query = { medical_record_id: { $in: recordIds } };
+    const [items, total] = await Promise.all([
+      Prescription.find(query)
+        .sort({ created_at: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate({
+          path: 'medical_record_id',
+          select: 'patient_id doctor_id appointment_id encounter_at',
+          populate: { path: 'appointment_id', select: 'appointment_at status visit_type' },
+        })
+        .lean(),
+      Prescription.countDocuments(query),
+    ]);
+    return { items, total };
+  },
+  async listPrescriptionsForPatient(patientId, { page, limit }) {
+    const recordIds = await MedicalRecord.find({ patient_id: patientId }).distinct('_id');
+    const query = { medical_record_id: { $in: recordIds } };
+    const [items, total] = await Promise.all([
+      Prescription.find(query)
+        .sort({ created_at: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate({
+          path: 'medical_record_id',
+          select: 'patient_id doctor_id appointment_id encounter_at',
+          populate: [
+            { path: 'doctor_id', select: 'specialty user_profile_id', populate: { path: 'user_profile_id', select: 'display_name' } },
+            { path: 'appointment_id', select: 'appointment_at status visit_type' },
+          ],
+        })
+        .lean(),
+      Prescription.countDocuments(query),
+    ]);
+    return { items, total };
+  },
+  async findLatestLinkedFollowUp(recordId) {
+    return Appointment.findOne({ source_medical_record_id: recordId })
+      .select('appointment_at status visit_type reason check_in_at source_medical_record_id')
+      .sort({ created_at: -1, _id: -1 })
+      .lean();
+  },
 
   async createCertificate(data) { return (await MedicalCertificate.create(data)).toObject(); },
-  async listIssuedCertificatesForPatient(patientId) {
-    return MedicalCertificate.find({ patient_id: patientId, status: 'issued' }).sort({ date_issued: -1 }).populate(certificatePopulation).lean();
+  async listIssuedCertificatesForPatient(patientId, { view, boundary, page, limit }) {
+    const validity = view === 'archived'
+      ? { valid_until: { $ne: null, $lt: boundary } }
+      : { $or: [{ valid_until: null }, { valid_until: { $gte: boundary } }] };
+    const query = { patient_id: patientId, status: 'issued', ...validity };
+    const [items, total] = await Promise.all([
+      MedicalCertificate.find(query)
+        .sort({ date_issued: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate(certificatePopulation)
+        .lean(),
+      MedicalCertificate.countDocuments(query),
+    ]);
+    return { items, total };
   },
   async findIssuedCertificateForPatient(id, patientId) {
     return MedicalCertificate.findOne({ _id: id, patient_id: patientId, status: 'issued' }).populate(certificatePopulation).lean();
@@ -137,11 +209,22 @@ export const clinicalRepository = {
   async findCertificateForDoctor(id, doctorId) {
     return MedicalCertificate.findOne({ _id: id, doctor_id: doctorId }).populate(certificatePopulation).lean();
   },
-  async listIssuedCertificatesForDoctorPatient(doctorId, patientId) {
-    return MedicalCertificate.find({ doctor_id: doctorId, patient_id: patientId, status: 'issued' })
-      .sort({ date_issued: -1 })
-      .populate(certificatePopulation)
-      .lean();
+  async listIssuedCertificatesForDoctorPatient(doctorId, patientId, { status, boundary, page, limit }) {
+    const validity = status === 'active' ? { valid_until: { $gte: boundary } }
+      : status === 'expired' ? { valid_until: { $ne: null, $lt: boundary } }
+        : status === 'legacy' ? { valid_until: null }
+          : {};
+    const query = { doctor_id: doctorId, patient_id: patientId, status: 'issued', ...validity };
+    const [items, total] = await Promise.all([
+      MedicalCertificate.find(query)
+        .sort({ date_issued: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate(certificatePopulation)
+        .lean(),
+      MedicalCertificate.countDocuments(query),
+    ]);
+    return { items, total };
   },
 
   async completeConfirmedCheckedIn(id, doctorId) {

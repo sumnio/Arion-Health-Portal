@@ -84,6 +84,16 @@ test('Admin MFA client uses credentialed challenge endpoints without browser tok
   assert.equal(calls[2].options.body.code, '654321');
 });
 
+test('Admin MFA input starts empty and rejects browser-filled account text', () => {
+  const source = readFileSync(new URL('../src/pages/public/LoginPage.jsx', import.meta.url), 'utf8');
+  assert.match(source, /const \[mfaCode, setMfaCode\] = useState\(''\)/);
+  assert.match(source, /value=\{mfaCode\}/);
+  assert.match(source, /key="admin-mfa-code"/);
+  assert.match(source, /\^\[0-9\]\*\$/);
+  assert.match(source, /autoComplete="off"/);
+  assert.match(source, /autoFocus/);
+});
+
 test('login replaces backend credential details with the approved generic error', async () => {
   const service = createAuthService({
     async request() { throw new ApiError('internal detail', { status: 401, code: 'INVALID_CREDENTIALS' }); },
@@ -109,7 +119,7 @@ test('Patient registration uses the backend and cannot send role or confirmation
   assert.equal(request.options.body.confirmPassword, undefined);
   assert.equal(request.options.body.full_name, 'Alex Santos');
   assert.deepEqual(request.options.body.allergies, []);
-  assert.equal(request.options.body.is_pwd, false);
+  assert.equal(request.options.body.is_pwd, undefined);
 });
 
 test('Patient email verification client uses only cookie-bound status, verify, and resend endpoints', async () => {
@@ -193,6 +203,20 @@ test('email verification UI is segmented, numeric, refresh-safe, and contains no
   assert.doesNotMatch(source, /localStorage|sessionStorage|accountId|challengeId/);
 });
 
+test('walk-in portal claim uses invitation, OTP, and password steps without browser storage', async () => {
+  const calls = [];
+  const service = createAuthService({ async request(path, options = {}) { calls.push({ path, options }); return path.endsWith('verify-code') ? { claim_session: 'claim-session' } : path.endsWith('send-code') ? { otp_session: 'otp-session' } : { status: 'active', masked_email: 'w***@example.com' }; } });
+  await service.inspectPortalInvitation('invite-token');
+  await service.sendPortalClaimCode('invite-token');
+  await service.verifyPortalClaimCode('invite-token', 'otp-session', '123456');
+  await service.completePortalClaim('invite-token', 'claim-session', 'PatientPassword1!');
+  assert.deepEqual(calls.map(item => item.path), ['/api/auth/portal-invitations/invite-token', '/api/auth/portal-invitations/invite-token/send-code', '/api/auth/portal-invitations/invite-token/verify-code', '/api/auth/portal-invitations/invite-token/complete']);
+  const source = readFileSync(new URL('../src/pages/public/ClaimAccountPage.jsx', import.meta.url), 'utf8');
+  assert.match(source, /6-digit verification code/);
+  assert.match(source, /Create password/);
+  assert.doesNotMatch(source, /localStorage|sessionStorage|patient_id|appointment|diagnosis|certificate/);
+});
+
 test('session restore and logout use the real backend endpoints', async () => {
   const paths = [];
   const service = createAuthService({
@@ -217,6 +241,13 @@ test('protected route decisions distinguish guests, wrong roles, inactive accoun
   assert.equal(getProtectedRouteDecision({ role: 'patient', status: 'active' }, 'patient'), 'allow');
 });
 
+test('explicit logout is distinguished from an expired or missing session', () => {
+  const context = readFileSync(new URL('../src/auth/AuthContext.jsx', import.meta.url), 'utf8');
+  const guard = readFileSync(new URL('../src/auth/RouteGuards.jsx', import.meta.url), 'utf8');
+  assert.match(context, /dispatch\(\{ type: 'guest', explicitLogout: true \}\)/);
+  assert.match(guard, /explicitLogout \? null : \{ from: location\.pathname \}/);
+});
+
 test('frontend auth code does not store tokens or retain the mock role selector', () => {
   const authFiles = [
     '../src/services/apiClient.js', '../src/services/authService.js', '../src/auth/AuthContext.jsx',
@@ -235,4 +266,17 @@ test('router wraps every protected role group in the real role guard', () => {
   const source = readFileSync(new URL('../src/app/AppRouter.jsx', import.meta.url), 'utf8');
   assert.match(source, /ProtectedRoute role=\{role\}/);
   assert.match(source, /GuestOnlyRoute/);
+});
+
+test('login return paths stay inside the authenticated role before navigation', () => {
+  const guard = readFileSync(new URL('../src/auth/RouteGuards.jsx', import.meta.url), 'utf8');
+  const login = readFileSync(new URL('../src/pages/public/LoginPage.jsx', import.meta.url), 'utf8');
+  for (const source of [guard, login]) {
+    assert.match(source, /location\.state\?\.from/);
+    assert.match(source, /requestedPath\?\.startsWith/);
+    assert.match(source, /user\.role/);
+    assert.match(source, /getRoleDashboard\(user\.role\)/);
+  }
+  const portalLayout = readFileSync(new URL('../src/layouts/PortalLayout.jsx', import.meta.url), 'utf8');
+  assert.match(portalLayout, /navigate\('\/login', \{ replace: true, state: null \}\)/);
 });

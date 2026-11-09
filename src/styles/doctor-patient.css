@@ -8,7 +8,7 @@
 .doctor-patient-page .patient-tab-panel { min-height: 240px; }
 .doctor-patient-page p { color: #52657b; line-height: 1.6; margin: 10px 0; }
 .doctor-patient-page .doctor-patient-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 22px; }
-.doctor-patient-page .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 10px; padding: 24px; margin-bottom: 20px; overflow-wrap: anywhere; }
+.doctor-patient-page .record-card { background: white; border: 1px solid #dfe7ee; border-radius: 9px; padding: 20px; margin-bottom: 18px; overflow-wrap: anywhere; }
 .doctor-patient-page h2 { font-size: 19px; margin: 0 0 18px; }
 .doctor-patient-page h3 { font-size: 22px; margin: 0; }
 .doctor-patient-page .patient-name { display: block; font-size: 22px; }
@@ -32,6 +32,9 @@
 .doctor-patient-page .status-pending { background: #fff3d9; color: #825400; }
 .doctor-patient-page .status-cancelled { background: #ffe4e7; color: #a33434; }
 .doctor-patient-page .status-no_show { background: #e7ebf0; color: #44536a; }
+.doctor-patient-page .status-active { background: #ddf4e9; color: #166447; }
+.doctor-patient-page .status-expired { background: #ffe4e7; color: #a33434; }
+.doctor-patient-page .status-legacy { background: #e7ebf0; color: #44536a; }
 .doctor-patient-page .history-disclosure { border-top: 1px solid #dfe7ee; padding: 18px 0; }
 .doctor-patient-page .history-disclosure summary { cursor: pointer; color: #22674f; overflow-wrap: anywhere; }
 .doctor-patient-page .history-disclosure summary strong, .doctor-patient-page .history-disclosure summary span { display: block; margin-top: 8px; }
@@ -41,6 +44,15 @@
 .doctor-patient-page .clinical-text { white-space: pre-wrap; }
 .doctor-patient-page .history-prescriptions { list-style: none; padding: 0; }
 .doctor-patient-page .history-prescriptions li { padding: 12px 0; border-bottom: 1px solid #edf1f5; }
+.doctor-patient-page .certificate-history-filters, .doctor-patient-page .certificate-history-pagination, .doctor-patient-page .certificate-history-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.doctor-patient-page .certificate-history-filters { margin: 16px 0; }
+.doctor-patient-page .certificate-history-filters .action-link[aria-pressed="true"] { background: #28664f; color: white; border-color: #28664f; }
+.doctor-patient-page .certificate-history-filters .action-link:focus-visible, .doctor-patient-page .certificate-history-pagination .action-link:focus-visible { outline: 3px solid #83ad9b; outline-offset: 2px; }
+.doctor-patient-page .certificate-history-pagination { justify-content: center; margin-top: 18px; }
+.doctor-patient-page .certificate-history-item summary { min-width: 0; }
+.doctor-patient-page .certificate-history-content { min-width: 0; overflow-wrap: anywhere; }
+.doctor-patient-page .certificate-history-content .certificate-pdf-preview { max-width: 100%; }
+.doctor-patient-page .certificate-history-actions { margin-top: 12px; }
 .doctor-patient-page .certificate-paper { padding: 22px; border: 1px solid #aab7c7; margin-top: 20px; }
 .doctor-patient-page .certificate-paper header { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #aab7c7; padding-bottom: 16px; }
 .doctor-patient-page .certificate-cross { font-size: 30px; }
@@ -49,3 +61,4 @@
 .doctor-patient-page .certificate-patient-name { font-size: 22px; font-weight: 700; }
 .doctor-patient-page .certificate-paper footer { display: grid; gap: 6px; margin-top: 24px; font-size: 13px; }
 @media(max-width: 500px) { .doctor-patient-page .certificate-paper { padding: 14px; } }
+@media(max-width: 500px) { .doctor-patient-page .certificate-history-filters .action-link { flex: 1 1 calc(50% - 10px); text-align: center; } .doctor-patient-page .certificate-history-pagination { justify-content: space-between; } }

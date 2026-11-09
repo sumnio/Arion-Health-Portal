@@ -1,14 +1,14 @@
 .patient-dashboard { max-width: 1240px; margin: 0 auto; }
-.patient-dashboard .dashboard-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 245px; align-items: center; gap: 24px; padding: 28px 30px 0; border: 1px solid #dfe7ee; border-radius: 10px; background: linear-gradient(110deg, #fff, #f0f5fa); overflow: hidden; }
-.patient-dashboard .dashboard-welcome > div:first-child { padding-bottom: 28px; }
+.patient-dashboard .dashboard-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 245px; align-items: center; gap: 20px; padding: 22px 24px 0; border: 1px solid #dfe7ee; border-radius: 9px; background: #fff; overflow: hidden; }
+.patient-dashboard .dashboard-welcome > div:first-child { padding-bottom: 22px; }
 .patient-dashboard .welcome-greeting { font-size: 18px; margin: 0 0 5px; }
-.patient-dashboard h1 { font-size: clamp(26px, 3vw, 34px); letter-spacing: -.025em; }
+.patient-dashboard h1 { font-size: clamp(26px, 3vw, 32px); letter-spacing: -.02em; }
 .patient-dashboard .dashboard-welcome p:last-child { font-size: 14px; line-height: 1.75; max-width: 640px; margin: 12px 0 0; color: #52657b; }
 .patient-dashboard .welcome-visual { display: flex; align-items: center; align-self: end; gap: 15px; color: #4c6078; font-size: 19px; line-height: 1.2; }
 .patient-dashboard .welcome-visual svg { width: 145px; height: 157px; }
 .patient-dashboard .welcome-line { display: block; width: 28px; height: 2px; background: #a9b7c8; margin-top: 12px; }
-.patient-dashboard .dashboard-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 22px 0; }
-.patient-dashboard .dashboard-shortcut { display: flex; align-items: flex-start; gap: 12px; border: 1px solid #dfe7ee; border-radius: 9px; background: white; padding: 20px 15px; }
+.patient-dashboard .dashboard-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.patient-dashboard .dashboard-shortcut { display: flex; align-items: flex-start; gap: 12px; border: 1px solid #dfe7ee; border-radius: 8px; background: white; padding: 16px 14px; }
 .patient-dashboard .dashboard-shortcut:hover { border-color: #9bb7d2; background: #fafdff; }
 .patient-dashboard .shortcut-icon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 50%; background: #edf2f7; }
 .patient-dashboard .shortcut-icon svg { width: 24px; height: 24px; }
@@ -17,10 +17,10 @@
 .patient-dashboard .shortcut-arrow { margin-left: auto; color: #52657b; font-size: 23px; }
 .patient-dashboard .dashboard-previews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .patient-dashboard .dashboard-card { border-color: #dfe7ee; display: flex; flex-direction: column; align-items: flex-start; }
-.patient-dashboard .dashboard-card-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; margin-bottom: 24px; }
+.patient-dashboard .dashboard-card-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; margin-bottom: 18px; }
 .patient-dashboard .dashboard-card-heading h2 { margin: 0; font-size: 18px; line-height: 1.4; }
 .patient-dashboard .dashboard-card-heading a { color: #165ec0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
-.patient-dashboard .dashboard-preview-body { display: flex; align-items: flex-start; gap: 18px; flex: 1; margin-bottom: 24px; }
+.patient-dashboard .dashboard-preview-body { display: flex; align-items: flex-start; gap: 18px; flex: 1; margin-bottom: 18px; }
 .patient-dashboard .dashboard-date { flex-shrink: 0; width: 76px; display: flex; flex-direction: column; text-align: center; gap: 6px; background: #edf1f6; border-radius: 6px; padding: 12px 8px; font-size: 12px; }
 .patient-dashboard .dashboard-date > span:first-child { text-transform: uppercase; font-weight: 600; }
 .patient-dashboard .dashboard-date strong { font-size: 30px; line-height: 1.2; }
