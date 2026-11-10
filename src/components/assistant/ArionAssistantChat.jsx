@@ -32,6 +32,7 @@ export default function ArionAssistantChat({
   const [pending, setPending] = useState(false);
   const [topicsOpen, setTopicsOpen] = useState(true);
   const [activeCategoryId, setActiveCategoryId] = useState(null);
+  const [contextTopic, setContextTopic] = useState(null);
   const launcherRef = useRef(null);
   const inputRef = useRef(null);
   const endRef = useRef(null);
@@ -66,6 +67,7 @@ export default function ArionAssistantChat({
 
   function closePanel() {
     setOpen(false);
+    setContextTopic(null);
     queueMicrotask(() => launcherRef.current?.focus());
   }
 
@@ -75,6 +77,7 @@ export default function ArionAssistantChat({
     setDraft('');
     setTopicsOpen(true);
     setActiveCategoryId(null);
+    setContextTopic(null);
     queueMicrotask(() => firstCategoryRef.current?.focus());
   }
 
@@ -88,9 +91,12 @@ export default function ArionAssistantChat({
     setActiveCategoryId(null);
     setPending(true);
     try {
-      const reply = await service.sendMessage(message);
+      const result = typeof service.sendConversationMessage === 'function'
+        ? await service.sendConversationMessage(message, contextTopic)
+        : { reply: await service.sendMessage(message), contextTopic: null };
       if (!activeRef.current || sequenceRef.current !== requestId) return;
-      setMessages(current => [...current, { id: `assistant-${requestId}`, role: 'assistant', text: reply }]);
+      setContextTopic(result.contextTopic ?? null);
+      setMessages(current => [...current, { id: `assistant-${requestId}`, role: 'assistant', text: result.reply }]);
     } catch (error) {
       if (!activeRef.current || sequenceRef.current !== requestId) return;
       setMessages(current => [...current, { id: `assistant-error-${requestId}`, role: 'assistant', text: assistantErrorMessage(error), error: true }]);

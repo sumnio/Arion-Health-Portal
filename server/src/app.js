@@ -242,6 +242,12 @@ export function createApp(
   });
   const publicAssistantModule = dependencies.publicAssistantModule ?? createPublicAssistantModule({
     maxMessageLength: assistantMaxMessageLength,
+    aiExternalEnabled,
+    aiProvider,
+    openAiApiKey,
+    openAiModel,
+    aiProviderTimeoutMs,
+    aiMaxOutputTokens,
   });
   const supportingDocumentModule = dependencies.supportingDocumentModule ?? createSupportingDocumentModule();
   const pwdVerificationModule = dependencies.pwdVerificationModule ?? createPwdVerificationModule({ notificationTriggers });

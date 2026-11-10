@@ -131,20 +131,39 @@ test('email verification knowledge safely explains OTP length, expiry, and resen
 test('password reset knowledge is Patient-only and describes session invalidation without internals', () => {
   const answer = reply('I forgot my password');
   assert.match(answer, /Forgot Password/);
-  assert.match(answer, /Change Password in Profile/);
+  assert.match(answer, /Profile and select Change Password/);
   assert.match(answer, /reset link/);
   assert.match(answer, /signs out earlier Patient sessions/);
-  assert.match(answer, /Staff, Doctor, and Admin accounts do not use/);
   assert.doesNotMatch(answer, /token hash|enumeration|reset-session/i);
+});
+
+test('common Patient conversation wording receives concise deterministic guidance', () => {
+  const cases = [
+    ['will they text me in the sms?', /SMS delivery is not guaranteed/],
+    ['irereset ko sana', /Forgot Password/],
+    ['mag eemail ba sila sa akin', /registered email/],
+    ['i want to contact them', /\(02\) 8821 0577/],
+    ['location or address puntahan ko', /20 Indonesia Street/],
+    ['delete acc', /does not provide self-service account deletion/],
+    ['logout', /Select Log out/],
+    ['how about palitan pass or change pass', /Change Password/],
+    ['pwd rejected', /front and back images/],
+  ];
+  for (const [message, expected] of cases) assert.match(reply(message), expected, message);
+  assert.match(reply('oki'), /Got it/);
+  assert.match(reply('tulong'), /Kailangan mo ba ng tulong/);
 });
 
 test('Profile and Philippine phone knowledge reflect current Patient UI and privacy rules', () => {
   const profile = reply('How do I edit my profile?');
   assert.match(profile, /read-only/);
   assert.match(profile, /Edit Profile/);
-  assert.match(profile, /Emergency-contact information remains visible only in your Patient profile/);
-  assert.match(profile, /Staff do not see allergies/);
-  assert.match(profile, /related Doctor/);
+  assert.match(profile, /full name/);
+  assert.match(profile, /update allergies/);
+
+  assert.match(reply('I want to add allergies'), /Edit Profile/);
+  assert.match(reply('I want to add allergies'), /commas or new lines/i);
+  assert.match(reply('I want to add allergies'), /Save Changes/);
 
   const phone = reply('What is the contact number format?');
   assert.match(phone, /09XXXXXXXXX/);

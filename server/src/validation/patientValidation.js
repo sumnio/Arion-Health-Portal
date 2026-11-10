@@ -1,5 +1,5 @@
 import { httpError } from '../utils/httpError.js';
-import { INPUT_LIMITS } from './inputValidation.js';
+import { boundedText, INPUT_LIMITS } from './inputValidation.js';
 import { validatePhilippineMobile } from './phoneValidation.js';
 
 const editableFields = new Set([
@@ -11,6 +11,7 @@ const editableFields = new Set([
   'emergency_contact_name',
   'emergency_contact_number',
   'emergency_contact_relationship',
+  'allergies',
 ]);
 
 function requiredText(value, field) {
@@ -62,6 +63,10 @@ export function validatePatientProfilePatch(body) {
       updates.dob = dob;
     } else if (field === 'emergency_contact_number') {
       updates[field] = validatePhilippineMobile(body[field], field, { optional: true, code: 'INVALID_INPUT' });
+    } else if (field === 'allergies') {
+      if (!Array.isArray(body.allergies)) throw httpError(400, 'INVALID_INPUT', 'allergies must be an array.');
+      if (body.allergies.length > INPUT_LIMITS.allergies) throw httpError(400, 'INVALID_INPUT', `allergies must contain at most ${INPUT_LIMITS.allergies} items.`);
+      updates.allergies = body.allergies.map((item, index) => boundedText(item, `allergies[${index}]`, INPUT_LIMITS.shortText, { code: 'INVALID_INPUT' }));
     } else {
       updates[field] = optionalText(body[field], field);
     }

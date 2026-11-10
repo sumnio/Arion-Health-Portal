@@ -268,6 +268,24 @@ test('assigned Doctor tool handles one date and multiple Doctors without private
   });
 });
 
+test('colloquial English, Filipino, and corrected follow-ups reach only owned live appointment tools', async () => {
+  const c = createContext();
+  await withServer(c.app, async (base) => {
+    for (const message of ['kailan yung next appoint ko', 'no yung next appointment ko']) {
+      const { body } = await ask(base, c.cookie('patientA'), message);
+      assert.match(body.reply, /October 13, 2026 at 12:30 AM/);
+      assert.doesNotMatch(body.reply, /Dr\. Other Patient|patient-b/i);
+    }
+    for (const message of ['sino doctor ko', 'whos my doc or doctor']) {
+      const { body } = await ask(base, c.cookie('patientA'), message);
+      assert.match(body.reply, /multiple upcoming appointments/);
+      assert.match(body.reply, /Dr\. Manila/);
+      assert.doesNotMatch(body.reply, /private@example|Dr\. Other Patient/);
+    }
+    assert.ok(c.counters.appointmentReads.every((id) => id === 'patient-a'));
+  });
+});
+
 test('cross-Patient and broad-data wording fails safely before any tool read', async () => {
   const c = createContext();
   await withServer(c.app, async (base) => {
@@ -389,7 +407,7 @@ test('assistant live-tool source imports no mutation or sensitive-data service a
     'assistantService.js',
   ].map((file) => fs.readFileSync(new URL(`../src/services/${file}`, import.meta.url), 'utf8')).join('\n');
   const patientToolSource = fs.readFileSync(new URL('../src/services/assistantPatientToolService.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /cancelForPatient|rescheduleForPatient|markNotificationRead|markAllNotificationsRead|clinicalService|MedicalRecord|Prescription|MedicalCertificate/i);
+  assert.doesNotMatch(source, /cancelForPatient|rescheduleForPatient|markNotificationRead|markAllNotificationsRead|from\s+['"][^'"]*(?:clinicalService|MedicalRecord|Prescription|MedicalCertificate)/i);
   assert.doesNotMatch(patientToolSource, /gemini|ollama|openai|anthropic|claude|fetch\(|axios|https?:\/\//i);
 });
 

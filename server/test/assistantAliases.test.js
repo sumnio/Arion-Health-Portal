@@ -36,6 +36,11 @@ const internalCases = [
   ['What phone number should I use?', /09XXXXXXXXX/],
   ['Who creates my Medical Record?', /Doctor’s clinical workflow/],
   ['Who issues Certificates?', /Doctor workflow/],
+  ['certificate expiration data', /Valid Until date/],
+  ['downlaod expried certs', /cannot be opened or downloaded/i],
+  ['my perscription', /Prescriptions section/],
+  ['docters and servces', /active Doctors/],
+  ['go appoint me pls', /cannot book/],
 ];
 
 for (const [message, expected] of internalCases) {
@@ -46,7 +51,7 @@ for (const [message, expected] of internalCases) {
   });
 }
 
-test('broad deterministic help does not invoke Patient tools or external GPT', async () => {
+test('broad safe help may use external GPT without invoking private Patient tools', async () => {
   let providerCalls = 0;
   let toolCalls = 0;
   const service = createAssistantModule({
@@ -56,9 +61,9 @@ test('broad deterministic help does not invoke Patient tools or external GPT', a
   }).assistantService;
   for (const message of ['appointments help me', 'account help', 'records help', 'certificate help', 'notification help', 'queue help']) {
     const result = await service.respond(message, { userProfileId: 'patient-a' });
-    assert.equal(result.tool, null);
+    assert.equal(result.tool, 'openai_responses');
   }
-  assert.equal(providerCalls, 0);
+  assert.equal(providerCalls, 6);
   assert.equal(toolCalls, 0);
 });
 

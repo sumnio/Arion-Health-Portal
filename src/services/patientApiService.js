@@ -120,6 +120,7 @@ function profilePatch(values) {
     emergency_contact_name: values.emergencyName.trim() || null,
     emergency_contact_number: canonicalizePhilippineMobile(values.emergencyNumber) || null,
     emergency_contact_relationship: values.relationship.trim() || null,
+    allergies: values.allergies.split(/[,\n]/).map((value) => value.trim()).filter(Boolean),
   };
 }
 

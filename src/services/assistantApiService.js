@@ -11,16 +11,26 @@ export function assistantErrorMessage(error) {
 }
 
 export function createAssistantApiService(endpoint, client) {
+  async function requestMessage(message, contextTopic = null) {
+    const payload = await client.request(endpoint, {
+      method: 'POST',
+      body: {
+        message,
+        ...(contextTopic ? { context_topic: contextTopic } : {}),
+      },
+    });
+    if (typeof payload?.reply !== 'string' || !payload.reply.trim()) {
+      throw new ApiError('The assistant response was not recognized.', { code: 'INVALID_ASSISTANT_RESPONSE' });
+    }
+    return Object.freeze({
+      reply: payload.reply.trim(),
+      contextTopic: typeof payload.context_topic === 'string' ? payload.context_topic : null,
+    });
+  }
   return Object.freeze({
     async sendMessage(message) {
-      const payload = await client.request(endpoint, {
-        method: 'POST',
-        body: { message },
-      });
-      if (typeof payload?.reply !== 'string' || !payload.reply.trim()) {
-        throw new ApiError('The assistant response was not recognized.', { code: 'INVALID_ASSISTANT_RESPONSE' });
-      }
-      return payload.reply.trim();
+      return (await requestMessage(message)).reply;
     },
+    sendConversationMessage: requestMessage,
   });
 }

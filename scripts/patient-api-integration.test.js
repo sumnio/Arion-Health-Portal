@@ -218,6 +218,9 @@ test('Patient profile starts read-only, requires Edit Profile, and shows save fe
   assert.match(source, /Changes saved successfully\./);
   assert.match(source, /currently visible only in your Patient profile/);
   assert.match(source, /visible to your related Doctor/);
+  assert.match(source, /change\('allergies'/);
+  assert.match(source, /Separate multiple allergies with commas or new lines/);
+  assert.doesNotMatch(source, /id="profile-allergies"[^>]*readOnly/);
 });
 
 test('Patient Profile Change Password opens the existing recovery route without submitting profile data', async () => {

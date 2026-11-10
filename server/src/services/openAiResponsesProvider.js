@@ -49,7 +49,7 @@ export function createOpenAiResponsesProvider({
             model,
             instructions,
             input: prompt,
-            reasoning: { effort: 'minimal' },
+            reasoning: { effort: 'none' },
             max_output_tokens: maxOutputTokens,
             store: false,
             tools: [],

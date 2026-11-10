@@ -6,8 +6,8 @@ export function createPublicAssistantController({ assistantService, maxMessageLe
     async message(request, response, next) {
       const startedAt = Date.now();
       try {
-        const message = validateAssistantMessage(request.body, maxMessageLength);
-        const result = await assistantService.respond(message);
+        const { message, contextTopic } = validateAssistantMessage(request.body, maxMessageLength);
+        const result = await assistantService.respond(message, { contextTopic });
         requestSecurityEvent(request, {
           event: 'PUBLIC_ASSISTANT_MESSAGE_HANDLED',
           severity: 'info',
@@ -15,10 +15,17 @@ export function createPublicAssistantController({ assistantService, maxMessageLe
           metadata: {
             intent_category: result.intent,
             result_category: result.resultCategory,
+            ...(result.providerTelemetry ? {
+              provider_name: result.providerTelemetry.provider,
+              provider_outcome: result.providerTelemetry.outcome,
+            } : {}),
             latency_ms: Date.now() - startedAt,
           },
         }, { includeActor: false, includeIp: false });
-        response.json({ reply: result.reply });
+        response.json({
+          reply: result.reply,
+          ...(result.contextTopic ? { context_topic: result.contextTopic } : {}),
+        });
       } catch (error) {
         requestSecurityEvent(request, {
           event: 'PUBLIC_ASSISTANT_MESSAGE_FAILED',

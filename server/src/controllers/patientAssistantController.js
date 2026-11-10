@@ -6,9 +6,10 @@ export function createPatientAssistantController({ assistantService, maxMessageL
     async message(request, response, next) {
       const startedAt = Date.now();
       try {
-        const message = validateAssistantMessage(request.body, maxMessageLength);
+        const { message, contextTopic } = validateAssistantMessage(request.body, maxMessageLength);
         const result = await assistantService.respond(message, {
           userProfileId: request.authUser.user_profile_id,
+          contextTopic,
         });
         requestSecurityEvent(request, {
           event: 'ASSISTANT_MESSAGE_HANDLED',
@@ -25,7 +26,10 @@ export function createPatientAssistantController({ assistantService, maxMessageL
             latency_ms: Date.now() - startedAt,
           },
         }, { includeActor: false, includeIp: false });
-        response.json({ reply: result.reply });
+        response.json({
+          reply: result.reply,
+          ...(result.contextTopic ? { context_topic: result.contextTopic } : {}),
+        });
       } catch (error) {
         requestSecurityEvent(request, {
           event: 'ASSISTANT_MESSAGE_FAILED',
