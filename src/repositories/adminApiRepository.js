@@ -30,6 +30,7 @@ export function createAdminApiRepository(client = apiClient) {
     async getPatient(id) { return (await request(`/api/admin/patients/${encodeURIComponent(id)}`)).patient; },
     async deactivatePatient(id) { return (await request(`/api/admin/patients/${encodeURIComponent(id)}/deactivate`, { method: 'PATCH' })).patient; },
     async reactivatePatient(id) { return (await request(`/api/admin/patients/${encodeURIComponent(id)}/reactivate`, { method: 'PATCH' })).patient; },
+    async getAuditLogs(params = {}) { return request(`/api/admin/audit-logs${queryString(params)}`); },
   };
 }
 

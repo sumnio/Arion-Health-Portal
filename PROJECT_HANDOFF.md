@@ -1,5 +1,11 @@
 # Arion Health Portal MVP Handoff
 
+## v1.2.22 handoff — Admin Audit Logs
+
+The Admin sidebar now provides a read-only Audit Logs page after normal Admin password and MFA verification. It requests only 10 newest-first records per page from the existing audit API and offers server-side date, role, category, action, result, and bounded actor-or-target filtering. Timestamps display in clinic (`Asia/Manila`) time, while compact text badges identify category and result without relying on color alone.
+
+The browser renders only the approved date, actor, role, category, action, target, and result fields. Unexpected metadata is removed before rendering; no secret, clinical, PWD-document, certificate-content, or uploaded-file data is shown. There are no mutation, clearing, export, analytics, retention, or detail-fetch controls. Staff, Doctor, Patient, unauthenticated, inactive, and incomplete-MFA accounts remain denied by the existing server and frontend guards. The responsive page uses a semantic table on larger screens and labelled cards on narrow screens. No deployment was performed.
+
 ## v1.2.20 handoff — final UI and accessibility gate
 
 The final v1.2 frontend pass found no role-navigation, responsive-layout, or workflow regression. Small accessibility fixes complete keyboard focus trapping, Escape handling, background scroll locking, and trigger-focus restoration for prescription and supporting-document previews. Notification clearing now focuses the safe cancellation action and restores the originating control. Representative Public/Auth, Patient, Doctor, Staff, and Admin pages were reviewed at mobile, tablet, and desktop widths, with horizontal scrolling retained only inside the weekly operational calendar.

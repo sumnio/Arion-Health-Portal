@@ -178,6 +178,10 @@ export const routeGroups = {
       "title": "Manage Staff"
     },
     {
+      "path": "/admin/audit-logs",
+      "title": "Audit Logs"
+    },
+    {
       "path": "/admin/notifications",
       "title": "Notifications"
     }

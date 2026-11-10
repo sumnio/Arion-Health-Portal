@@ -1,5 +1,13 @@
 # Arion Health Portal
 
+## v1.2.22 Admin Audit Logs UI
+
+The Admin portal now includes **Audit Logs** at `/admin/audit-logs`. The page reuses the existing Admin route guard, so only an active Admin who has completed MFA may open it. Patient, Doctor, Staff, incomplete-MFA, inactive, and unauthenticated sessions receive no audit access.
+
+The read-only page shows 10 newest-first events per server-paginated page: date and time, actor, role, category, readable action, safe target, and result. Date range, role, category, action, and result filters are server-side. One bounded, debounced search matches either the actor snapshot or the safe target identifier/display. Timestamps use the server value and display in `Asia/Manila` time.
+
+The UI allowlists only table fields required by this page. It does not render request IDs, metadata, secrets, authentication material, clinical content, PWD documents, certificate contents, or uploaded-file contents, and it never fetches extra target details. Audit records remain append-only: there are no edit, delete, clear, restore, export, retention, or result-changing controls. Desktop uses a semantic table, tablet allows controlled table scrolling, and mobile converts rows to compact labelled cards. This work remains local and was not deployed.
+
 ## v1.2.20 final UI, accessibility, and release-readiness gate
 
 v1.2.20 completes the final frontend consistency and accessibility review without changing any workflow or business behavior. Prescription-attachment previews and supporting-document viewers now trap keyboard focus, close with Escape, prevent background scrolling, and restore focus to the control that opened them. The notification-clear confirmation moves focus to the safe **Keep notifications** action, supports Escape, and restores focus afterward. Public/Auth and representative Patient, Doctor, Staff, and Admin pages remain usable across mobile, tablet, and desktop widths; operational calendars retain intentional internal horizontal scrolling.

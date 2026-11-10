@@ -52,6 +52,7 @@ function memoryRepository(seed = []) {
         && (!filters.dateTo || new Date(item.created_at) <= filters.dateTo)
         && (!filters.searchActor || String(item.actor_display_name_snapshot ?? '').toLowerCase().includes(filters.searchActor.toLowerCase()))
         && (!filters.searchTarget || `${item.target_id ?? ''} ${item.target_display_snapshot ?? ''}`.toLowerCase().includes(filters.searchTarget.toLowerCase()))
+        && (!filters.search || `${item.actor_display_name_snapshot ?? ''} ${item.target_id ?? ''} ${item.target_display_snapshot ?? ''}`.toLowerCase().includes(filters.search.toLowerCase()))
       ));
       found = found.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       return { items: found.slice((page - 1) * limit, page * limit), total: found.length };
@@ -165,6 +166,8 @@ test('role, category, action, result, date, actor, and target filters are bounde
   ]);
   const service = createAuditLogService({ repository, logger: { error() {} } });
   assert.equal((await service.listAuditEvents({ role: 'staff', category: 'APPOINTMENT', action: 'APPOINTMENT_CANCELLED', result: 'success', date_from: '2026-11-01', date_to: '2026-11-30', search_actor: 'Alpha', search_target: 'APT-100' })).items.length, 1);
+  assert.equal((await service.listAuditEvents({ search: 'Alpha' })).items.length, 1);
+  assert.equal((await service.listAuditEvents({ search: 'PAT-200' })).items.length, 1);
   await assert.rejects(() => service.listAuditEvents({ search_actor: 'x' }), error => error.code === 'INVALID_AUDIT_FILTER');
   await assert.rejects(() => service.listAuditEvents({ limit: 500, role: 'root' }), error => error.code === 'INVALID_AUDIT_FILTER');
   assert.equal((await service.listAuditEvents({ limit: 500 })).pagination.page_size, 50);

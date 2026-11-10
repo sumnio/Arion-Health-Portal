@@ -70,9 +70,9 @@ test('wrong-role frontend guards deny every cross-role route and sessions use no
   const staff = await adminScenario.createStaff();
   const admin = await adminScenario.createAdmin({ enrolled: true });
   const actors = [
-    { account: patient, login: loginAsPatient, denied: ['/doctor/dashboard', '/staff/dashboard', '/admin/dashboard'] },
-    { account: doctor, login: loginAsDoctor, denied: ['/patient/dashboard', '/staff/dashboard', '/admin/dashboard'] },
-    { account: staff, login: loginAsStaff, denied: ['/patient/dashboard', '/doctor/dashboard', '/admin/dashboard'] },
+    { account: patient, login: loginAsPatient, denied: ['/doctor/dashboard', '/staff/dashboard', '/admin/dashboard', '/admin/audit-logs'] },
+    { account: doctor, login: loginAsDoctor, denied: ['/patient/dashboard', '/staff/dashboard', '/admin/dashboard', '/admin/audit-logs'] },
+    { account: staff, login: loginAsStaff, denied: ['/patient/dashboard', '/doctor/dashboard', '/admin/dashboard', '/admin/audit-logs'] },
     { account: admin, login: (page, value) => loginAsAdmin(page, value, () => currentTotp(value.mfaSecret)), denied: ['/patient/dashboard', '/doctor/dashboard', '/staff/dashboard'] },
   ];
   for (const actor of actors) {

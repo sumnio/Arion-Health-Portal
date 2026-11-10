@@ -117,6 +117,7 @@ export function createAuditLogService({ repository, logger = console, now = () =
       dateTo: parseDate(query.date_to, 'date_to', true),
       searchActor: boundedSearch(query.search_actor, 'search_actor'),
       searchTarget: boundedSearch(query.search_target, 'search_target'),
+      search: boundedSearch(query.search, 'search'),
     };
     if (filters.role && !ROLE_SET.has(filters.role)) throw httpError(400, 'INVALID_AUDIT_FILTER', 'role is invalid.');
     if (filters.category && !CATEGORY_SET.has(filters.category)) throw httpError(400, 'INVALID_AUDIT_FILTER', 'category is invalid.');

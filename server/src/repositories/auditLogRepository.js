@@ -32,6 +32,14 @@ export const auditLogRepository = Object.freeze({
       const pattern = { $regex: escapedSearch(filters.searchTarget), $options: 'i' };
       query.$or = [{ target_id: pattern }, { target_display_snapshot: pattern }];
     }
+    if (filters.search) {
+      const pattern = { $regex: escapedSearch(filters.search), $options: 'i' };
+      query.$or = [
+        { actor_display_name_snapshot: pattern },
+        { target_id: pattern },
+        { target_display_snapshot: pattern },
+      ];
+    }
     const [items, total] = await Promise.all([
       AuditLog.find(query)
         .sort({ created_at: -1, _id: -1 })

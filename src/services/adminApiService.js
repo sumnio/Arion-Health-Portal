@@ -12,6 +12,17 @@ function page(result = {}) {
   };
 }
 
+const SAFE_AUDIT_FIELDS = new Set([
+  'id', 'created_at', 'actor', 'actor_role', 'category', 'action',
+  'target_type', 'target_display', 'result',
+]);
+
+function safeAuditItem(item = {}) {
+  return Object.fromEntries(
+    Object.entries(item).filter(([key, value]) => SAFE_AUDIT_FIELDS.has(key) && value != null),
+  );
+}
+
 function clean(values, keys) {
   return Object.fromEntries(keys.map((key) => [key, key === 'contact_number' ? canonicalizePhilippineMobile(values[key]) : typeof values[key] === 'string' ? values[key].trim() : values[key]]));
 }
@@ -56,6 +67,16 @@ export function createAdminApiService(repository = adminApiRepository) {
     async listPatients({ search = '', status = 'all', page: pageNumber = 1, limit = 5 } = {}) { return page(await repository.getPatients({ search, status, page: pageNumber, limit })); },
     getPatient: (id) => repository.getPatient(id),
     setPatientStatus(patient) { return patient.account_status === 'active' ? repository.deactivatePatient(patient.id) : repository.reactivatePatient(patient.id); },
+    async listAuditLogs(filters = {}) {
+      const result = await repository.getAuditLogs({ ...filters, limit: 10 });
+      return {
+        items: (result.items ?? []).map(safeAuditItem),
+        total: result.pagination?.total ?? 0,
+        page: result.pagination?.page ?? 1,
+        pageSize: result.pagination?.page_size ?? 10,
+        pageCount: result.pagination?.page_count ?? 1,
+      };
+    },
   };
 }
 

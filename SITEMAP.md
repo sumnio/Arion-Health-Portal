@@ -62,6 +62,7 @@ ADMIN
 /admin/patients
 /admin/doctors
 /admin/staff
+/admin/audit-logs
 /admin/notifications
 
 Protected route groups:
