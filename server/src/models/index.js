@@ -1,4 +1,5 @@
 export { UserProfile } from './UserProfile.js';
+export { AuditLog, AUDIT_ACTIONS, AUDIT_CATEGORIES, AUDIT_RESULTS } from './AuditLog.js';
 export { AuthAccount } from './AuthAccount.js';
 export { EmailVerificationChallenge, EMAIL_VERIFICATION_PURPOSES } from './EmailVerificationChallenge.js';
 export { PasswordResetToken } from './PasswordResetToken.js';

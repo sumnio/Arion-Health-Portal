@@ -44,6 +44,8 @@ import { createRateLimiters, RATE_LIMIT_DEFAULTS } from './middleware/rateLimite
 import { parseCorsOrigins } from './config/env.js';
 import { ASSISTANT_AI_DEFAULTS } from './config/assistantAiConfig.js';
 import { attachSecurityLogger, createSecurityLogger, securityLogger as defaultSecurityLogger } from './services/securityLogger.js';
+import { createAuditLogModule } from './services/auditLogModule.js';
+import { createAdminAuditLogRouter } from './routes/adminAuditLogRoutes.js';
 
 export function corsOptions(origins) {
   const allowed = new Set(origins);
@@ -175,6 +177,11 @@ export function createApp(
     appBaseUrl,
     nodeEnv,
   });
+  const auditLogModule = dependencies.auditLogModule ?? createAuditLogModule({ logger: console });
+  app.use((request, _response, next) => {
+    request.auditLogService = auditLogModule.auditLogService;
+    next();
+  });
   const schedulingModule = dependencies.schedulingModule ?? createSchedulingModule({
     clinic: {
       timeZone: clinicTimeZone,
@@ -288,6 +295,7 @@ export function createApp(
   app.use('/api/staff', createStaffSchedulingRouter({ authModule, schedulingModule: staffSchedulingModule }));
   app.use('/api/staff', createAnalyticsRouter({ authModule, analyticsModule, role: 'staff' }));
   app.use('/api/admin', createAdminAccountRouter({ authModule, adminAccountModule, rateLimiters }));
+  app.use('/api/admin', createAdminAuditLogRouter({ authModule, auditLogModule }));
   app.use('/api/admin', createAnalyticsRouter({ authModule, analyticsModule, role: 'admin' }));
   app.use('/api/notifications', createNotificationRouter({ authModule, notificationModule }));
   if (enableAuthorizationProbes) {

@@ -1,9 +1,22 @@
 import { validateEmptyBody } from '../validation/inputValidation.js';
 import { requestSecurityEvent } from '../services/securityLogger.js';
+import { recordRequestAudit } from '../services/auditLogService.js';
 
 function logAdminEvent(request, event, targetType, targetId) {
   requestSecurityEvent(request, {
     event, severity: 'info', outcome: 'success', target_type: targetType, target_id: targetId,
+  });
+}
+
+function auditAccountStatus(request, action, targetType, target) {
+  return recordRequestAudit(request, {
+    category: 'ACCOUNT', action, result: 'success',
+    target_type: targetType, target_id: target.id,
+    target_display_snapshot: target.display_name ?? target.full_name ?? targetType,
+    safe_metadata: {
+      old_status: action === 'ACCOUNT_ACTIVATED' ? 'inactive' : 'active',
+      new_status: action === 'ACCOUNT_ACTIVATED' ? 'active' : 'inactive',
+    },
   });
 }
 
@@ -13,19 +26,19 @@ export function createAdminAccountController({ adminAccountService: service }) {
     async doctors(request, response) { response.json({ doctors: await service.listDoctors(request.query) }); },
     async doctor(request, response) { response.json({ doctor: await service.getDoctor(request.params.doctorId) }); },
     async updateDoctor(request, response) { response.json({ doctor: await service.updateDoctor(request.params.doctorId, request.body) }); },
-    async deactivateDoctor(request, response) { validateEmptyBody(request.body); const doctor = await service.deactivateDoctor(request.params.doctorId); logAdminEvent(request, 'ACCOUNT_DEACTIVATED', 'doctor', doctor.id); response.json({ doctor }); },
-    async reactivateDoctor(request, response) { validateEmptyBody(request.body); const doctor = await service.reactivateDoctor(request.params.doctorId); logAdminEvent(request, 'ACCOUNT_REACTIVATED', 'doctor', doctor.id); response.json({ doctor }); },
+    async deactivateDoctor(request, response) { validateEmptyBody(request.body); const doctor = await service.deactivateDoctor(request.params.doctorId); logAdminEvent(request, 'ACCOUNT_DEACTIVATED', 'doctor', doctor.id); await auditAccountStatus(request, 'ACCOUNT_DEACTIVATED', 'Doctor account', doctor); response.json({ doctor }); },
+    async reactivateDoctor(request, response) { validateEmptyBody(request.body); const doctor = await service.reactivateDoctor(request.params.doctorId); logAdminEvent(request, 'ACCOUNT_REACTIVATED', 'doctor', doctor.id); await auditAccountStatus(request, 'ACCOUNT_ACTIVATED', 'Doctor account', doctor); response.json({ doctor }); },
     async resetDoctorPassword(request, response) { const doctor = await service.resetDoctorPassword(request.params.doctorId, request.body); logAdminEvent(request, 'ADMIN_DOCTOR_PASSWORD_RESET', 'doctor', doctor.id); response.json({ doctor }); },
     async createStaff(request, response) { const staff = await service.createStaff(request.body); logAdminEvent(request, 'ADMIN_STAFF_CREATED', 'staff', staff.id); response.status(201).json({ staff }); },
     async staffList(request, response) { response.json({ staff: await service.listStaff(request.query) }); },
     async staffDetail(request, response) { response.json({ staff: await service.getStaff(request.params.staffId) }); },
     async updateStaff(request, response) { response.json({ staff: await service.updateStaff(request.params.staffId, request.body) }); },
-    async deactivateStaff(request, response) { validateEmptyBody(request.body); const staff = await service.deactivateStaff(request.params.staffId); logAdminEvent(request, 'ACCOUNT_DEACTIVATED', 'staff', staff.id); response.json({ staff }); },
-    async reactivateStaff(request, response) { validateEmptyBody(request.body); const staff = await service.reactivateStaff(request.params.staffId); logAdminEvent(request, 'ACCOUNT_REACTIVATED', 'staff', staff.id); response.json({ staff }); },
+    async deactivateStaff(request, response) { validateEmptyBody(request.body); const staff = await service.deactivateStaff(request.params.staffId); logAdminEvent(request, 'ACCOUNT_DEACTIVATED', 'staff', staff.id); await auditAccountStatus(request, 'ACCOUNT_DEACTIVATED', 'Staff account', staff); response.json({ staff }); },
+    async reactivateStaff(request, response) { validateEmptyBody(request.body); const staff = await service.reactivateStaff(request.params.staffId); logAdminEvent(request, 'ACCOUNT_REACTIVATED', 'staff', staff.id); await auditAccountStatus(request, 'ACCOUNT_ACTIVATED', 'Staff account', staff); response.json({ staff }); },
     async resetStaffPassword(request, response) { const staff = await service.resetStaffPassword(request.params.staffId, request.body); logAdminEvent(request, 'ADMIN_STAFF_PASSWORD_RESET', 'staff', staff.id); response.json({ staff }); },
     async patients(request, response) { response.json({ patients: await service.listPatients(request.query) }); },
     async patient(request, response) { response.json({ patient: await service.getPatient(request.params.patientId) }); },
-    async deactivatePatient(request, response) { validateEmptyBody(request.body); const patient = await service.deactivatePatient(request.params.patientId); logAdminEvent(request, 'ACCOUNT_DEACTIVATED', 'patient', patient.id); response.json({ patient }); },
-    async reactivatePatient(request, response) { validateEmptyBody(request.body); const patient = await service.reactivatePatient(request.params.patientId); logAdminEvent(request, 'ACCOUNT_REACTIVATED', 'patient', patient.id); response.json({ patient }); },
+    async deactivatePatient(request, response) { validateEmptyBody(request.body); const patient = await service.deactivatePatient(request.params.patientId); logAdminEvent(request, 'ACCOUNT_DEACTIVATED', 'patient', patient.id); await auditAccountStatus(request, 'ACCOUNT_DEACTIVATED', 'Patient account', patient); response.json({ patient }); },
+    async reactivatePatient(request, response) { validateEmptyBody(request.body); const patient = await service.reactivatePatient(request.params.patientId); logAdminEvent(request, 'ACCOUNT_REACTIVATED', 'patient', patient.id); await auditAccountStatus(request, 'ACCOUNT_ACTIVATED', 'Patient account', patient); response.json({ patient }); },
   };
 }

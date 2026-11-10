@@ -1,6 +1,7 @@
 import { requestSecurityEvent } from '../services/securityLogger.js';
 import { pipeline } from 'node:stream/promises';
 import { validateEmptyBody } from '../validation/inputValidation.js';
+import { recordRequestAudit } from '../services/auditLogService.js';
 
 export function createPwdVerificationController({ pwdVerificationService }) {
   return Object.freeze({
@@ -51,11 +52,21 @@ export function createStaffPwdVerificationController({ pwdVerificationService })
       validateEmptyBody(request.body);
       const result = await pwdVerificationService.verify(request.params.verificationId, request.authUser.user_profile_id);
       requestSecurityEvent(request, { event: 'PWD_VERIFICATION_REVIEWED', severity: 'info', outcome: 'success', target_type: 'pwd_verification', target_id: request.params.verificationId, metadata: { action: 'verified' } });
+      await recordRequestAudit(request, {
+        category: 'PWD', action: 'PWD_VERIFICATION_APPROVED', result: 'success',
+        target_type: 'PWD verification', target_id: request.params.verificationId,
+        target_display_snapshot: 'PWD verification request',
+      });
       response.json({ pwd_verification: result });
     },
     async reject(request, response) {
       const result = await pwdVerificationService.reject(request.params.verificationId, request.authUser.user_profile_id, request.body);
       requestSecurityEvent(request, { event: 'PWD_VERIFICATION_REVIEWED', severity: 'info', outcome: 'success', target_type: 'pwd_verification', target_id: request.params.verificationId, metadata: { action: 'rejected' } });
+      await recordRequestAudit(request, {
+        category: 'PWD', action: 'PWD_VERIFICATION_REJECTED', result: 'success',
+        target_type: 'PWD verification', target_id: request.params.verificationId,
+        target_display_snapshot: 'PWD verification request',
+      });
       response.json({ pwd_verification: result });
     },
   });

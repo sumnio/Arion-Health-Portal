@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 
 import {
   Appointment,
+  AuditLog,
   AppointmentPriorityAudit,
   AuthAccount,
   ConsultationSupportingDocument,
@@ -33,6 +34,7 @@ test('all domain models load with their intended collection names', () => {
   assert.deepEqual(
     [
       UserProfile,
+      AuditLog,
       AuthAccount,
       EmailVerificationChallenge,
       PasswordResetToken,
@@ -53,6 +55,7 @@ test('all domain models load with their intended collection names', () => {
     ].map((model) => model.collection.collectionName),
     [
       'user_profiles',
+      'audit_logs',
       'auth_accounts',
       'email_verification_challenges',
       'password_reset_tokens',

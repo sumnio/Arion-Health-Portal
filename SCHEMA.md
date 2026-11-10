@@ -959,3 +959,23 @@ Collection: `prescriptions` (extended; no new metadata collection)
 | `attachment_uploaded_at` | Date, nullable | Server-authoritative immutable upload timestamp |
 
 Binary bytes live only in the private GridFS bucket `prescription_files`, which creates the standard `prescription_files.files` and `prescription_files.chunks` collections. One Prescription has zero or one attachment. There is no public URL, external storage key, extracted text, OCR/AI field, mutable version, or deletion flag.
+# AuditLog (v1.2.21)
+
+Collection: `audit_logs`
+
+| Field | Type | Rules |
+| --- | --- | --- |
+| `actor_user_id` | ObjectId, nullable | Safe reference to `UserProfile`; null for unidentified failed authentication |
+| `actor_role` | string | patient, doctor, staff, admin, system, or unknown |
+| `actor_display_name_snapshot` | string, nullable | Safe bounded display snapshot only |
+| `action` | string | Central approved action enum |
+| `category` | string | AUTH, MFA, ACCOUNT, APPOINTMENT, SCHEDULE, PWD, MEDICAL_RECORD, PRESCRIPTION, CERTIFICATE, PORTAL_INVITATION, or PATIENT_ACCOUNT |
+| `target_type` | string | Safe bounded entity label |
+| `target_id` | string, nullable | Safe entity identifier, never a storage/token secret |
+| `target_display_snapshot` | string, nullable | Safe bounded label |
+| `result` | string | success, failed, or denied |
+| `request_id` | string, nullable | Bounded request correlation ID when available |
+| `safe_metadata` | object | Allowlisted operational metadata only |
+| `created_at` | date | Server-generated and immutable |
+
+Indexes: `created_at` descending; `actor_role + created_at`; `category + created_at`; `action + created_at`; `result + created_at`; and `target_type + target_id + created_at`. Update, replace, and delete model operations are rejected. The application exposes creation only through the central service and provides no mutation API. Retention is intentionally undefined; entries remain until an approved retention policy exists.

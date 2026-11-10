@@ -905,3 +905,13 @@ MedicalRecord 1 ─── 0..many Prescription 1 ─── 0..1 private GridFS f
 The existing Prescription belongs to one immutable MedicalRecord and may now reference one object in the private `prescription_files` GridFS bucket. A row may contain structured medicine/dosage data, an attachment, or both. The GridFS reference and SHA-256 hash stay private; normal record projections expose only safe attachment availability and display metadata.
 
 Doctor access follows `authenticated UserProfile -> owning Doctor -> owned MedicalRecord -> Prescription -> attachment`. Patient access follows `authenticated UserProfile -> own Patient -> owned MedicalRecord -> Prescription -> attachment`. Staff, Admin, unrelated users, and unauthenticated callers have no traversal route to attachment bytes. The relationship adds no OCR/AI, external provider, public link, notification, email, SMS, edit, replace, or delete relationship.
+# v1.2.21 AuditLog relationship
+
+```text
+UserProfile 1 -> 0..many AuditLog (optional actor_user_id)
+AuditLog -> safe target reference (target_type + target_id; no polymorphic database ownership)
+```
+
+`AuditLog` is an append-only evidence collection, not a clinical relationship or authorization source. An actor snapshot identifies who performed an important action while the target fields identify only the affected entity through safe labels/IDs. Failed authentication may have no actor relationship. Audit entries never copy passwords, OTP/TOTP material, tokens, secrets, raw PWD images, diagnoses, Doctor notes, prescription details/attachments, certificate clinical content, supporting-document data, or invitation/reset/verification tokens.
+
+Only an active MFA-authenticated Admin may read the safe projection through the paginated API. Admin cannot create, update, delete, or clear audit entries. There is no automatic retention edge or TTL index until an approved retention policy exists. Audit write failure is best-effort and cannot roll back the already completed domain relationship change.

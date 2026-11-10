@@ -1,5 +1,6 @@
 import { validateEmptyBody } from '../validation/inputValidation.js';
 import { validateSlotQueryParameters } from '../validation/schedulingValidation.js';
+import { recordRequestAudit } from '../services/auditLogService.js';
 
 export function createPatientController({ patientService, appointmentService }) {
   return {
@@ -57,6 +58,12 @@ export function createPatientController({ patientService, appointmentService }) 
         request.authUser.user_profile_id,
         request.params.appointmentId,
       );
+      await recordRequestAudit(request, {
+        category: 'APPOINTMENT', action: 'APPOINTMENT_CANCELLED', result: 'success',
+        target_type: 'Appointment', target_id: appointment.id ?? request.params.appointmentId,
+        target_display_snapshot: 'Appointment',
+        safe_metadata: { old_status: 'pending_or_confirmed', new_status: appointment.status ?? 'cancelled' },
+      });
       response.json({ appointment });
     },
 
@@ -66,6 +73,16 @@ export function createPatientController({ patientService, appointmentService }) 
         request.params.appointmentId,
         request.body,
       );
+      await recordRequestAudit(request, {
+        category: 'APPOINTMENT', action: 'APPOINTMENT_RESCHEDULED', result: 'success',
+        target_type: 'Appointment', target_id: appointment.id ?? request.params.appointmentId,
+        target_display_snapshot: 'Appointment',
+        safe_metadata: {
+          new_date: appointment.appointment_date,
+          new_time: appointment.appointment_time,
+          new_status: appointment.status,
+        },
+      });
       response.json({ appointment });
     },
   };

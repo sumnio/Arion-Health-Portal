@@ -14,6 +14,7 @@ import {
 } from '../services/tokenService.js';
 import { validateEmptyBody } from '../validation/inputValidation.js';
 import { requestSecurityEvent } from '../services/securityLogger.js';
+import { recordRequestAudit } from '../services/auditLogService.js';
 
 export function createAuthController({ service, mfaService, nodeEnv }) {
   const cookieOptions = authCookieOptions(nodeEnv);
@@ -38,13 +39,29 @@ export function createAuthController({ service, mfaService, nodeEnv }) {
     });
   }
 
-  function finishMfa(request, response, result, event) {
+  async function finishMfa(request, response, result, event) {
     requestSecurityEvent(request, {
       event,
       severity: 'info',
       outcome: 'success',
       actor_user_profile_id: result.user.user_profile_id,
       actor_role: result.user.role,
+    });
+    await recordRequestAudit(request, {
+      actor_user_id: result.user.user_profile_id,
+      actor_role: result.user.role,
+      actor_display_name_snapshot: result.user.display_name,
+      category: 'MFA', action: 'MFA_VERIFY_SUCCESS', result: 'success',
+      target_type: 'Account', target_id: result.user.user_profile_id,
+      target_display_snapshot: 'Admin account',
+    });
+    await recordRequestAudit(request, {
+      actor_user_id: result.user.user_profile_id,
+      actor_role: result.user.role,
+      actor_display_name_snapshot: result.user.display_name,
+      category: 'AUTH', action: 'AUTH_LOGIN_SUCCESS', result: 'success',
+      target_type: 'Account', target_id: result.user.user_profile_id,
+      target_display_snapshot: 'Portal account',
     });
     requestSecurityEvent(request, {
       event: 'MFA_VERIFY_SUCCESS',
@@ -84,6 +101,14 @@ export function createAuthController({ service, mfaService, nodeEnv }) {
           event: 'AUTH_LOGIN_SUCCESS', severity: 'info', outcome: 'success',
           actor_user_profile_id: result.user.user_profile_id, actor_role: result.user.role,
         });
+        await recordRequestAudit(request, {
+          actor_user_id: result.user.user_profile_id,
+          actor_role: result.user.role,
+          actor_display_name_snapshot: result.user.display_name,
+          category: 'AUTH', action: 'AUTH_LOGIN_SUCCESS', result: 'success',
+          target_type: 'Account', target_id: result.user.user_profile_id,
+          target_display_snapshot: 'Portal account',
+        });
         response.cookie(AUTH_COOKIE_NAME, result.token, cookieOptions);
         return response.json({ user: result.user });
       } catch (error) {
@@ -91,12 +116,20 @@ export function createAuthController({ service, mfaService, nodeEnv }) {
           event: 'AUTH_LOGIN_FAILURE', severity: 'warning', outcome: 'denied',
           metadata: { reason: 'invalid_credentials_or_account' },
         });
+        await recordRequestAudit(request, {
+          actor_role: 'unknown', category: 'AUTH', action: 'AUTH_LOGIN_FAILURE',
+          result: 'failed', target_type: 'Account', target_display_snapshot: 'Portal account',
+        });
         throw error;
       }
     },
-    logout(request, response) {
+    async logout(request, response) {
       validateEmptyBody(request.body);
       requestSecurityEvent(request, { event: 'AUTH_LOGOUT', severity: 'info', outcome: 'success' });
+      void recordRequestAudit(request, {
+        category: 'AUTH', action: 'AUTH_LOGOUT', result: 'success',
+        target_type: 'Session', target_display_snapshot: 'Portal session',
+      });
       response.clearCookie(AUTH_COOKIE_NAME, cookieClearOptions);
       response.clearCookie(MFA_CHALLENGE_COOKIE_NAME, challengeClearOptions);
       response.clearCookie(EMAIL_VERIFICATION_COOKIE_NAME, verificationCookieClearOptions);
@@ -201,9 +234,13 @@ export function createAuthController({ service, mfaService, nodeEnv }) {
           request.cookies?.[MFA_CHALLENGE_COOKIE_NAME],
           request.validatedBody.code,
         );
-        finishMfa(request, response, result, 'MFA_SETUP_COMPLETED');
+        await finishMfa(request, response, result, 'MFA_SETUP_COMPLETED');
       } catch (error) {
         requestSecurityEvent(request, { event: 'MFA_VERIFY_FAILURE', severity: 'warning', outcome: 'denied' });
+        await recordRequestAudit(request, {
+          actor_role: 'unknown', category: 'MFA', action: 'MFA_VERIFY_FAILURE',
+          result: 'failed', target_type: 'Account', target_display_snapshot: 'Admin account',
+        });
         throw error;
       }
     },
@@ -213,9 +250,13 @@ export function createAuthController({ service, mfaService, nodeEnv }) {
           request.cookies?.[MFA_CHALLENGE_COOKIE_NAME],
           request.validatedBody.code,
         );
-        finishMfa(request, response, result, 'AUTH_LOGIN_SUCCESS');
+        await finishMfa(request, response, result, 'AUTH_LOGIN_SUCCESS');
       } catch (error) {
         requestSecurityEvent(request, { event: 'MFA_VERIFY_FAILURE', severity: 'warning', outcome: 'denied' });
+        await recordRequestAudit(request, {
+          actor_role: 'unknown', category: 'MFA', action: 'MFA_VERIFY_FAILURE',
+          result: 'failed', target_type: 'Account', target_display_snapshot: 'Admin account',
+        });
         throw error;
       }
     },

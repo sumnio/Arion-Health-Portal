@@ -1078,3 +1078,10 @@ Prescription rows and attachments become immutable when the Medical Record is sa
 - Storage IDs, GridFS filenames, hashes, and public URLs are never exposed. Prescription content remains excluded from operational Staff/Admin pages, generic notifications, email, SMS, logs, and external Assistant payloads.
 - Prescription attachments are never processed with OCR or AI.
 - v1.2.17 is local-only and was not deployed.
+# v1.2.21 Audit Log foundation
+
+Arion stores important security, account, operational, and clinical-action metadata in the dedicated append-only `audit_logs` collection. The central audit service accepts only stable categories, actions, and the results `success`, `failed`, or `denied`; it allowlists safe metadata and excludes passwords, hashes, OTP/TOTP values, tokens, secrets, raw request bodies, PWD documents, clinical text, prescription details/files, certificate content, and uploaded-file data.
+
+`GET /api/admin/audit-logs` is read-only and requires an active, fully MFA-authenticated Admin session. It returns newest-first server pagination with 10 records by default and a hard maximum of 50. Supported filters are date range, actor role, category, action, result, bounded actor search, and bounded safe target identifier/display search. There is no create, update, delete, or clear Admin endpoint and no automatic retention/deletion policy until an approved policy exists.
+
+Audit persistence is best-effort. A completed appointment, schedule, PWD, clinical, certificate, account, or invitation action is not rolled back if its audit write fails; only privacy-safe server diagnostics are emitted. This foundation adds no Admin Audit Logs page and was not deployed.

@@ -1,5 +1,6 @@
 import { validateEmptyBody } from '../validation/inputValidation.js';
 import { parseMedicalRecordMultipartPayload } from '../validation/prescriptionAttachmentValidation.js';
+import { recordRequestAudit } from '../services/auditLogService.js';
 
 function sendCertificatePdf(response, artifact, { disposition = 'attachment' } = {}) {
   response.set({
@@ -46,7 +47,29 @@ export function createDoctorClinicalController({ clinicalService }) {
       const body = request.is('multipart/form-data')
         ? parseMedicalRecordMultipartPayload(request.body?.payload)
         : request.body;
-      response.status(201).json({ medical_record: await clinicalService.createRecord(request.authUser.user_profile_id, request.params.appointmentId, body, request.files ?? []) });
+      const medicalRecord = await clinicalService.createRecord(request.authUser.user_profile_id, request.params.appointmentId, body, request.files ?? []);
+      await recordRequestAudit(request, {
+        category: 'MEDICAL_RECORD', action: 'MEDICAL_RECORD_CREATED', result: 'success',
+        target_type: 'Medical Record', target_id: medicalRecord.id,
+        target_display_snapshot: 'Medical Record',
+      });
+      for (const prescription of medicalRecord.prescriptions ?? []) {
+        await recordRequestAudit(request, {
+          category: 'PRESCRIPTION', action: 'PRESCRIPTION_ISSUED', result: 'success',
+          target_type: 'Prescription', target_id: prescription.id,
+          target_display_snapshot: 'Prescription',
+          safe_metadata: { has_attachment: Boolean(prescription.attachment_available) },
+        });
+        if (prescription.attachment_available) {
+          await recordRequestAudit(request, {
+            category: 'PRESCRIPTION', action: 'PRESCRIPTION_ATTACHMENT_ISSUED', result: 'success',
+            target_type: 'Prescription', target_id: prescription.id,
+            target_display_snapshot: 'Prescription attachment',
+            safe_metadata: { has_attachment: true },
+          });
+        }
+      }
+      response.status(201).json({ medical_record: medicalRecord });
     },
     async patientRecords(request, response) {
       const [medicalRecords, certificates] = await Promise.all([
@@ -71,7 +94,13 @@ export function createDoctorClinicalController({ clinicalService }) {
       response.json({ prescriptions: result.items, pagination: { page: result.page, page_size: result.page_size, total: result.total, page_count: result.page_count } });
     },
     async createCertificate(request, response) {
-      response.status(201).json({ medical_certificate: await clinicalService.createCertificate(request.authUser.user_profile_id, request.params.recordId, request.body) });
+      const medicalCertificate = await clinicalService.createCertificate(request.authUser.user_profile_id, request.params.recordId, request.body);
+      await recordRequestAudit(request, {
+        category: 'CERTIFICATE', action: 'MEDICAL_CERTIFICATE_ISSUED', result: 'success',
+        target_type: 'Medical Certificate', target_id: medicalCertificate.id,
+        target_display_snapshot: 'Medical Certificate',
+      });
+      response.status(201).json({ medical_certificate: medicalCertificate });
     },
     async previewCertificate(request, response) {
       return sendCertificatePdf(response, await clinicalService.previewCertificate(request.authUser.user_profile_id, request.params.recordId, request.body), { disposition: 'inline' });

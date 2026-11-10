@@ -464,3 +464,8 @@ The backend additions are Staff-only `PATCH /api/staff/doctors/:doctorId/publish
 - Staff and Admin receive no prescription history or attachment UI/API access. No OCR, AI transcription, or external-provider transfer was introduced.
 - No schema/ERD change was required for v1.2.17; it reuses the v1.2.16 Prescription-to-MedicalRecord relationship and private `prescription_files` GridFS bucket.
 - No deployment was performed.
+# v1.2.21 handoff — secure audit foundation
+
+The backend now records important login/MFA outcomes, Admin account activation/deactivation, PWD review decisions, appointment cancellation/rescheduling, Doctor schedule changes, Medical Record and prescription issuance, certificate issuance, portal invitations, and Patient account claims through one privacy-filtering audit service. Entries are append-only and Admin-readable only through `GET /api/admin/audit-logs`; no audit UI or mutation route exists yet.
+
+The API returns 10 newest entries per page by default (maximum 50) and supports bounded date, role, category, action, result, actor, and target filters for v1.2.22. Secrets, credentials, OTP/TOTP values, raw documents/files, diagnoses, notes, prescription details, certificate content, invitation/reset tokens, and rejection reasons are excluded. Audit storage is best-effort so an audit outage cannot corrupt an already completed business action. No retention duration or automatic deletion is defined, and no deployment was performed.
