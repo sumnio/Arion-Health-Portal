@@ -18,6 +18,10 @@ const doctorAvailabilityPattern = /\b(?:available|availability|bookable)\b.*\b(?
 const clinicHoursPattern = /\b(?:clinic|arion)\b.*\b(?:hours|open|opening|close|closing|time|schedule|available)\b|\b(?:what|which) time\b.*\bclinic\b|\b(?:kailan|kelan|anong oras)\b.*\b(?:clinic|bukas|open)\b/i;
 const directBookingRequestPattern = /\b(?:book|schedule|reserve|set|make|create|go)\b.*\bappointment\b.*\b(?:me|for me|my|please)\b|\b(?:book|schedule|reserve|set|make|create|go)\b.*\b(?:me|for me|my)\b.*\bappointment\b/i;
 const emergencyContactProfilePattern = /\b(?:add|update|change|edit|replace)\b.*\bemergency contact\b|\bemergency contact\b.*\b(?:number|name|relationship|profile|add|update|change|edit|replace)\b/i;
+const languageRequestPattern = /\b(?:tagalog|filipino|taglish|english)\b|\b(?:sa|in|use|speak|answer|explain)\s+(?:simple\s+)?(?:tagalog|filipino|taglish|english)\b/i;
+const contextualExplanationPattern = /\b(?:explain|describe|repeat|translate|say|answer)\s+(?:this|that|it|again)\b|\b(?:simple|simpler|easier)\s+words?\b|\bipaliwanag\s+(?:ito|iyan|yan|ulit)\b/i;
+const explanationRequestPattern = /\b(?:explain|describe|repeat|translate|say|answer|tell)\b|\b(?:simple|simpler|easier)\s+words?\b|\b(?:paki(?:usap)?|ipaliwanag)\b/i;
+const appointmentProcessPattern = /\bappointments?\b.*\b(?:process|booking|work|works|explain|describe)\b|\b(?:process|booking|explain|describe)\b.*\bappointments?\b/i;
 
 function classification(intent, topic, responseKey = null) {
   return Object.freeze({ intent, topic, responseKey });
@@ -64,15 +68,20 @@ const contextKnowledgeIds = Object.freeze({
 const affirmativeWords = new Set(['yes', 'yeah', 'yep', 'yup', 'sure', 'correct', 'right', 'oo', 'opo', 'sige', 'ge', 'tama']);
 const negativeWords = new Set(['no', 'nope', 'hindi', 'iba']);
 
-function contextualClassification(normalized, contextTopic) {
+function contextualClassification(normalized, contextTopic, language) {
   if (!contextTopic) return null;
   const tokens = normalized.split(/\s+/).filter(Boolean);
   if (tokens.length > 10) return null;
   const has = (...words) => words.some((word) => tokens.includes(word));
   const knowledgeFor = (id) => {
     const knowledge = getPublicAssistantKnowledgeEntry(id);
-    return knowledge ? Object.freeze({ intent: knowledge.category, topic: knowledge.id, knowledge }) : null;
+    return knowledge ? Object.freeze({ intent: knowledge.category, topic: knowledge.id, knowledge, language }) : null;
   };
+  const contextualKnowledgeId = contextKnowledgeIds[contextTopic];
+  if (contextualKnowledgeId
+    && (languageRequestPattern.test(normalized) || contextualExplanationPattern.test(normalized))) {
+    return knowledgeFor(contextualKnowledgeId);
+  }
   if (contextTopic === 'doctor_availability' && has('bookable', 'book', 'booking', 'available', 'availability', 'time', 'schedule', 'appointment', 'doctor', 'doc', 'date', 'today', 'tomorrow', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')) {
     return knowledgeFor('doctor_booking_times');
   }
@@ -110,7 +119,7 @@ function contextualClassification(normalized, contextTopic) {
   }
   if (tokens.some((token) => affirmativeWords.has(token))) {
     const knowledge = getPublicAssistantKnowledgeEntry(contextKnowledgeIds[contextTopic]);
-    if (knowledge) return Object.freeze({ intent: knowledge.category, topic: knowledge.id, knowledge });
+    if (knowledge) return Object.freeze({ intent: knowledge.category, topic: knowledge.id, knowledge, language });
     if (['topic_conflict', 'doctor_availability'].includes(contextTopic)) {
       return Object.freeze({ intent: ASSISTANT_INTENTS.CLARIFICATION, topic: contextTopic, responseKey: contextTopic === 'topic_conflict' ? 'topicConflict' : 'clarification' });
     }
@@ -166,26 +175,41 @@ export function createPublicAssistantPrivacyGateway() {
               : doctorDirectoryPattern.test(normalized) ? 'doctor_directory_services'
                 : doctorAvailabilityPattern.test(normalized) ? 'doctor_booking_times'
                   : directBookingRequestPattern.test(normalized) ? 'appointment_actions'
+                    : appointmentProcessPattern.test(normalized) ? 'appointment_process'
                     : null;
       if (explicitKnowledgeId) {
         const knowledge = getPublicAssistantKnowledgeEntry(explicitKnowledgeId);
         return Object.freeze({ intent: knowledge.category, topic: knowledge.id, knowledge, language });
       }
-      const contextual = contextualClassification(normalized, contextTopic);
-      if (contextual) return contextual;
       const scoredTopic = scoreAssistantTopics(message);
       if (scoredTopic.kind === 'conflict') {
         return Object.freeze({ intent: ASSISTANT_INTENTS.CLARIFICATION, topic: 'topic_conflict', responseKey: 'topicConflict', language: scoredTopic.language });
       }
       const generalHelp = findPublicAssistantGeneralKnowledge(message) ?? findPublicAssistantGeneralKnowledge(normalized);
-      if (generalHelp) return Object.freeze({ intent: generalHelp.category, topic: generalHelp.id, knowledge: generalHelp });
+      if (generalHelp) return Object.freeze({ intent: generalHelp.category, topic: generalHelp.id, knowledge: generalHelp, language });
       const knowledge = findPublicAssistantKnowledge(message) ?? findPublicAssistantKnowledge(normalized);
-      if (knowledge) return Object.freeze({ intent: knowledge.category, topic: knowledge.id, knowledge });
+      if (knowledge) return Object.freeze({ intent: knowledge.category, topic: knowledge.id, knowledge, language });
+      const contextual = contextualClassification(normalized, contextTopic, language);
+      if (contextual) return contextual;
       if (scoredTopic.kind === 'match' && scoredKnowledgeIds[scoredTopic.topic]) {
         const scoredKnowledge = getPublicAssistantKnowledgeEntry(scoredKnowledgeIds[scoredTopic.topic]);
         if (scoredKnowledge) return Object.freeze({ intent: scoredKnowledge.category, topic: scoredKnowledge.id, knowledge: scoredKnowledge, language: scoredTopic.language });
       }
       if (['clarify', 'match'].includes(scoredTopic.kind)) {
+        const meaningfulExplanation = explanationRequestPattern.test(normalized)
+          && normalized.split(/\s+/).filter(Boolean).length >= 3;
+        const scoredKnowledgeId = scoredKnowledgeIds[scoredTopic.topic];
+        if (meaningfulExplanation && scoredKnowledgeId) {
+          const scoredKnowledge = getPublicAssistantKnowledgeEntry(scoredKnowledgeId);
+          if (scoredKnowledge) {
+            return Object.freeze({
+              intent: scoredKnowledge.category,
+              topic: scoredKnowledge.id,
+              knowledge: scoredKnowledge,
+              language: scoredTopic.language,
+            });
+          }
+        }
         return Object.freeze({
           intent: ASSISTANT_INTENTS.CLARIFICATION,
           topic: `${scoredTopic.topic}_clarification`,

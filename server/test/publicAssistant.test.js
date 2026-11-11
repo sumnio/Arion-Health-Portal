@@ -287,9 +287,46 @@ test('public assistant uses external AI only for approved canonical public guida
   assert.equal(calls[0].taskId, 'EXPLAIN_APPOINTMENT_PROCESS_SIMPLY');
   assert.equal(JSON.stringify(calls).includes('How do I book an appointment?'), false);
 
+  const tagalog = await assistantService.respond('Can you explain the appointment process in Tagalog?');
+  assert.equal(tagalog.resultCategory, 'gpt_answer');
+  assert.equal(calls.at(-1).taskId, 'EXPLAIN_APPOINTMENT_PROCESS_SIMPLY');
+  assert.match(calls.at(-1).prompt, /Filipino or Taglish/i);
+
+  const translatedFollowUp = await assistantService.respond('Explain this in Tagalog', {
+    contextTopic: 'booking_clarification',
+  });
+  assert.equal(translatedFollowUp.resultCategory, 'gpt_answer');
+  assert.equal(calls.at(-1).taskId, 'EXPLAIN_APPOINTMENT_PROCESS_SIMPLY');
+  assert.match(calls.at(-1).prompt, /Filipino or Taglish/i);
+
+  const affirmativeFollowUp = await assistantService.respond('yes in Tagalog words', {
+    contextTopic: 'booking_clarification',
+  });
+  assert.equal(affirmativeFollowUp.resultCategory, 'gpt_answer');
+  assert.match(calls.at(-1).prompt, /Filipino or Taglish/i);
+
+  const changedTopic = await assistantService.respond('Explain password recovery in Tagalog', {
+    contextTopic: 'booking_clarification',
+  });
+  assert.equal(changedTopic.resultCategory, 'gpt_answer');
+  assert.equal(calls.at(-1).taskId, 'EXPLAIN_PASSWORD_RECOVERY');
+  assert.match(calls.at(-1).prompt, /Filipino or Taglish/i);
+
+  for (const message of ['Tell me about appointments', 'Tell me about Medical Records', 'Tell me about Certificates', 'Tell me about the queue']) {
+    const broadGuidance = await assistantService.respond(message);
+    assert.equal(broadGuidance.resultCategory, 'gpt_answer', message);
+  }
+
+  const serializedCalls = JSON.stringify(calls);
+  assert.equal(serializedCalls.includes('Can you explain the appointment process in Tagalog?'), false);
+  assert.equal(serializedCalls.includes('Explain this in Tagalog'), false);
+  assert.equal(serializedCalls.includes('yes in Tagalog words'), false);
+  assert.equal(serializedCalls.includes('Explain password recovery in Tagalog'), false);
+
+  const callsBeforePrivateOrClinical = calls.length;
   await assistantService.respond('When is my next appointment?');
   await assistantService.respond('I have a fever. What should I do?');
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, callsBeforePrivateOrClinical);
 });
 
 test('public assistant has a distinct per-IP rate limit with safe rate-limit logging', async () => {
