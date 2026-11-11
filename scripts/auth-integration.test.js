@@ -214,6 +214,11 @@ test('walk-in portal claim uses invitation, OTP, and password steps without brow
   const source = readFileSync(new URL('../src/pages/public/ClaimAccountPage.jsx', import.meta.url), 'utf8');
   assert.match(source, /6-digit verification code/);
   assert.match(source, /Create password/);
+  assert.match(source, /Return to login<\/Link>/);
+  assert.match(source, /Continue to login<\/Link>/);
+  assert.ok((source.match(/public-button primary full-width/g) ?? []).length >= 5);
+  assert.match(source, /autoComplete="one-time-code"/);
+  assert.match(source, /autoComplete="new-password"/);
   assert.doesNotMatch(source, /localStorage|sessionStorage|patient_id|appointment|diagnosis|certificate/);
 });
 
